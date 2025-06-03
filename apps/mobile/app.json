@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "fastservices-app",
-    "slug": "fastservices-app",
-    "version": "1.0.0",
+    "name": "Welcome to Fast Services",
+    "slug": "FastServices",
+    "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/iconFastServices.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
