@@ -27,7 +27,7 @@
 ## 2. Definir la estructura de carpetas de la nueva pantalla
 
 Dentro de `FastServices/apps/mobile/src/`, la estructura estándar debe verse así:
-
+```
 src/
 ├── components/              # Componentes reutilizables (botones, spinners, cards)
 │   ├── Spinner/             # Carpeta del spinner de carga genérico
@@ -41,10 +41,10 @@ src/
 │       ├── HomePage.js      # Lógica de la pantalla
 │       └── HomePage.styles.js  # Estilos de la pantalla
 └── utils/                   # Funciones, constantes o helpers (opcional)
-
+```
 ---
 
-1. Crea la carpeta `screens/HomePage/`:
+1. Crea la carpeta `screens/HomePage/` (se utiliza HomePage como ejemplo):
     ```bash
     cd FastServices/apps/mobile/src
     mkdir -p screens/HomePage
@@ -375,4 +375,3 @@ Para animaciones más complejas, usa la API `Animated` de React Native o librer�
 - **Pruebas locales:** ejecuta y navega manualmente antes de mergear.
 - **Documentación:** agrega comentarios breves y claros en funciones o animaciones.
 
-```
