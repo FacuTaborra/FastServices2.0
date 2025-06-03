@@ -3,6 +3,29 @@
 
 ---
 
+## 📁 Estructura del Monorepo
+
+```
+FastServices/            ← Raíz del monorepo
+├── apps/
+│   └── mobile/          ← Carpeta de la app Expo / React Native
+│       ├── assets/      ← Recursos estáticos (imágenes, fuentes, etc.)
+│       ├── src/         ← Código fuente (screens, components, contexts, etc.)
+│       ├── App.js       ← Archivo principal de la aplicación
+│       ├── package.json
+│       └── package-lock.json
+├── services/            ← (En desuso por ahora, backend FastAPI)
+│   └── api/
+│       └── …
+├── README.md
+└── .gitignore
+```
+## 0. Revisión en Trello
+
+- Revisa el tablero de Trello y asegúrate de que la tarjeta de la tarea esté asignada.
+- Mueve la tarjeta a "En progreso" antes de comenzar.
+
+
 ## 1. Crear una nueva rama en el repositorio
 
 1. Desde la raíz del repositorio `FastServices/`, abre la terminal y verifica que estás en la rama principal (`main` o `develop`).
@@ -343,7 +366,7 @@ Para animaciones más complejas, usa la API `Animated` de React Native o librer�
     git push -u origin feature/home-page
     ```
 
-5. Abre un Pull Request (PR) en GitHub solicitando revisión de código.
+5. Abre un Pull Request (PR) en GitHub solicitando revisión de código y actualiza la tarjeta correspondiente en Trello (mover a "Review").
 
 ---
 
