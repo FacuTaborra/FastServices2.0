@@ -8,6 +8,7 @@ import {
   FlatList,
   SafeAreaView,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
@@ -37,6 +38,7 @@ const serviciosRecurrentes = [
 ];
 
 const HomePage = () => {
+  const navigation = useNavigation();
   const [searchText, setSearchText] = useState('');
 
   const renderServicio = ({ item }) => (
@@ -77,7 +79,7 @@ const HomePage = () => {
         </View>
 
         {/* Botón Generar Solicitud */}
-        <TouchableOpacity style={styles.generateButton}>
+        <TouchableOpacity style={styles.generateButton} onPress={() => navigation.navigate('RequestDetail')}>
           <Text style={styles.generateButtonText}>Generar Solicitud</Text>
         </TouchableOpacity>
 

@@ -7,26 +7,20 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomePage from '../screens/HomePage/HomePage';
 import Login from '../screens/Login/Login';
 import Register from '../screens/Register/Register'
+import RequestDetailScreen from '../screens/RequestDetail/RequestDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="Login"
-        screenOptions={{
-          headerShown: false,
-          headerTitleAlign: 'center',
-          animation: 'slide_from_right',
-        }}
-      >
+      <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false, headerTitleAlign: 'center', animation: 'slide_from_right'}}>
+        
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="Register" component={Register} />
-        <Stack.Screen
-          name="HomePage"
-          component={HomePage}
-        />
+        <Stack.Screen name="HomePage" component={HomePage} />
+        <Stack.Screen name="RequestDetail" component={RequestDetailScreen} />
+        
       </Stack.Navigator>
     </NavigationContainer>
   );
