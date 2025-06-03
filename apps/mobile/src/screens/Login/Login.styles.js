@@ -7,6 +7,15 @@ export default StyleSheet.create({
     padding: 20,
     backgroundColor: '#FFFFFF',
   },
+  logo: {
+    width: 240,
+    height: 240,
+    aspectRatio: 1/1,
+    alignSelf: 'center',
+    objectFit: 'contain',
+    marginBottom: 20,
+    resizeMode: 'contain',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
