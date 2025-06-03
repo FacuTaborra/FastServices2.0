@@ -17,12 +17,12 @@ const serviciosRecurrentes = [
   {
     id: '1',
     label: 'Pregunta por un fontanero',
-    icon: 'handyman-outline',
+    icon: 'hammer-outline',
   },
   {
     id: '2',
     label: 'Pregunta por un mecánico',
-    icon: 'wrench-outline',
+    icon: 'car-sport-outline',
   },
   {
     id: '3',
