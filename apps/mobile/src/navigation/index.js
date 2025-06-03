@@ -1,10 +1,10 @@
+// FastServices/apps/mobile/src/navigation/index.js
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-// IMPORT CORRECTO: la ruta debe coincidir con la ubicación real del archivo
-import HomeScreen from '../screens/HomeScreen';
-import DetailsScreen from '../screens/DetailsScreen';
+// Pantallas a importar
+import HomePage from '../screens/HomePage/HomePage';
 
 const Stack = createNativeStackNavigator();
 
@@ -12,23 +12,15 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Home"
         screenOptions={{
-          headerShown: true,
+          headerShown: false,
           headerTitleAlign: 'center',
+          animation: 'slide_from_right',
         }}
       >
         <Stack.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{ title: 'FastServices' }}
-        />
-
-        {/* Verifica que 'component={DetailsScreen}' esté bien escrito */}
-        <Stack.Screen
-          name="Details"
-          component={DetailsScreen}
-          options={{ title: 'Detalles' }}
+          name="HomePage"
+          component={HomePage}
         />
       </Stack.Navigator>
     </NavigationContainer>
