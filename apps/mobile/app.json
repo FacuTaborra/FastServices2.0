@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Welcome to Fast Services",
+    "name": "",
     "slug": "FastServices",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/iconFastServices.png",
+    "icon": "./assets/iconFastServices2.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
