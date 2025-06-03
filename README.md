@@ -12,10 +12,9 @@ FastServices/            ← Raíz del monorepo
 │   └── mobile/          ← Carpeta de la app Expo / React Native
 │       ├── assets/      ← Recursos estáticos (imágenes, fuentes, etc.)
 │       ├── src/         ← Código fuente (screens, components, contexts, etc.)
-│       ├── App.tsx      ← Archivo principal de la aplicación
+│       ├── App.js       ← Archivo principal de la aplicación
 │       ├── package.json
-│       ├── package-lock.json
-│       └── tsconfig.json
+│       └── package-lock.json
 ├── services/            ← (En desuso por ahora, backend FastAPI)
 │   └── api/
 │       └── …
