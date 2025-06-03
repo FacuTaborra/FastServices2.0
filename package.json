@@ -1,0 +1,10 @@
+{
+  "name": "fastservices-root",
+  "private": true,
+  "scripts": {
+    "api": "cd services/api && . .venv/bin/activate && uvicorn src.main:app --reload --port 8000",
+    "mobile": "cd apps/mobile && expo start",
+    "mobile:android": "cd apps/mobile && expo run:android",
+    "lint": "echo \"⚠️  Agregá tu linter aquí (eslint / prettier)\""
+  }
+}
