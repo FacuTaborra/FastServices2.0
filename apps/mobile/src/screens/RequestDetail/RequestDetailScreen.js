@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Spinner from '../../components/Spinner/Spinner';
 import styles from './RequestDetailScreen.styles';
 
@@ -19,7 +19,9 @@ const requestData = {
 
 const RequestDetailScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
   const [loading, setLoading] = useState(false);
+  const showButton = route.params?.showButton !== false;
 
   const handleSolicitar = () => {
     setLoading(true);
@@ -74,9 +76,11 @@ const RequestDetailScreen = () => {
         ))}
       </View>
 
-      <TouchableOpacity style={styles.requestButton} onPress={handleSolicitar}>
-        <Text style={styles.requestButtonText}>Solicitar</Text>
-      </TouchableOpacity>
+      {showButton && (
+        <TouchableOpacity style={styles.requestButton} onPress={handleSolicitar}>
+          <Text style={styles.requestButtonText}>Solicitar</Text>
+        </TouchableOpacity>
+      )}
       </ScrollView>
       <Modal visible={loading} transparent animationType="fade">
         <Spinner />

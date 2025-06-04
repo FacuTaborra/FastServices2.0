@@ -102,7 +102,10 @@ export default function RequestsScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={24} color="#111" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('RequestDetail')}>
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => navigation.navigate('RequestDetail', { showButton: false })}
+        >
           <Ionicons name="information-circle-outline" size={24} color="#111" />
         </TouchableOpacity>
       </View>
