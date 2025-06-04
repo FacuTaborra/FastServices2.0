@@ -5,38 +5,45 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import styles from './Footer.styles';
 
-/**
- * Componente Footer envuelto en SafeAreaView
- * para que quede correctamente posicionado en pantallas con home indicator.
- */
-const Footer = () => (
-  <SafeAreaView style={styles.footerSafeArea}>
-    <View style={styles.footerContainer}>
-      {/* Botón Home (activo) */}
-      <TouchableOpacity style={styles.footerButton}>
-        <Ionicons name="home-outline" size={24} color="#4776a6" />
-        <Text style={[styles.footerText, { color: '#4776a6' }]}>Home</Text>
-      </TouchableOpacity>
 
-      {/* Botón Solicitudes */}
-      <TouchableOpacity style={styles.footerButton}>
-        <Ionicons name="list-outline" size={24} color="#6B7280" />
-        <Text style={styles.footerText}>Solicitudes</Text>
-      </TouchableOpacity>
+const Footer = ({ state, navigation }) => {
+  const current = state.routeNames[state.index];
 
-      {/* Botón Perfil */}
-      <TouchableOpacity style={styles.footerButton}>
-        <Ionicons name="person-outline" size={24} color="#6B7280" />
-        <Text style={styles.footerText}>Perfil</Text>
-      </TouchableOpacity>
+  const colorFor = (name) => (current === name ? '#4776a6' : '#6B7280');
+  return (
+    <SafeAreaView style={styles.footerSafeArea}>
+      <View style={styles.footerContainer}>
+        <TouchableOpacity
+          style={styles.footerButton}
+          onPress={() => navigation.navigate('HomePage')}
+        >
+          <Ionicons name="home-outline" size={24} color={colorFor('HomePage')} />
+          <Text style={[styles.footerText, { color: colorFor('HomePage') }]}>Home</Text>
+        </TouchableOpacity>
 
-      {/* Botón Configuración */}
-      <TouchableOpacity style={styles.footerButton}>
-        <Ionicons name="settings-outline" size={24} color="#6B7280" />
-        <Text style={styles.footerText}>Configuración</Text>
-      </TouchableOpacity>
-    </View>
-  </SafeAreaView>
-);
+        {/* Botón Solicitudes */}
+        <TouchableOpacity
+          style={styles.footerButton}
+          onPress={() => navigation.navigate('MyRequests')}
+        >
+          <Ionicons name="list-outline" size={24} color={colorFor('MyRequests')} />
+          <Text style={[styles.footerText, { color: colorFor('MyRequests') }]}>Solicitudes</Text>
+        </TouchableOpacity>
+
+        {/* Botón Perfil */}
+        <TouchableOpacity style={styles.footerButton}>
+          <Ionicons name="person-outline" size={24} color="#6B7280" />
+          <Text style={styles.footerText}>Perfil</Text>
+        </TouchableOpacity>
+
+        {/* Botón Configuración */}
+        <TouchableOpacity style={styles.footerButton}>
+          <Ionicons name="settings-outline" size={24} color="#6B7280" />
+          <Text style={styles.footerText}>Configuración</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+};
 
 export default Footer;
