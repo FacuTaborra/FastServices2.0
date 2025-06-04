@@ -11,7 +11,7 @@ export default function Login() {
 
   const handleLogin = () => {
     // TODO: conectar con el servicio de autenticación
-    navigation.replace('HomePage');
+    navigation.replace('Main');
   };
 
   return (

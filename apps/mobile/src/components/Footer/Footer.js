@@ -3,14 +3,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import styles from './Footer.styles';
 
 
-const Footer = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const current = route.name;
+const Footer = ({ state, navigation }) => {
+  const current = state.routeNames[state.index];
 
   const colorFor = (name) => (current === name ? '#4776a6' : '#6B7280');
   return (

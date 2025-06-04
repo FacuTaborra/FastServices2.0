@@ -12,7 +12,7 @@ export default function Register() {
 
   const handleRegister = () => {
     // TODO: conectar con el servicio de registro
-    navigation.replace('HomePage');
+    navigation.replace('Main');
   };
 
   return (

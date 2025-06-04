@@ -6,12 +6,10 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  SafeAreaView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header/Header';
-import Footer from '../../components/Footer/Footer';
 import styles from './HomePage.styles';
 
 const serviciosRecurrentes = [
@@ -99,8 +97,6 @@ const HomePage = () => {
         />
       </View>
 
-      {/* Footer con SafeAreaView dentro */}
-      <Footer />
     </View>
   );
 };

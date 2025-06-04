@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import Footer from '../../components/Footer/Footer';
 import TodoRequestCard from '../../components/RequestCards/TodoRequestCard';
 import ProgressRequestCard from '../../components/RequestCards/ProgressRequestCard';
 import CompletedRequestCard from '../../components/RequestCards/CompletedRequestCard';
@@ -32,7 +31,7 @@ const MyRequestsScreen = () => {
   const [searchText, setSearchText] = useState('');
 
   const renderTodo = ({ item }) => (
-    <TodoRequestCard item={item} onPress={() => navigation.navigate('RequestDetail')} />
+    <TodoRequestCard item={item} onPress={() => navigation.navigate('Requests')} />
   );
   const renderProgress = ({ item }) => <ProgressRequestCard item={item} />;
   const renderCompleted = ({ item }) => <CompletedRequestCard item={item} />;
@@ -97,7 +96,6 @@ const MyRequestsScreen = () => {
           showsVerticalScrollIndicator={false}
         />
       </View>
-      <Footer />
     </View>
   );
 };
