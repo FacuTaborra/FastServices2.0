@@ -73,7 +73,10 @@ export default function RequestsScreen() {
   );
 
   const renderChat = ({ item }) => (
-    <View style={styles.chatItem}>
+    <TouchableOpacity
+      style={styles.chatItem}
+      onPress={() => navigation.navigate('Chat')}
+    >
       <Ionicons
         name="person-circle-outline"
         size={40}
@@ -87,7 +90,7 @@ export default function RequestsScreen() {
         </View>
         <Text style={styles.chatMessage}>{item.lastMessage}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const filteredChats = chatsExample.filter(
