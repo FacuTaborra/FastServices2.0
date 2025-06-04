@@ -79,7 +79,10 @@ const HomePage = () => {
         </View>
 
         {/* Botón Generar Solicitud */}
-        <TouchableOpacity style={styles.generateButton} onPress={() => navigation.navigate('RequestDetail')}>
+        <TouchableOpacity
+          style={styles.generateButton}
+          onPress={() => navigation.navigate('RequestDetail', { showButton: true })}
+        >
           <Text style={styles.generateButtonText}>Generar Solicitud</Text>
         </TouchableOpacity>
 

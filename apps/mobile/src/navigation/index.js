@@ -8,6 +8,7 @@ import HomePage from '../screens/HomePage/HomePage';
 import Login from '../screens/Login/Login';
 import Register from '../screens/Register/Register'
 import RequestDetailScreen from '../screens/RequestDetail/RequestDetailScreen';
+import RequestsScreen from '../screens/Requests/RequestsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -20,6 +21,7 @@ export default function AppNavigator() {
         <Stack.Screen name="Register" component={Register} />
         <Stack.Screen name="HomePage" component={HomePage} />
         <Stack.Screen name="RequestDetail" component={RequestDetailScreen} />
+        <Stack.Screen name="Requests" component={RequestsScreen} />
         
       </Stack.Navigator>
     </NavigationContainer>
