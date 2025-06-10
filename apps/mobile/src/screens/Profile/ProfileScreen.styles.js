@@ -1,0 +1,158 @@
+import { StyleSheet } from 'react-native';
+
+export default StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 24,
+  },
+  header: {
+    marginTop: 40,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  avatarContainer: {
+    alignSelf: 'center',
+    width: 88,
+    height: 88,
+    marginBottom: 24,
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 44,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  editIconWrapper: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#4776a6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scroll: {
+    flex: 1,
+  },
+  form: {
+    flexGrow: 1,
+    paddingTop: 16,
+  },
+  label: {
+    marginBottom: 4,
+    color: '#1A1A1A',
+    fontWeight: '500',
+  },
+  input: {
+    backgroundColor: '#F4F4F4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    marginBottom: 16,
+    color: '#1A1A1A',
+  },
+  dropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F4F4F4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    marginBottom: 16,
+  },
+  dropdownText: {
+    flex: 1,
+    color: '#5A5A5A',
+  },
+  addressList: {
+    backgroundColor: '#F4F4F4',
+    borderRadius: 12,
+    marginBottom: 16,
+    elevation: 2,
+    maxHeight: 200,
+  },
+  addressItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  addressItemText: {
+    color: '#1A1A1A',
+  },
+  addAddressButton: {
+    backgroundColor: '#4776a6',
+    paddingVertical: 15,
+    paddingHorizontal: 12,
+    borderTopWidth: 5,
+    borderTopColor: '#E5E7EB',
+  },
+  addAddressButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F4F4F4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 14,
+    color: '#1A1A1A',
+  },
+  buttonPrimary: {
+    backgroundColor: '#4776a6',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  buttonPrimaryText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  buttonSecondary: {
+    borderWidth: 1,
+    borderColor: '#4776a6',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  buttonSecondaryText: {
+    color: '#4776a6',
+    fontWeight: 'bold',
+  },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBox: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 12,
+    width: '80%',
+  },
+  modalInput: {
+    backgroundColor: '#F4F4F4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    marginBottom: 16,
+    color: '#1A1A1A',
+  },
+});

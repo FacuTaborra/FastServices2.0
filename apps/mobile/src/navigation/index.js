@@ -13,6 +13,8 @@ import RequestsScreen from '../screens/Requests/RequestsScreen';
 import ChatScreen from '../screens/Chat/ChatScreen';
 import MyRequestsScreen from '../screens/MyRequests/MyRequestsScreen';
 import Footer from '../components/Footer/Footer';
+import ProfileScreen from '../screens/Profile/ProfileScreen';
+import SettingsScreen from '../screens/Settings/SettingsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -22,6 +24,8 @@ function MainTabs() {
     <Tab.Navigator tabBar={(props) => <Footer {...props} />}>
       <Tab.Screen name="HomePage" component={HomePage} options={{ headerShown: false }} />
       <Tab.Screen name="MyRequests" component={MyRequestsScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
 }
