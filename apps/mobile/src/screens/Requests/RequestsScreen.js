@@ -102,12 +102,12 @@ export default function RequestsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.navigate('Main', { screen: 'MyRequests' })}>
+        <TouchableOpacity onPress={() => navigation.navigate('Main', { screen: 'MyRequests', animation: 'slide_from_left' })}>
           <Ionicons name="arrow-back" size={24} color="#111" />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.iconButton}
-          onPress={() => navigation.navigate('RequestDetail', { showButton: false })}
+          onPress={() => navigation.navigate('RequestDetail', { showButton: false, animation: 'slide_from_right' })}
         >
           <Ionicons name="information-circle-outline" size={24} color="#111" />
         </TouchableOpacity>

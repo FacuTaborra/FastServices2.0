@@ -34,10 +34,22 @@ export default function AppNavigator() {
         
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="Register" component={Register} />
-        <Stack.Screen name="Main" component={MainTabs} />
+        <Stack.Screen
+          name="Main"
+          component={MainTabs}
+          options={({ route }) => ({
+            animation: route?.params?.animation ?? 'slide_from_right',
+          })}
+        />
         <Stack.Screen name="MyRequests" component={MainTabs} />
         <Stack.Screen name="RequestDetail" component={RequestDetailScreen} />
-        <Stack.Screen name="Requests" component={RequestsScreen} />
+        <Stack.Screen
+          name="Requests"
+          component={RequestsScreen}
+          options={({ route }) => ({
+            animation: route?.params?.animation ?? 'slide_from_right',
+          })}
+        />
         <Stack.Screen name="Chat" component={ChatScreen} />
               
       </Stack.Navigator>

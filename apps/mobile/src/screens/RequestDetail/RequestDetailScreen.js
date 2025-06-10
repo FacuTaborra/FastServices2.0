@@ -22,6 +22,7 @@ const RequestDetailScreen = () => {
   const route = useRoute();
   const [loading, setLoading] = useState(false);
   const showButton = route.params?.showButton !== false;
+  const fromRequestDetail = route.params?.fromRequestDetail;
 
   const handleSolicitar = () => {
     setLoading(true);
@@ -31,11 +32,17 @@ const RequestDetailScreen = () => {
     }, 2000);
   };
 
+  const handleBack = () => {
+    navigation.navigate('Requests', {
+        animation: 'slide_from_left',
+      });
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
+        <TouchableOpacity onPress={handleBack} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={24} color="#111" />
         </TouchableOpacity>
       </View>

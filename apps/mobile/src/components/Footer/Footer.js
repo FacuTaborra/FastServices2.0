@@ -18,7 +18,7 @@ const Footer = ({ state, navigation }) => {
           onPress={() => navigation.navigate('HomePage')}
         >
           <Ionicons name="home-outline" size={24} color={colorFor('HomePage')} />
-          <Text style={[styles.footerText, { color: colorFor('HomePage') }]}>Home</Text>
+          <Text style={[styles.footerText, { color: colorFor('HomePage') }]}>Inicio</Text>
         </TouchableOpacity>
 
         {/* Botón Solicitudes */}
@@ -27,7 +27,7 @@ const Footer = ({ state, navigation }) => {
           onPress={() => navigation.navigate('MyRequests')}
         >
           <Ionicons name="list-outline" size={24} color={colorFor('MyRequests')} />
-          <Text style={[styles.footerText, { color: colorFor('MyRequests') }]}>Solicitudes</Text>
+          <Text style={[styles.footerText, { color: colorFor('MyRequests') }]}>Mis Solicitudes</Text>
         </TouchableOpacity>
 
         {/* Botón Perfil */}
