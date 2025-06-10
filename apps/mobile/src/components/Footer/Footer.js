@@ -31,15 +31,21 @@ const Footer = ({ state, navigation }) => {
         </TouchableOpacity>
 
         {/* Botón Perfil */}
-        <TouchableOpacity style={styles.footerButton}>
-          <Ionicons name="person-outline" size={24} color="#6B7280" />
-          <Text style={styles.footerText}>Perfil</Text>
+        <TouchableOpacity
+          style={styles.footerButton}
+          onPress={() => navigation.navigate('Profile')}
+        >
+          <Ionicons name="person-outline" size={24} color={colorFor('Profile')} />
+          <Text style={[styles.footerText, { color: colorFor('Profile') }]}>Perfil</Text>
         </TouchableOpacity>
 
         {/* Botón Configuración */}
-        <TouchableOpacity style={styles.footerButton}>
-          <Ionicons name="settings-outline" size={24} color="#6B7280" />
-          <Text style={styles.footerText}>Configuración</Text>
+        <TouchableOpacity
+          style={styles.footerButton}
+          onPress={() => navigation.navigate('Settings')}
+        >
+          <Ionicons name="settings-outline" size={24} color={colorFor('Settings')} />
+          <Text style={[styles.footerText, { color: colorFor('Settings') }]}>Configuración</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
