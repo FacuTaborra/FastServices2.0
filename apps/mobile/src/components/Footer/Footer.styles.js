@@ -18,7 +18,7 @@ export default StyleSheet.create({
    */
   footerContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-evenly',
     alignItems: 'center',
     backgroundColor: '#fff',
     paddingVertical: 10,
@@ -31,6 +31,7 @@ export default StyleSheet.create({
    * alineado al centro para ícono + texto.
    */
   footerButton: {
+    flex: 1,
     alignItems: 'center',
   },
 
