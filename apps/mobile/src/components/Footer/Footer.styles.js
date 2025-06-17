@@ -8,6 +8,7 @@ export default StyleSheet.create({
    */
   footerSafeArea: {
     backgroundColor: '#FFFFFF',
+     
   },
 
   /**

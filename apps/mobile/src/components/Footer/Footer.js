@@ -27,7 +27,7 @@ const Footer = ({ state, navigation }) => {
           onPress={() => navigation.navigate('MyRequests')}
         >
           <Ionicons name="list-outline" size={24} color={colorFor('MyRequests')} />
-          <Text style={[styles.footerText, { color: colorFor('MyRequests') }]}>Mis Solicitudes</Text>
+          <Text style={[styles.footerText, { color: colorFor('MyRequests') }]}>Solicitudes</Text>
         </TouchableOpacity>
 
         {/* Botón Perfil */}
