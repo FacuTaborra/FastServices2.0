@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import styles from './Login.styles';
 import fastservicesLogo from '../../../assets/iconFastServices2.png';
+import Spinner from '../../components/Spinner/Spinner';
+
 
 export default function Login() {
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState('');
 
   const handleLogin = () => {
-    // TODO: conectar con el servicio de autenticación
-    navigation.replace('Main');
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      navigation.navigate('Main', { screen: 'Main', animation: 'fade' });
+    }, 2000);
   };
 
   return (
@@ -39,6 +45,9 @@ export default function Login() {
       <TouchableOpacity onPress={() => navigation.navigate('Register')}>
         <Text style={styles.link}>Crear cuenta</Text>
       </TouchableOpacity>
+      <Modal visible={loading} transparent animationType="fade">
+        <Spinner />
+      </Modal>
     </View>
   );
 }

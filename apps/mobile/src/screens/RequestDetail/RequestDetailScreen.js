@@ -28,14 +28,12 @@ const RequestDetailScreen = () => {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      navigation.navigate('Requests');
+      navigation.navigate('Requests', {animation: 'fade'});
     }, 2000);
   };
 
   const handleBack = () => {
-    navigation.navigate('Requests', {
-        animation: 'slide_from_left',
-      });
+    navigation.navigate('Requests', {animation: 'slide_from_left'});
   };
 
   return (

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import styles from './Register.styles';
+import Spinner from '../../components/Spinner/Spinner';
 
 export default function Register() {
   const navigation = useNavigation();
@@ -9,10 +10,14 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleRegister = () => {
-    // TODO: conectar con el servicio de registro
-    navigation.replace('Main');
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      navigation.navigate('Main', { screen: 'Main', animation: 'fade' });
+    }, 2000);
   };
 
   return (
@@ -52,6 +57,9 @@ export default function Register() {
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <Text style={styles.link}>Ya tengo una cuenta</Text>
       </TouchableOpacity>
+      <Modal visible={loading} transparent animationType="fade">
+        <Spinner />
+      </Modal>
     </View>
   );
 }
