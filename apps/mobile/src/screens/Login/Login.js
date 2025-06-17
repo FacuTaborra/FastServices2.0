@@ -5,11 +5,9 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
+  Modal
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useNavigation } from '@react-navigation/native';
 import styles from './Login.styles';
 import fastservicesLogo from '../../../assets/iconFastServices2.png';
@@ -31,15 +29,12 @@ export default function Login() {
   };
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAwareScrollView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      enableOnAndroid
     >
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-      >
         <Image source={fastservicesLogo} style={styles.logo} />
         <Text style={styles.title}>Iniciar Sesión</Text>
         <TextInput
@@ -66,7 +61,6 @@ export default function Login() {
         <Modal visible={loading} transparent animationType="fade">
           <Spinner />
         </Modal>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScrollView>
   );
 }
