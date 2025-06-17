@@ -5,7 +5,8 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  Modal
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useNavigation } from '@react-navigation/native';
@@ -35,32 +36,32 @@ export default function Login() {
       keyboardShouldPersistTaps="handled"
       enableOnAndroid
     >
-        <Image source={fastservicesLogo} style={styles.logo} />
-        <Text style={styles.title}>Iniciar Sesión</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Contraseña"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Ingresar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.link}>Crear cuenta</Text>
-        </TouchableOpacity>
-        <Modal visible={loading} transparent animationType="fade">
-          <Spinner />
-        </Modal>
+      <Image source={fastservicesLogo} style={styles.logo} />
+      <Text style={styles.title}>Iniciar Sesión</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Contraseña"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+      <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <Text style={styles.buttonText}>Ingresar</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+        <Text style={styles.link}>Crear cuenta</Text>
+      </TouchableOpacity>
+      <Modal visible={loading} transparent animationType="fade">
+        <Spinner />
+      </Modal>
     </KeyboardAwareScrollView>
   );
 }

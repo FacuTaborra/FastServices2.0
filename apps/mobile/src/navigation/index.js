@@ -39,8 +39,12 @@ export default function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false, headerTitleAlign: 'center', animation: 'slide_from_right'}}>
         
-        <Stack.Screen name="Login" component={Login} />
-        <Stack.Screen name="Register" component={Register} />
+        <Stack.Screen name="Login" component={Login} options={({ route }) => ({
+            animation: route?.params?.animation ?? 'slide_from_right',
+          })} />
+        <Stack.Screen name="Register" component={Register} options={({ route }) => ({
+            animation: route?.params?.animation ?? 'slide_from_right',
+          })} />
         <Stack.Screen
           name="Main"
           component={MainTabs}
