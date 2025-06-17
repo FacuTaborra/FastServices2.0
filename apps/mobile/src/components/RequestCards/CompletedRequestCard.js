@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from './CompletedRequestCard.styles';
 
-const CompletedRequestCard = ({ item }) => (
+const CompletedRequestCard = ({ item, onRate }) => (
   <View style={styles.card}>
     <Text style={styles.title}>{item.titulo}</Text>
     <Text style={styles.date}>{item.fecha}</Text>
@@ -20,7 +20,7 @@ const CompletedRequestCard = ({ item }) => (
         ))}
       </View>
     ) : (
-      <TouchableOpacity style={styles.rateButton}>
+      <TouchableOpacity style={styles.rateButton} onPress={onRate}>
         <Text style={styles.rateButtonText}>Calificar</Text>
       </TouchableOpacity>
     )}
