@@ -3,7 +3,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import styles from './Footer.styles';
+import styles from './ClientFooter.styles';
 
 
 const Footer = ({ state, navigation }) => {

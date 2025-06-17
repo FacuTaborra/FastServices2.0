@@ -32,7 +32,11 @@ export default function Register() {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      navigation.navigate('Main', { screen: 'Main', animation: 'fade' });
+      if (isProvider) {
+        navigation.navigate('ProviderMain', { screen: 'ProviderRequests', animation: 'fade' });
+      } else {
+        navigation.navigate('Main', { screen: 'Main', animation: 'fade' });
+      }
     }, 2000);
   };
 
