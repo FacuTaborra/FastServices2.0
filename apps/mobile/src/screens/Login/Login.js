@@ -32,11 +32,12 @@ export default function Login() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={styles.container}
+        style={styles.container}
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
         <Image source={fastservicesLogo} style={styles.logo} />
