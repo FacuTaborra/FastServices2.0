@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import TodoRequestCard from '../../components/RequestCards/TodoRequestCard';
 import ProgressRequestCard from '../../components/RequestCards/ProgressRequestCard';
 import CompletedRequestCard from '../../components/RequestCards/CompletedRequestCard';
+import RatingModal from '../../components/RatingModal/RatingModal';
 import styles from './MyRequestsScreen.styles';
 
 const exampleData = {
@@ -29,25 +30,51 @@ const MyRequestsScreen = () => {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState('todos');
   const [searchText, setSearchText] = useState('');
+  const [completedRequests, setCompletedRequests] = useState(exampleData.completados);
+  const [ratingVisible, setRatingVisible] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(null);
 
   const renderTodo = ({ item }) => (
     <TodoRequestCard item={item} onPress={() => navigation.navigate('Requests')} />
   );
   const renderProgress = ({ item }) => <ProgressRequestCard item={item} />;
-  const renderCompleted = ({ item }) => <CompletedRequestCard item={item} />;
+  const renderCompleted = ({ item, index }) => (
+    <CompletedRequestCard item={item} onRate={() => openModal(index)} />
+  );
 
   const dataByTab = () => {
     switch (activeTab) {
       case 'progreso':
         return { data: exampleData.progreso, render: renderProgress };
       case 'completados':
-        return { data: exampleData.completados, render: renderCompleted };
+        return { data: completedRequests, render: renderCompleted };
       default:
         return { data: exampleData.todos, render: renderTodo };
     }
   };
 
   const { data, render } = dataByTab();
+
+  const openModal = (index) => {
+    setSelectedIndex(index);
+    setRatingVisible(true);
+  };
+
+  const handleSubmitRating = (rating, comment) => {
+    setCompletedRequests((prev) => {
+      const updated = [...prev];
+      updated[selectedIndex] = {
+        ...updated[selectedIndex],
+        calificado: true,
+        estrellas: rating,
+        comentario: comment,
+      };
+      return updated;
+    });
+    setRatingVisible(false);
+    setSelectedIndex(null);
+    // TODO: llamar a la API del backend para persistir la calificación
+  };
 
   return (
     <View style={styles.container}>
@@ -94,6 +121,14 @@ const MyRequestsScreen = () => {
           renderItem={render}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+        />
+        <RatingModal
+          visible={ratingVisible}
+          onClose={() => {
+            setRatingVisible(false);
+            setSelectedIndex(null);
+          }}
+          onSubmit={handleSubmitRating}
         />
       </View>
     </View>
