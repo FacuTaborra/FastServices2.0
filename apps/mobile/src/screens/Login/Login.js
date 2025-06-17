@@ -1,21 +1,41 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  Modal,
+  ScrollView,
+} from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useNavigation } from '@react-navigation/native';
 import styles from './Login.styles';
 import fastservicesLogo from '../../../assets/iconFastServices2.png';
+import Spinner from '../../components/Spinner/Spinner';
+
 
 export default function Login() {
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState('');
 
   const handleLogin = () => {
-    // TODO: conectar con el servicio de autenticación
-    navigation.replace('Main');
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      navigation.navigate('Main', { screen: 'Main', animation: 'fade' });
+    }, 2000);
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAwareScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      enableOnAndroid
+    >
       <Image source={fastservicesLogo} style={styles.logo} />
       <Text style={styles.title}>Iniciar Sesión</Text>
       <TextInput
@@ -39,6 +59,9 @@ export default function Login() {
       <TouchableOpacity onPress={() => navigation.navigate('Register')}>
         <Text style={styles.link}>Crear cuenta</Text>
       </TouchableOpacity>
-    </View>
+      <Modal visible={loading} transparent animationType="fade">
+        <Spinner />
+      </Modal>
+    </KeyboardAwareScrollView>
   );
 }

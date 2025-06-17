@@ -15,7 +15,7 @@ const Footer = ({ state, navigation }) => {
       <View style={styles.footerContainer}>
         <TouchableOpacity
           style={styles.footerButton}
-          onPress={() => navigation.navigate('HomePage')}
+          onPress={() => navigation.navigate('HomePage', { screen: 'HomePage', animation: 'shift ' })}
         >
           <Ionicons name="home-outline" size={24} color={colorFor('HomePage')} />
           <Text style={[styles.footerText, { color: colorFor('HomePage') }]}>Inicio</Text>
@@ -24,7 +24,7 @@ const Footer = ({ state, navigation }) => {
         {/* Botón Solicitudes */}
         <TouchableOpacity
           style={styles.footerButton}
-          onPress={() => navigation.navigate('MyRequests')}
+          onPress={() => navigation.navigate('MyRequests', { screen: 'MyRequests', animation: 'shift ' })}
         >
           <Ionicons name="list-outline" size={24} color={colorFor('MyRequests')} />
           <Text style={[styles.footerText, { color: colorFor('MyRequests') }]}>Solicitudes</Text>
@@ -33,7 +33,7 @@ const Footer = ({ state, navigation }) => {
         {/* Botón Perfil */}
         <TouchableOpacity
           style={styles.footerButton}
-          onPress={() => navigation.navigate('Profile')}
+          onPress={() => navigation.navigate('Profile', { screen: 'Profile', animation: 'shift ' })}
         >
           <Ionicons name="person-outline" size={24} color={colorFor('Profile')} />
           <Text style={[styles.footerText, { color: colorFor('Profile') }]}>Perfil</Text>
@@ -42,7 +42,7 @@ const Footer = ({ state, navigation }) => {
         {/* Botón Configuración */}
         <TouchableOpacity
           style={styles.footerButton}
-          onPress={() => navigation.navigate('Settings')}
+          onPress={() => navigation.navigate('Settings', { screen: 'Settings', animation: 'shift ' })}
         >
           <Ionicons name="settings-outline" size={24} color={colorFor('Settings')} />
           <Text style={[styles.footerText, { color: colorFor('Settings') }]}>Configuración</Text>
