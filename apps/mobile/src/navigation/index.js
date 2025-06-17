@@ -15,6 +15,9 @@ import MyRequestsScreen from '../screens/MyRequests/MyRequestsScreen';
 import Footer from '../components/Footer/Footer';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
+import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
+import PaymentScreen from '../screens/Payment/PaymentScreen';
+import HelpSupportScreen from '../screens/HelpSupport/HelpSupportScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -55,7 +58,9 @@ export default function AppNavigator() {
           })}
         />
         <Stack.Screen name="Chat" component={ChatScreen} />
-              
+        <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="Payment" component={PaymentScreen} />
+        <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
