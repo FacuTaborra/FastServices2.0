@@ -5,6 +5,16 @@ export default StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 25,
+    paddingBottom: 12,
+    paddingHorizontal: 8,
+  },
+  iconButton: {
+    padding: 4,
+  },
   content: {
     flex: 1,
     justifyContent: 'center',
