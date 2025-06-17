@@ -61,7 +61,6 @@ export default function AppNavigator() {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Payment" component={PaymentScreen} />
         <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
-              
       </Stack.Navigator>
     </NavigationContainer>
   );
