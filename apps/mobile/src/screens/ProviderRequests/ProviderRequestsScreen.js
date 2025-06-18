@@ -49,7 +49,12 @@ export default function ProviderRequestsScreen() {
       return (
         <NewRequestCard
           item={item}
-          onPress={() => navigation.navigate('RequestDetail', { request: item })}
+          onPress={() =>
+            navigation.navigate('RequestDetail', {
+              requestId: item.id,
+              showButton: false,
+            })
+          }
           onAccept={() => {}}
           onReject={() => {}}
         />

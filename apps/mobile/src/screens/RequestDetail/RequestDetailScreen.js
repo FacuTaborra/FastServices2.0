@@ -5,17 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import Spinner from '../../components/Spinner/Spinner';
 import styles from './RequestDetailScreen.styles';
 
-const requestData = {
-  title: 'Plomero',
-  serviceType: 'Plomero',
-  estimatedTime: '15 min',
-  address: 'Dorrego 1423',
-  price: '$100',
-  description:
-    'Se me rompió la canilla del baño, está perdiendo agua en la parte de abajo de la canilla',
-  badgeText: 'FAST ⚡',
-  images: [null, null, null],
-};
+import requests from '../../data/requests';
 
 const RequestDetailScreen = () => {
   const navigation = useNavigation();
@@ -23,6 +13,8 @@ const RequestDetailScreen = () => {
   const [loading, setLoading] = useState(false);
   const showButton = route.params?.showButton !== false;
   const fromRequestDetail = route.params?.fromRequestDetail;
+  const requestId = route.params?.requestId || route.params?.request?.id;
+  const requestData = requestId ? requests[requestId] : requests['1'];
 
   const handleSolicitar = () => {
     setLoading(true);

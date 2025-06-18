@@ -14,7 +14,7 @@ export default StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 5,
-    backgroundColor: '#E53935',
+    backgroundColor: '#A4161A',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 6,
@@ -27,6 +27,25 @@ export default StyleSheet.create({
     fontWeight: 'bold',
   },
   fastIcon: {
+    marginRight: 2,
+  },
+  LicitacionBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 5,
+    backgroundColor: '#B1A7A6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  LicitacionText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  LicitacionIcon: {
     marginRight: 2,
   },
   info: {
@@ -70,13 +89,13 @@ export default StyleSheet.create({
     borderRadius: 8,
   },
   acceptButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#003049',
   },
   rejectButton: {
-    backgroundColor: '#E53935',
+    backgroundColor: '#660708',
   },
   buttonText: {
-    color: '#fff',
+    color: '#F5F3F4',
     marginLeft: 4,
     fontWeight: '600',
   },

@@ -4,15 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from './NewRequestCard.styles';
 
-export default function NewRequestCard({ item, onAccept, onReject }) {
-
-  const navigation = useNavigation();
-
-  const onPress = () => {
-    // Abrir detalles de la solicitud
-    navigation.navigate('RequestDetail', { Animation: 'fade' });
-
-  }
+export default function NewRequestCard({ item, onAccept, onReject, onPress }) {
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
@@ -20,6 +12,12 @@ export default function NewRequestCard({ item, onAccept, onReject }) {
         <View style={styles.fastBadge}>
           <Ionicons name="flash" size={10} color="#fff" style={styles.fastIcon} />
           <Text style={styles.fastText}>FAST</Text>
+        </View>
+      )}
+      {!item.fast && (
+        <View style={styles.LicitacionBadge}>
+          <Ionicons name="hammer" size={10} color="#fff" style={styles.LicitacionIcon} />
+          <Text style={styles.LicitacionText}>Licitación</Text>
         </View>
       )}
       <View style={styles.info}>
