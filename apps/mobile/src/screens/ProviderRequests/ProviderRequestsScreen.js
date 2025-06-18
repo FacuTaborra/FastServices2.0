@@ -12,10 +12,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import NewRequestCard from '../../components/ProviderRequestCards/NewRequestCard';
 import ChatRequestCard from '../../components/ProviderRequestCards/ChatRequestCard';
+import ReviewModal from '../../components/ReviewModal/ReviewModal';
 import ProjectRequestCard from '../../components/ProviderRequestCards/ProjectRequestCard';
 import Spinner from '../../components/Spinner/Spinner';
 import styles from './ProviderRequestsScreen.styles';
 import data from '../../data/providerRequests';
+
 
 export default function ProviderRequestsScreen() {
   const navigation = useNavigation();
@@ -25,6 +27,8 @@ export default function ProviderRequestsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [filterModal, setFilterModal] = useState(false);
+  const [reviewVisible, setReviewVisible] = useState(false);
+  const [selectedReview, setSelectedReview] = useState(null);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -73,9 +77,18 @@ export default function ProviderRequestsScreen() {
       return (
         <ProjectRequestCard
           item={item}
+          onPress={() => openReview(item)}
           onPressChat={() => navigation.navigate('Chat')}
+          detail={() => navigation.navigate('RequestDetail', { requestId: item.id, showButton: false })}
         />
       );
+    }
+  };
+
+  const openReview = (item) => {
+    if (item.status === 'calificada') {
+      setSelectedReview(item);
+      setReviewVisible(true);
     }
   };
 
@@ -157,6 +170,15 @@ export default function ProviderRequestsScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <ReviewModal
+        visible={reviewVisible}
+        onClose={() => {
+          setReviewVisible(false);
+          setSelectedReview(null);
+        }}
+        item={selectedReview}
+      />
     </View>
   );
 }
