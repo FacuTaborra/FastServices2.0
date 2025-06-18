@@ -15,88 +15,7 @@ import ChatRequestCard from '../../components/ProviderRequestCards/ChatRequestCa
 import ProjectRequestCard from '../../components/ProviderRequestCards/ProjectRequestCard';
 import Spinner from '../../components/Spinner/Spinner';
 import styles from './ProviderRequestsScreen.styles';
-
-const data = {
-  nuevas: [
-    {
-      id: '1',
-      title: 'Instalar lámpara de techo',
-      date: 'Hoy 15:00',
-      address: 'Av. Siempre Viva 742',
-      budget: 2000,
-      urgent: true,
-    },
-    {
-      id: '2',
-      title: 'Destapar cañería',
-      date: 'Ayer 18:30',
-      address: 'Calle Falsa 123',
-      budget: null,
-    },
-    {
-      id: '3',
-      title: 'Revisar estufa',
-      date: '12/07/2024 10:00',
-      address: 'Belgrano 456',
-      budget: 3500,
-    },
-    {
-      id: '4',
-      title: 'Revisar estufa',
-      date: '12/07/2024 10:00',
-      address: 'Belgrano 456',
-      budget: 3500,
-    },
-  ],
-  chats: [
-    {
-      id: '1',
-      title: 'Instalar lámpara',
-      client: 'Juan Pérez',
-      address: 'Rivadavia 1000',
-      lastMessage: '09:00',
-      status: 'Trabajando',
-    },
-    {
-      id: '2',
-      title: 'Reparar grifo',
-      client: 'Ana Gómez',
-      address: 'San Martín 555',
-      lastMessage: 'Ayer 20:00',
-      status: 'Pendiente',
-    },
-    {
-      id: '3',
-      title: 'Revisar calefacción',
-      client: 'Lucas Díaz',
-      address: 'Corrientes 789',
-      lastMessage: 'Hace 3d',
-      status: 'Trabajando',
-    },
-  ],
-  proyectos: [
-    {
-      id: '1',
-      title: 'Instalar lámpara',
-      dateText: 'Mañana 16hs',
-      status: 'progreso',
-    },
-    {
-      id: '2',
-      title: 'Arreglo cañería',
-      dateText: 'Viernes 15 18hs',
-      status: 'calificada',
-      rating: 5,
-      comment: 'Excelente trabajo, súper puntual',
-    },
-    {
-      id: '3',
-      title: 'Calefactor nuevo',
-      dateText: 'Ayer 14hs',
-      status: 'aceptada',
-    },
-  ],
-};
+import data from '../../data/providerRequests';
 
 export default function ProviderRequestsScreen() {
   const navigation = useNavigation();
@@ -130,7 +49,7 @@ export default function ProviderRequestsScreen() {
       return (
         <NewRequestCard
           item={item}
-          onPress={() => {}}
+          onPress={() => navigation.navigate('RequestDetail', { request: item })}
           onAccept={() => {}}
           onReject={() => {}}
         />

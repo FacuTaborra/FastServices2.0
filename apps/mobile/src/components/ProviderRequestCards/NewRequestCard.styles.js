@@ -10,19 +10,24 @@ export default StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  urgentBadge: {
+  fastBadge: {
     position: 'absolute',
-    top: -8,
-    right: -8,
+    top: 8,
+    right: 5,
     backgroundColor: '#E53935',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
   },
-  urgentText: {
+  fastText: {
     color: '#fff',
     fontSize: 10,
     fontWeight: 'bold',
+  },
+  fastIcon: {
+    marginRight: 2,
   },
   info: {
     marginBottom: 8,
@@ -40,6 +45,11 @@ export default StyleSheet.create({
   address: {
     fontSize: 12,
     color: '#374151',
+  },
+  budgetLabel: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#6B7280',
   },
   budget: {
     marginTop: 4,

@@ -33,7 +33,7 @@ const RequestDetailScreen = () => {
   };
 
   const handleBack = () => {
-    navigation.navigate('Requests', {animation: 'slide_from_left'});
+    navigation.goBack();
   };
 
   return (
