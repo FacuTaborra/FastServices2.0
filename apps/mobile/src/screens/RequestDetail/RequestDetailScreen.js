@@ -16,12 +16,15 @@ const RequestDetailScreen = () => {
   const requestId = route.params?.requestId || route.params?.request?.id;
   const requestData = requestId ? requests[requestId] : requests['1'];
 
+  console.log('Solicitando servicio...' + requestData.title);
+
+
   const handleSolicitar = () => {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
       navigation.navigate('Requests', {animation: 'fade'});
-    }, 2000);
+    }, 500);
   };
 
   const handleBack = () => {

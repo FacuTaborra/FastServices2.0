@@ -1,20 +1,25 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Button } from 'react-native';
 import styles from './ChatRequestCard.styles';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function ChatRequestCard({ item, onPress, onFinish }) {
+
+export default function ChatRequestCard({ item, onPress, detail }) {
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress}>
+    <View style={styles.card}>
       <View style={styles.info}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.client}>{item.client}</Text>
         <Text style={styles.address}>{item.address}</Text>
       </View>
-      {item.status === 'Trabajando' && (
-        <TouchableOpacity style={styles.finishButton} onPress={onFinish}>
-          <Text style={styles.finishText}>Marcar finalizada</Text>
+      <View style={styles.actions}>
+        <TouchableOpacity style={styles.detailsButton} onPress={detail}>
+          <Text style={styles.detailsText}>ver detalles</Text>
         </TouchableOpacity>
-      )}
-    </TouchableOpacity>
+        <TouchableOpacity style={styles.chatButton} onPress={onPress}>
+          <Ionicons name="chatbubble-ellipses-outline" size={16} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }

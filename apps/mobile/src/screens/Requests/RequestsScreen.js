@@ -55,7 +55,7 @@ export default function RequestsScreen() {
   const renderChat = ({ item }) => (
     <TouchableOpacity
       style={styles.chatItem}
-      onPress={() => navigation.navigate('Chat')}
+      onPress={() => navigation.navigate('Chat', { isProvider: false })}
     >
       <Ionicons
         name="person-circle-outline"

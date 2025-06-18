@@ -37,7 +37,7 @@ export default function Register() {
       } else {
         navigation.navigate('Main', { screen: 'Main', animation: 'fade' });
       }
-    }, 2000);
+    }, 500);
   };
 
   return (

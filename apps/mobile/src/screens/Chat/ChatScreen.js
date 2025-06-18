@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,19 +9,25 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import styles from './ChatScreen.styles';
+import EditBudgetModal from '../../components/EditBudgetModal/EditBudgetModal';
 
 import messages from '../../data/chatMessages';
 
 export default function ChatScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
+  const { isProvider, request } = route.params || {};
+  const [editModal, setEditModal] = useState(false);
 
   const renderMessage = ({ item }) => (
     <View
       style={[
         styles.messageBubble,
-        item.autor === 'cliente' ? styles.messageClient : styles.messageProvider,
+        item.autor === (isProvider ? 'prestador' : 'cliente')
+          ? styles.messageClient
+          : styles.messageProvider,
       ]}
     >
       <Text style={styles.messageText}>{item.texto}</Text>
@@ -39,19 +45,31 @@ export default function ChatScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={24} color="#111" />
         </TouchableOpacity>
+        <Text style={styles.headerTitle}>{request?.title || 'Chat'}</Text>
       </View>
 
       <View style={styles.proposalCard}>
-        <Text style={styles.proposalTitle}>Propuesta</Text>
+        <Text style={styles.proposalTitle}>Presupuesto</Text>
         <Text style={styles.proposalText}>Precio: $15000</Text>
         <Text style={styles.proposalText}>Tiempo: Hoy a las 13hs</Text>
         <View style={styles.proposalActions}>
-          <TouchableOpacity style={[styles.actionButton, styles.rejectButton]}>
-            <Text style={styles.actionText}>Rechazar Propuesta</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionButton, styles.acceptButton]}>
-            <Text style={styles.actionText}>Aceptar Propuesta</Text>
-          </TouchableOpacity>
+          {isProvider ? (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.editButton]}
+              onPress={() => setEditModal(true)}
+            >
+              <Text style={styles.actionText}>Editar presupuesto</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity style={[styles.actionButton, styles.rejectButton]}>
+                <Text style={styles.actionText}>Rechazar Propuesta</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.actionButton, styles.acceptButton]}>
+                <Text style={styles.actionText}>Aceptar Propuesta</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
 
@@ -71,6 +89,8 @@ export default function ChatScreen() {
           <Ionicons name="send" size={24} color="#4776a6" />
         </TouchableOpacity>
       </View>
+
+      <EditBudgetModal visible={editModal} onClose={() => setEditModal(false)} />
     </KeyboardAvoidingView>
   );
 }

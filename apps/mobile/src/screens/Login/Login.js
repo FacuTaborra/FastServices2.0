@@ -26,7 +26,7 @@ export default function Login() {
     setTimeout(() => {
       setLoading(false);
       navigation.navigate('Main', { screen: 'Main', animation: 'fade' });
-    }, 2000);
+    }, 500);
   };
 
   return (

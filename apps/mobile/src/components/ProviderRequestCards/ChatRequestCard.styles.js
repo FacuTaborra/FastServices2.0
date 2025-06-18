@@ -27,15 +27,27 @@ export default StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
-  finishButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  finishText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
+  detailsButton: {
+    backgroundColor: '#003049',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  detailsText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  chatButton: {
+    backgroundColor: '#B1A7A6',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
   },
 });

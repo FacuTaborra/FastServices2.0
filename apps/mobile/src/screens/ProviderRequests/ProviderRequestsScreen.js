@@ -64,17 +64,19 @@ export default function ProviderRequestsScreen() {
       return (
         <ChatRequestCard
           item={item}
-          onPress={() => navigation.navigate('Chat')}
-          onFinish={() => {}}
+          onPress={() => navigation.navigate('Chat', { isProvider: true, request: item })}
+          detail={() => navigation.navigate('RequestDetail', { requestId: item.id, showButton: false })}
         />
       );
     }
-    return (
-      <ProjectRequestCard
-        item={item}
-        onPressChat={() => navigation.navigate('Chat')}
-      />
-    );
+    if (activeTab === 'proyectos') {
+      return (
+        <ProjectRequestCard
+          item={item}
+          onPressChat={() => navigation.navigate('Chat')}
+        />
+      );
+    }
   };
 
   if (loading) {
@@ -120,7 +122,7 @@ export default function ProviderRequestsScreen() {
           style={[styles.tabButton, activeTab === 'chats' && styles.tabButtonActive]}
           onPress={() => setActiveTab('chats')}
         >
-          <Text style={[styles.tabText, activeTab === 'chats' && styles.tabTextActive]}>Chats</Text>
+          <Text style={[styles.tabText, activeTab === 'chats' && styles.tabTextActive]}>Presupuestos</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'proyectos' && styles.tabButtonActive]}
