@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,36 +9,25 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import styles from './ChatScreen.styles';
+import EditBudgetModal from '../../components/EditBudgetModal/EditBudgetModal';
 
-const messages = [
-  {
-    id: 1,
-    autor: 'prestador',
-    texto:
-      'Hola! Lo que me est\u00e1s pidiendo es un trabajo muy sencillo, hay que cambiar el tubo de abajo y ya estar\u00eda. Creo que en 40 minutos lo termino',
-    timestamp: '2 min ago',
-  },
-  { id: 2, autor: 'prestador', texto: 'En 10 minutos puedo ir', timestamp: '2 min ago' },
-  { id: 3, autor: 'cliente', texto: 'Buen\u00edsimo', timestamp: 'Just now' },
-  { id: 4, autor: 'cliente', texto: 'Me parece de diez', timestamp: 'Just now' },
-  { id: 5, autor: 'prestador', texto: 'En 10 minutos puedo ir', timestamp: '2 min ago' },
-  { id: 6, autor: 'cliente', texto: 'Buen\u00edsimo', timestamp: 'Just now' },
-  { id: 7, autor: 'cliente', texto: 'Me parece de diez', timestamp: 'Just now' },
-  { id: 8, autor: 'prestador', texto: 'En 10 minutos puedo ir', timestamp: '2 min ago' },
-  { id: 9, autor: 'cliente', texto: 'Buen\u00edsimo', timestamp: 'Just now' },
-  { id: 10, autor: 'cliente', texto: 'Me parece de diez', timestamp: 'Just now' },
-];
+import messages from '../../data/chatMessages';
 
 export default function ChatScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
+  const { isProvider, request } = route.params || {};
+  const [editModal, setEditModal] = useState(false);
 
   const renderMessage = ({ item }) => (
     <View
       style={[
         styles.messageBubble,
-        item.autor === 'cliente' ? styles.messageClient : styles.messageProvider,
+        item.autor === (isProvider ? 'prestador' : 'cliente')
+          ? styles.messageClient
+          : styles.messageProvider,
       ]}
     >
       <Text style={styles.messageText}>{item.texto}</Text>
@@ -56,19 +45,31 @@ export default function ChatScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={24} color="#111" />
         </TouchableOpacity>
+        <Text style={styles.headerTitle}>{request?.title || 'Chat'}</Text>
       </View>
 
       <View style={styles.proposalCard}>
-        <Text style={styles.proposalTitle}>Propuesta</Text>
+        <Text style={styles.proposalTitle}>Presupuesto</Text>
         <Text style={styles.proposalText}>Precio: $15000</Text>
         <Text style={styles.proposalText}>Tiempo: Hoy a las 13hs</Text>
         <View style={styles.proposalActions}>
-          <TouchableOpacity style={[styles.actionButton, styles.rejectButton]}>
-            <Text style={styles.actionText}>Rechazar Propuesta</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionButton, styles.acceptButton]}>
-            <Text style={styles.actionText}>Aceptar Propuesta</Text>
-          </TouchableOpacity>
+          {isProvider ? (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.editButton]}
+              onPress={() => setEditModal(true)}
+            >
+              <Text style={styles.actionText}>Editar presupuesto</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity style={[styles.actionButton, styles.rejectButton]}>
+                <Text style={styles.actionText}>Rechazar Propuesta</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.actionButton, styles.acceptButton]}>
+                <Text style={styles.actionText}>Aceptar Propuesta</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
 
@@ -88,6 +89,8 @@ export default function ChatScreen() {
           <Ionicons name="send" size={24} color="#4776a6" />
         </TouchableOpacity>
       </View>
+
+      <EditBudgetModal visible={editModal} onClose={() => setEditModal(false)} />
     </KeyboardAvoidingView>
   );
 }

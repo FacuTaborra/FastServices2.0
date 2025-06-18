@@ -6,11 +6,21 @@ export default StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   headerRow: {
+    backgroundColor: '#F5F3F4',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 25,
+    paddingTop: 35,
     paddingBottom: 12,
     paddingHorizontal: 8,
+    borderBottomColor: '#E5E7EB',
+    borderBottomWidth: 1,
+    marginBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    color: '#111827',
   },
   iconButton: {
     padding: 4,
@@ -51,11 +61,15 @@ export default StyleSheet.create({
     backgroundColor: '#dc2626',
   },
   acceptButton: {
-    backgroundColor: '#16a34a',
+    backgroundColor: '#B1A7A6',
+  },
+  editButton: {
+    backgroundColor: '#003049',
   },
   actionText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
+    fontSize: 14,
   },
   messagesList: {
     flexGrow: 1,
@@ -68,7 +82,7 @@ export default StyleSheet.create({
     marginVertical: 4,
   },
   messageProvider: {
-    backgroundColor: '#E9D5FF',
+    backgroundColor: '#D3D3D3',
     alignSelf: 'flex-start',
   },
   messageClient: {
@@ -92,9 +106,10 @@ export default StyleSheet.create({
     paddingVertical: 6,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+    marginBottom: 12,
   },
   iconInputButton: {
-    padding: 7  ,
+    padding: 7,
   },
   textInput: {
     flex: 1,
@@ -103,5 +118,35 @@ export default StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 8,
+    width: '80%',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#111827',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+    width: '100%',
+  },
+  modalTextarea: {
+    height: 80,
+    textAlignVertical: 'top',
   },
 });

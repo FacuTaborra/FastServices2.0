@@ -23,11 +23,6 @@ const Header = () => (
         />
         <Text style={styles.headerTitle}>Fast Services</Text>
       </View>
-
-      {/* Sección derecha: ícono de notificaciones */}
-      <TouchableOpacity style={styles.headerRight}>
-        <Ionicons name="notifications-outline" size={24} color="#fff" />
-      </TouchableOpacity>
     </View>
   </SafeAreaView>
 );

@@ -12,28 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header/Header';
 import styles from './HomePage.styles';
 
-const serviciosRecurrentes = [
-  {
-    id: '1',
-    label: 'Pregunta por un fontanero',
-    icon: 'hammer-outline',
-  },
-  {
-    id: '2',
-    label: 'Pregunta por un mecánico',
-    icon: 'car-sport-outline',
-  },
-  {
-    id: '3',
-    label: 'Pregunta por Limpieza de Casas',
-    icon: 'brush-outline',
-  },
-  {
-    id: '4',
-    label: 'Pregunta por gasista',
-    icon: 'flame-outline',
-  },
-];
+import serviciosRecurrentes from '../../data/recurringServices';
 
 const HomePage = () => {
   const navigation = useNavigation();
