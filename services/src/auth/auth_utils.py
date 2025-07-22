@@ -12,6 +12,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
 USERDB = {
     "testuser": {
         "username": "testuser",
+        "email": "test@test.com",
         "disabled": False,
         "hashed_password": bcrypt.hashpw(
             "test123".encode("utf-8"), bcrypt.gensalt()
@@ -34,26 +35,28 @@ def get_password_hash(password: str) -> str:
     return hashed.decode("utf-8")
 
 
-def get_user(username: str) -> Union[User, None]:
-    """Obtiene un usuario de la base de datos."""
-    if username in USERDB:
-        user_dict = USERDB[username]
-        return User(**user_dict)
+def get_user(email: str) -> Union[User, None]:
+    """Obtiene un usuario de la base de datos por email."""
+    for username, user_data in USERDB.items():
+        if user_data.get("email") == email:
+            return User(**user_data)
+    return None
 
 
-def get_user_with_password(username: str) -> Union[UserInDB, None]:
-    """Obtiene un usuario de la base de datos con contraseña hasheada."""
-    if username in USERDB:
-        user_dict = USERDB[username]
-        return UserInDB(**user_dict)
+def get_user_with_password(email: str) -> Union[UserInDB, None]:
+    """Obtiene un usuario de la base de datos con contraseña hasheada por email."""
+    for username, user_data in USERDB.items():
+        if user_data.get("email") == email:
+            return UserInDB(**user_data)
+    return None
 
 
-def authenticate_user(username: str, password: str) -> Union[User, None]:
-    """Autentica un usuario verificando username y password."""
-    user = get_user_with_password(username)
+def authenticate_user(email: str, password: str) -> Union[User, None]:
+    """Autentica un usuario verificando email y password."""
+    user = get_user_with_password(email)
     if not user or not is_password_valid(password, user.hashed_password):
         return None
-    return get_user(username)
+    return get_user(email)
 
 
 def create_access_token(
@@ -81,13 +84,13 @@ def decode_token(token: str) -> dict:
 def get_authenticated_user(token: str = Depends(oauth2_scheme)) -> User:
     """Obtiene el usuario desde el token JWT."""
     payload = decode_token(token)
-    username: str = payload.get("sub")
-    if username is None:
+    email: str = payload.get("sub")
+    if email is None:
         raise HTTPException(
             status_code=401,
             detail="Could not validate credentials",
         )
-    user = get_user(username)
+    user = get_user(email)
     return user
 
 

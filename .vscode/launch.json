@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: FastAPI",
+            "name": "Debug FastAPI",
             "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
@@ -20,8 +20,30 @@
             "cwd": "${workspaceFolder}/services/src",
             "envFile": "${workspaceFolder}/.env",
             "justMyCode": false,
-            "console": "integratedTerminal",
+            "console": "externalTerminal",
             "jinja": true
+        },
+        {
+            "name": "Start Expo",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/apps/mobile/node_modules/@expo/cli/build/bin/cli",
+            "args": [
+                "start"
+            ],
+            "cwd": "${workspaceFolder}/apps/mobile",
+            "console": "externalTerminal",
+            "internalConsoleOptions": "neverOpen"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Start Full Development",
+            "configurations": [
+                "Debug FastAPI",
+                "Start Expo"
+            ],
+            "stopAll": true
         }
     ]
 }

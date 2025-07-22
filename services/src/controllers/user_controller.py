@@ -8,7 +8,7 @@ from models.Token import Token
 
 class UserController:
     def __init__(self):
-        self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
+        self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
 
     async def authenticate_and_create_token(
         self, form_data: OAuth2PasswordRequestForm
@@ -20,13 +20,13 @@ class UserController:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
+                detail="Incorrect email or password",
             )
 
         access_token_expires = timedelta(minutes=JWT_EXPIRE_MINUTES)
 
         access_token = create_access_token(
-            data={"sub": user.username}, expires_delta=access_token_expires
+            data={"sub": user.email}, expires_delta=access_token_expires
         )
         return Token(access_token=access_token, token_type="bearer")
 
