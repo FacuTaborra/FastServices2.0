@@ -13,12 +13,11 @@ async def login_for_access_token(login_data: LoginRequest) -> Token:
     Endpoint de login que acepta JSON con email y password
     """
     try:
-        # Crear un objeto similar a OAuth2PasswordRequestForm pero con email
         form_data = type(
             "obj",
             (object,),
             {
-                "username": login_data.email,  # Usar email como username para la función
+                "username": login_data.email,
                 "password": login_data.password,
             },
         )
