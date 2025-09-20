@@ -36,6 +36,9 @@ export default StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+  buttonDisabled: {
+    backgroundColor: '#94A3B8',
+  },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,

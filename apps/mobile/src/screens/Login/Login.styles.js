@@ -13,7 +13,7 @@ export default StyleSheet.create({
   logo: {
     width: 240,
     height: 240,
-    aspectRatio: 1/1,
+    aspectRatio: 1 / 1,
     alignSelf: 'center',
     objectFit: 'contain',
     marginBottom: 20,
@@ -41,6 +41,9 @@ export default StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 8,
+  },
+  buttonDisabled: {
+    backgroundColor: '#94A3B8',
   },
   buttonText: {
     color: '#FFFFFF',
