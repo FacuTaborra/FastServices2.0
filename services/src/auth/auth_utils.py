@@ -2,23 +2,14 @@ from datetime import datetime, timedelta
 from typing import Union
 from jose import jwt, JWTError
 from fastapi import HTTPException, Depends
+from sqlalchemy import select
 from settings import JWT_SECRET_KEY, JWT_ALGORITHM
-from models.User import User, UserInDB
+from models.User import User
+from database.database import AsyncSessionLocal
 from fastapi.security import OAuth2PasswordBearer
 import bcrypt
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
-
-USERDB = {
-    "testuser": {
-        "username": "testuser",
-        "email": "test@test.com",
-        "disabled": False,
-        "hashed_password": bcrypt.hashpw(
-            "test123".encode("utf-8"), bcrypt.gensalt()
-        ).decode("utf-8"),
-    }
-}
 
 
 def is_password_valid(plain_password: str, hashed_password: str) -> bool:
@@ -35,28 +26,21 @@ def get_password_hash(password: str) -> str:
     return hashed.decode("utf-8")
 
 
-def get_user(email: str) -> Union[User, None]:
+async def get_user_by_email(email: str) -> Union[User, None]:
     """Obtiene un usuario de la base de datos por email."""
-    for username, user_data in USERDB.items():
-        if user_data.get("email") == email:
-            return User(**user_data)
-    return None
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(User).where(User.email == email, User.is_active)
+        )
+        return result.scalar_one_or_none()
 
 
-def get_user_with_password(email: str) -> Union[UserInDB, None]:
-    """Obtiene un usuario de la base de datos con contraseña hasheada por email."""
-    for username, user_data in USERDB.items():
-        if user_data.get("email") == email:
-            return UserInDB(**user_data)
-    return None
-
-
-def authenticate_user(email: str, password: str) -> Union[User, None]:
+async def authenticate_user(email: str, password: str) -> Union[User, None]:
     """Autentica un usuario verificando email y password."""
-    user = get_user_with_password(email)
-    if not user or not is_password_valid(password, user.hashed_password):
+    user = await get_user_by_email(email)
+    if not user or not is_password_valid(password, user.password_hash):
         return None
-    return get_user(email)
+    return user
 
 
 def create_access_token(
@@ -81,7 +65,7 @@ def decode_token(token: str) -> dict:
         )
 
 
-def get_authenticated_user(token: str = Depends(oauth2_scheme)) -> User:
+async def get_authenticated_user(token: str = Depends(oauth2_scheme)) -> User:
     """Obtiene el usuario desde el token JWT."""
     payload = decode_token(token)
     email: str = payload.get("sub")
@@ -90,13 +74,20 @@ def get_authenticated_user(token: str = Depends(oauth2_scheme)) -> User:
             status_code=401,
             detail="Could not validate credentials",
         )
-    user = get_user(email)
+    user = await get_user_by_email(email)
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="User not found",
+        )
     return user
 
 
-def check_user_login(current_user: User = Depends(get_authenticated_user)) -> User:
+async def check_user_login(
+    current_user: User = Depends(get_authenticated_user),
+) -> User:
     """Verifica que el usuario esta activo."""
-    if current_user.disabled:
+    if not current_user.is_active:
         raise HTTPException(
             status_code=400,
             detail="Inactive user",

@@ -16,7 +16,7 @@ class UserController:
         """
         Autentica un usuario y crea un token JWT.
         """
-        user = authenticate_user(form_data.username, form_data.password)
+        user = await authenticate_user(form_data.username, form_data.password)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

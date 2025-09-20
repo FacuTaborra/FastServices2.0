@@ -1,30 +1,67 @@
+"""
+Aplicación principal FastServices API.
+Sistema de gestión de servicios con autenticación JWT.
+"""
+
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import router
+from settings import LOG_LEVEL
 
-logging.basicConfig(level=logging.INFO)
+# Configurar logging
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL.upper()),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+
+logger = logging.getLogger(__name__)
 
 
-def create_app():
-    app = FastAPI()
+def create_app() -> FastAPI:
+    """
+    Crear y configurar la aplicación FastAPI.
 
-    # Configurar CORS
+    Returns:
+        FastAPI: Instancia configurada de la aplicación
+    """
+    app = FastAPI(
+        title="FastServices API",
+        description="API para gestión de servicios con autenticación JWT",
+        version="1.0.0",
+        docs_url="/docs",
+        redoc_url="/redoc",
+    )
+
+    # Configurar CORS para permitir requests desde el frontend móvil
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=["*"],  # En producción, especificar dominios exactos
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
     )
 
+    # Incluir routers
     app.include_router(router.router)
 
-    @app.get("/health")
-    async def health():
-        return {"status": "ok"}
+    @app.get("/health", tags=["health"])
+    async def health_check():
+        """Endpoint de verificación de salud del servicio."""
+        return {"status": "ok", "service": "FastServices API", "version": "1.0.0"}
 
+    @app.get("/", tags=["root"])
+    async def root():
+        """Endpoint raíz con información básica."""
+        return {
+            "message": "Bienvenido a FastServices API",
+            "docs": "/docs",
+            "health": "/health",
+        }
+
+    logger.info("FastServices API iniciada correctamente")
     return app
 
 
+# Crear instancia de la aplicación
 app = create_app()
