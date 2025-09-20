@@ -5,9 +5,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 // Pantallas a importar
+import SplashScreen from '../screens/Splash/SplashScreen';
 import HomePage from '../screens/HomePage/HomePage';
 import Login from '../screens/Login/Login';
-import Register from '../screens/Register/Register'
+import Register from '../screens/Register/Register';
 import RequestDetailScreen from '../screens/RequestDetail/RequestDetailScreen';
 import RequestsScreen from '../screens/Requests/RequestsScreen';
 import ChatScreen from '../screens/Chat/ChatScreen';
@@ -59,14 +60,15 @@ function MainTabs() {
 export default function AppNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false, headerTitleAlign: 'center', animation: 'slide_from_right'}}>
-        
+      <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: false, headerTitleAlign: 'center', animation: 'slide_from_right' }}>
+
+        <Stack.Screen name="Splash" component={SplashScreen} options={{ animation: 'fade' }} />
         <Stack.Screen name="Login" component={Login} options={({ route }) => ({
-            animation: route?.params?.animation ?? 'slide_from_right',
-          })} />
+          animation: route?.params?.animation ?? 'slide_from_right',
+        })} />
         <Stack.Screen name="Register" component={Register} options={({ route }) => ({
-            animation: route?.params?.animation ?? 'slide_from_right',
-          })} />
+          animation: route?.params?.animation ?? 'slide_from_right',
+        })} />
         <Stack.Screen
           name="Main"
           component={MainTabs}

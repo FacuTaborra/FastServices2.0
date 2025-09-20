@@ -13,6 +13,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useNavigation } from '@react-navigation/native';
 import styles from './Register.styles';
@@ -29,6 +30,11 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Estados para el proveedor
+  const [isProvider, setIsProvider] = useState(false);
+  const [bio, setBio] = useState('');
+  const [serviceRadius, setServiceRadius] = useState('10');
 
   const validateForm = () => {
     // Validar campos requeridos
@@ -88,6 +94,20 @@ export default function Register() {
       return false;
     }
 
+    // Validaciones adicionales para proveedor
+    if (isProvider) {
+      if (!bio.trim()) {
+        Alert.alert('Error', 'Por favor describe tus servicios');
+        return false;
+      }
+
+      const radius = parseInt(serviceRadius);
+      if (isNaN(radius) || radius < 1 || radius > 100) {
+        Alert.alert('Error', 'El radio de servicio debe ser entre 1 y 100 km');
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -110,9 +130,21 @@ export default function Register() {
         password: password
       };
 
-      // Registrar usuario
-      const registerResponse = await apiService.registerClient(userData);
-      console.log('✅ Usuario registrado:', registerResponse);
+      let registerResponse;
+
+      if (isProvider) {
+        // Agregar datos específicos del proveedor
+        userData.bio = bio.trim();
+        userData.service_radius_km = parseInt(serviceRadius);
+
+        // Registrar proveedor
+        registerResponse = await apiService.registerProvider(userData);
+        console.log('✅ Proveedor registrado:', registerResponse);
+      } else {
+        // Registrar cliente
+        registerResponse = await apiService.registerClient(userData);
+        console.log('✅ Cliente registrado:', registerResponse);
+      }
 
       // Después del registro exitoso, hacer login automáticamente
       const loginResponse = await apiService.login(email, password);
@@ -124,16 +156,25 @@ export default function Register() {
 
       Alert.alert(
         'Registro Exitoso',
-        `¡Bienvenido ${userInfo.first_name}! Tu cuenta ha sido creada correctamente.`,
+        `¡Bienvenido ${userInfo.first_name}! Tu cuenta ${isProvider ? 'de proveedor' : ''} ha sido creada correctamente.`,
         [
           {
             text: 'Continuar',
             onPress: () => {
-              // Navegar al flujo principal para clientes
-              navigation.navigate('Main', {
-                screen: 'HomePage',
-                animation: 'fade'
-              });
+              // Navegar según el rol del usuario
+              if (userInfo.role === 'provider') {
+                // Navegar al flujo de proveedores
+                navigation.navigate('ProviderMain', {
+                  screen: 'ProviderRequests',
+                  animation: 'fade'
+                });
+              } else {
+                // Navegar al flujo principal para clientes
+                navigation.navigate('Main', {
+                  screen: 'HomePage',
+                  animation: 'fade'
+                });
+              }
             }
           }
         ]
@@ -232,13 +273,56 @@ export default function Register() {
             editable={!loading}
           />
 
+          {/* Checkbox para seleccionar si es proveedor */}
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => setIsProvider(!isProvider)}
+            disabled={loading}
+          >
+            <View style={styles.checkbox}>
+              {isProvider && (
+                <Ionicons name="checkmark" size={18} color="#4A90E2" />
+              )}
+            </View>
+            <Text style={styles.checkboxLabel}>
+              Quiero ofrecer servicios como proveedor
+            </Text>
+          </TouchableOpacity>
+
+          {/* Campos adicionales para proveedores */}
+          {isProvider && (
+            <View style={styles.providerFields}>
+              <Text style={styles.sectionTitle}>Información de Proveedor</Text>
+
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Describe los servicios que ofreces"
+                value={bio}
+                onChangeText={setBio}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                editable={!loading}
+              />
+
+              <TextInput
+                style={styles.input}
+                placeholder="Radio de servicio (km)"
+                value={serviceRadius}
+                onChangeText={setServiceRadius}
+                keyboardType="numeric"
+                editable={!loading}
+              />
+            </View>
+          )}
+
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleRegister}
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Creando cuenta...' : 'Registrarme'}
+              {loading ? 'Creando cuenta...' : `Registrarme${isProvider ? ' como Proveedor' : ''}`}
             </Text>
           </TouchableOpacity>
 

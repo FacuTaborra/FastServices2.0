@@ -127,7 +127,7 @@ class ApiService {
 
     // ========== MÉTODOS DE AUTENTICACIÓN ==========
 
-    // Login de usuario
+    // Login de usuario (clientes y proveedores)
     async login(email, password) {
         try {
             console.log('🔐 Intentando login con email:', email);
@@ -137,22 +137,41 @@ class ApiService {
                 password: password
             };
 
-            const response = await this.post('/users/login', loginData, false);
+            // Primero intentar login como cliente
+            try {
+                const response = await this.post('/users/login', loginData, false);
+                console.log('✅ Login exitoso como cliente, guardando tokens...');
 
-            console.log('✅ Login exitoso, guardando tokens...');
+                // Guardar tokens en AsyncStorage
+                await AsyncStorage.setItem('access_token', response.access_token);
+                await AsyncStorage.setItem('token_type', response.token_type);
 
-            // Guardar tokens en AsyncStorage
-            await AsyncStorage.setItem('access_token', response.access_token);
-            await AsyncStorage.setItem('token_type', response.token_type);
+                return response;
+            } catch (clientError) {
+                console.log('❌ Login como cliente falló, intentando como proveedor...');
 
-            return response;
+                // Si falla como cliente, intentar como proveedor
+                try {
+                    const response = await this.post('/providers/login', loginData, false);
+                    console.log('✅ Login exitoso como proveedor, guardando tokens...');
+
+                    // Guardar tokens en AsyncStorage
+                    await AsyncStorage.setItem('access_token', response.access_token);
+                    await AsyncStorage.setItem('token_type', response.token_type);
+
+                    return response;
+                } catch (providerError) {
+                    console.error('❌ Login falló en ambos endpoints');
+                    throw new Error('Email o contraseña incorrectos');
+                }
+            }
         } catch (error) {
             console.error('❌ Error en login:', error.message);
             throw error;
         }
     }
 
-    // Registro de cliente (solo clientes por ahora)
+    // Registro de cliente
     async registerClient(userData) {
         try {
             console.log('📝 Registrando cliente:', userData.email);
@@ -173,6 +192,32 @@ class ApiService {
             return response;
         } catch (error) {
             console.error('❌ Error en registro:', error.message);
+            throw error;
+        }
+    }
+
+    // Registro de proveedor
+    async registerProvider(userData) {
+        try {
+            console.log('📝 Registrando proveedor:', userData.email);
+
+            const registerData = {
+                first_name: userData.firstName,
+                last_name: userData.lastName,
+                email: userData.email.trim(),
+                phone: userData.phone,
+                password: userData.password,
+                bio: userData.bio || '',
+                service_radius_km: userData.service_radius_km || 10
+            };
+
+            const response = await this.post('/providers/register', registerData, false);
+
+            console.log('✅ Proveedor registrado exitosamente');
+
+            return response;
+        } catch (error) {
+            console.error('❌ Error en registro de proveedor:', error.message);
             throw error;
         }
     }
@@ -208,6 +253,24 @@ class ApiService {
             console.log('❌ Token inválido, limpiando...');
             await this.clearTokens();
             return false;
+        }
+    }
+
+    // Verificar autenticación y obtener información del usuario
+    async checkAuthAndGetUser() {
+        try {
+            const token = await AsyncStorage.getItem('access_token');
+            if (!token) {
+                return { isAuthenticated: false, user: null };
+            }
+
+            // Intentar obtener información del usuario para verificar que el token es válido
+            const userData = await this.getCurrentUser();
+            return { isAuthenticated: true, user: userData };
+        } catch (error) {
+            console.log('❌ Token inválido, limpiando...');
+            await this.clearTokens();
+            return { isAuthenticated: false, user: null };
         }
     }
 

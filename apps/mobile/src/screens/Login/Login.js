@@ -62,7 +62,7 @@ export default function Login() {
       // Guardar algunos datos del usuario para uso posterior
       await AsyncStorage.setItem('user_data', JSON.stringify(userData));
 
-      console.log('✅ Login completado, usuario:', userData.first_name);
+      console.log('✅ Login completado, usuario:', userData.first_name, 'rol:', userData.role);
 
       Alert.alert(
         'Bienvenido',
@@ -71,11 +71,20 @@ export default function Login() {
           {
             text: 'Continuar',
             onPress: () => {
-              // Solo navegamos a Main ya que es para clientes
-              navigation.navigate('Main', {
-                screen: 'HomePage',
-                animation: 'fade'
-              });
+              // Navegar según el rol del usuario
+              if (userData.role === 'provider') {
+                // Navegar al flujo de proveedores
+                navigation.navigate('ProviderMain', {
+                  screen: 'ProviderRequests',
+                  animation: 'fade'
+                });
+              } else {
+                // Navegar al flujo de clientes
+                navigation.navigate('Main', {
+                  screen: 'HomePage',
+                  animation: 'fade'
+                });
+              }
             }
           }
         ]
