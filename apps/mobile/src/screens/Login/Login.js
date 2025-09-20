@@ -64,31 +64,20 @@ export default function Login() {
 
       console.log('✅ Login completado, usuario:', userData.first_name, 'rol:', userData.role);
 
-      Alert.alert(
-        'Bienvenido',
-        `¡Hola ${userData.first_name}! Has iniciado sesión correctamente.`,
-        [
-          {
-            text: 'Continuar',
-            onPress: () => {
-              // Navegar según el rol del usuario
-              if (userData.role === 'provider') {
-                // Navegar al flujo de proveedores
-                navigation.navigate('ProviderMain', {
-                  screen: 'ProviderRequests',
-                  animation: 'fade'
-                });
-              } else {
-                // Navegar al flujo de clientes
-                navigation.navigate('Main', {
-                  screen: 'HomePage',
-                  animation: 'fade'
-                });
-              }
-            }
-          }
-        ]
-      );
+      // Navegar según el rol del usuario directamente sin alerta
+      if (userData.role === 'provider') {
+        // Navegar al flujo de proveedores
+        navigation.navigate('ProviderMain', {
+          screen: 'ProviderRequests',
+          animation: 'fade'
+        });
+      } else {
+        // Navegar al flujo de clientes
+        navigation.navigate('Main', {
+          screen: 'HomePage',
+          animation: 'fade'
+        });
+      }
 
     } catch (error) {
       console.error('❌ Error en login:', error);

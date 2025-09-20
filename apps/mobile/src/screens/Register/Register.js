@@ -154,31 +154,20 @@ export default function Register() {
 
       console.log('✅ Login automático completado para:', userInfo.first_name);
 
-      Alert.alert(
-        'Registro Exitoso',
-        `¡Bienvenido ${userInfo.first_name}! Tu cuenta ${isProvider ? 'de proveedor' : ''} ha sido creada correctamente.`,
-        [
-          {
-            text: 'Continuar',
-            onPress: () => {
-              // Navegar según el rol del usuario
-              if (userInfo.role === 'provider') {
-                // Navegar al flujo de proveedores
-                navigation.navigate('ProviderMain', {
-                  screen: 'ProviderRequests',
-                  animation: 'fade'
-                });
-              } else {
-                // Navegar al flujo principal para clientes
-                navigation.navigate('Main', {
-                  screen: 'HomePage',
-                  animation: 'fade'
-                });
-              }
-            }
-          }
-        ]
-      );
+      // Navegar según el rol del usuario directamente sin alerta
+      if (userInfo.role === 'provider') {
+        // Navegar al flujo de proveedores
+        navigation.navigate('ProviderMain', {
+          screen: 'ProviderRequests',
+          animation: 'fade'
+        });
+      } else {
+        // Navegar al flujo principal para clientes
+        navigation.navigate('Main', {
+          screen: 'HomePage',
+          animation: 'fade'
+        });
+      }
 
     } catch (error) {
       console.error('❌ Error en registro:', error);

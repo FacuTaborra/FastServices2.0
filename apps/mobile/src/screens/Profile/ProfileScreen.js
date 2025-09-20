@@ -1,7 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, Modal, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  Modal,
+  ScrollView,
+  Alert
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import styles from './ProfileScreen.styles';
+import apiService from '../../auth/apiService_auth';
+import Spinner from '../../components/Spinner/Spinner';
 
 const initialAddresses = [
   'Av. Libertador 1001',
@@ -18,22 +30,150 @@ const initialAddresses = [
   'Calle Independencia 369',
 ];
 
-const mockProfile = {
-  fullName: 'James Harrid',
-  phone: '123-456-7890',
-  email: 'example@email.com',
-  address: initialAddresses[0],
-  birthday: '',
-  password: 'password123',
-};
-
 export default function ProfileScreen() {
+  const navigation = useNavigation();
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [profile, setProfile] = useState(mockProfile);
+  const [profile, setProfile] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    created_at: '',
+    fullName: '',
+    address: '',
+    birthday: '',
+    password: ''
+  });
   const [addresses, setAddresses] = useState(initialAddresses);
   const [showAddressList, setShowAddressList] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [newAddress, setNewAddress] = useState('');
+
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      setLoading(true);
+      console.log('🔍 Cargando perfil del usuario...');
+
+      const userData = await apiService.getCurrentUser();
+      console.log('✅ Perfil del usuario cargado:', userData);
+
+      setProfile(prevProfile => ({
+        ...prevProfile,
+        first_name: userData.first_name || '',
+        last_name: userData.last_name || '',
+        email: userData.email || '',
+        phone: userData.phone || '',
+        created_at: userData.created_at || '',
+        fullName: `${userData.first_name || ''} ${userData.last_name || ''}`.trim(),
+        address: initialAddresses[0], // Por ahora usamos la primera dirección
+        birthday: '', // Campo que el backend no maneja aún
+        password: '••••••••' // Placeholder para la contraseña
+      }));
+
+    } catch (error) {
+      console.error('❌ Error cargando perfil:', error);
+      Alert.alert('Error', 'No se pudo cargar el perfil del usuario');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    try {
+      setUpdating(true);
+      console.log('🔄 Actualizando perfil del usuario...');
+
+      // Separar el nombre completo en nombre y apellido
+      const nameParts = profile.fullName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const updateData = {
+        first_name: firstName,
+        last_name: lastName
+      };
+
+      await apiService.put('/users/me', updateData);
+      console.log('✅ Perfil actualizado exitosamente');
+
+      // Actualizar el estado local
+      setProfile(prev => ({
+        ...prev,
+        first_name: firstName,
+        last_name: lastName
+      }));
+
+      Alert.alert('Éxito', 'Perfil actualizado correctamente');
+
+    } catch (error) {
+      console.error('❌ Error actualizando perfil:', error);
+      Alert.alert('Error', 'No se pudo actualizar el perfil');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro que quieres cerrar sesión?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🚪 Cerrando sesión...');
+              await apiService.logout();
+              console.log('✅ Sesión cerrada');
+
+              // Navegar al login y resetear el stack
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              console.error('❌ Error cerrando sesión:', error);
+              Alert.alert('Error', 'No se pudo cerrar la sesión');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No disponible';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return 'Fecha inválida';
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Spinner />
+        <Text style={{ marginTop: 10, color: '#666' }}>Cargando perfil...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -72,6 +212,7 @@ export default function ProfileScreen() {
           placeholderTextColor="#5A5A5A"
           value={profile.phone}
           onChangeText={(text) => setProfile({ ...profile, phone: text })}
+          editable={false}
         />
 
         <Text style={styles.label}>Email</Text>
@@ -81,6 +222,7 @@ export default function ProfileScreen() {
           placeholderTextColor="#5A5A5A"
           value={profile.email}
           onChangeText={(text) => setProfile({ ...profile, email: text })}
+          editable={false}
         />
 
         <Text style={styles.label}>Direcciones</Text>
@@ -137,6 +279,7 @@ export default function ProfileScreen() {
             placeholderTextColor="#5A5A5A"
             value={profile.password}
             onChangeText={(text) => setProfile({ ...profile, password: text })}
+            editable={false}
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
             <Ionicons
@@ -147,13 +290,38 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.buttonPrimary}>
-          <Text style={styles.buttonPrimaryText}>Guardar cambios</Text>
+        <Text style={styles.label}>Miembro desde</Text>
+        <View style={styles.infoContainer}>
+          <Text style={styles.infoText}>{formatDate(profile.created_at)}</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.buttonPrimary, updating && styles.buttonDisabled]}
+          onPress={handleUpdateProfile}
+          disabled={updating}
+        >
+          <Text style={styles.buttonPrimaryText}>
+            {updating ? 'Guardando...' : 'Guardar cambios'}
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.buttonSecondary}>
-          <Text style={styles.buttonSecondaryText}>Quiero ser prestador</Text>
+
+        <TouchableOpacity
+          style={styles.buttonDanger}
+          onPress={handleLogout}
+        >
+          <Text style={styles.buttonDangerText}>Cerrar Sesión</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal visible={updating} transparent animationType="fade">
+        <View style={styles.modalBackground}>
+          <View style={styles.modalBox}>
+            <Spinner />
+            <Text style={styles.modalText}>Actualizando perfil...</Text>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={addModalVisible} transparent animationType="fade">
         <View style={styles.modalBackground}>
           <View style={styles.modalBox}>

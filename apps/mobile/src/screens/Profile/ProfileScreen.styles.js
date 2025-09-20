@@ -135,6 +135,37 @@ export default StyleSheet.create({
     color: '#4776a6',
     fontWeight: 'bold',
   },
+  buttonDanger: {
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 24,
+  },
+  buttonDangerText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  buttonDisabled: {
+    backgroundColor: '#94A3B8',
+  },
+  infoContainer: {
+    backgroundColor: '#F4F4F4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    marginBottom: 16,
+  },
+  infoText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  modalText: {
+    marginTop: 10,
+    color: '#666',
+    textAlign: 'center',
+  },
   modalBackground: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
