@@ -4,7 +4,9 @@ Define la estructura del usuario y sus esquemas de validación.
 """
 
 from datetime import datetime
+from typing import Optional
 from sqlalchemy import Column, BigInteger, String, Boolean, DateTime, func
+from sqlalchemy.orm import relationship
 from pydantic import BaseModel, EmailStr, Field
 from database.database import Base
 import enum
@@ -39,6 +41,14 @@ class User(Base):
     created_at = Column(DateTime, default=func.current_timestamp())
     updated_at = Column(
         DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp()
+    )
+
+    # Relaciones
+    provider_profile = relationship(
+        "ProviderProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self):
@@ -94,3 +104,27 @@ class UserInDB(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserUpdate(BaseModel):
+    """Esquema para actualización de datos de usuario."""
+
+    first_name: Optional[str] = Field(
+        None, min_length=2, max_length=60, description="Nombre del usuario"
+    )
+    last_name: Optional[str] = Field(
+        None, min_length=2, max_length=60, description="Apellido del usuario"
+    )
+    phone: Optional[str] = Field(
+        None, min_length=8, max_length=30, description="Teléfono del usuario"
+    )
+
+
+class ChangePasswordRequest(BaseModel):
+    """Esquema para cambio de contraseña."""
+
+    current_password: str = Field(..., min_length=6, description="Contraseña actual")
+    new_password: str = Field(..., min_length=6, description="Nueva contraseña")
+    confirm_password: str = Field(
+        ..., min_length=6, description="Confirmar nueva contraseña"
+    )

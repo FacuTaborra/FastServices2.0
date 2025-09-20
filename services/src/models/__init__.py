@@ -2,8 +2,25 @@
 Modelos de SQLAlchemy y Pydantic para FastServices.
 """
 
-from .User import User, UserRole, UserCreate, UserResponse, UserInDB, LoginRequest
-
+from .User import (
+    User,
+    UserRole,
+    UserCreate,
+    UserResponse,
+    UserInDB,
+    LoginRequest,
+    UserUpdate,
+    ChangePasswordRequest,
+)
+from .ProviderProfile import (
+    ProviderProfile,
+    ProviderProfileCreate,
+    ProviderProfileUpdate,
+    ProviderProfileResponse,
+    ProviderRegisterRequest,
+    ProviderLoginRequest,
+    ProviderResponse,
+)
 from .Token import Token
 
 __all__ = [
@@ -17,11 +34,15 @@ __all__ = [
     "UserResponse",
     "UserInDB",
     "LoginRequest",
+    "UserUpdate",
+    "ChangePasswordRequest",
     # Modelos Pydantic para ProviderProfile
     "ProviderProfileCreate",
     "ProviderProfileUpdate",
     "ProviderProfileResponse",
-    "ProviderProfileWithUser",
+    "ProviderRegisterRequest",
+    "ProviderLoginRequest",
+    "ProviderResponse",
     # Token
     "Token",
 ]

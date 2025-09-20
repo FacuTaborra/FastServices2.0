@@ -5,7 +5,7 @@ Script para inicializar la base de datos y crear las tablas.
 import asyncio
 from sqlalchemy import text
 from database.database import engine, Base
-from models import User  # noqa: F401 - Importar todos los modelos para que SQLAlchemy los registre
+from models import User, ProviderProfile  # noqa: F401 - Importar todos los modelos para que SQLAlchemy los registre
 
 
 async def create_tables():

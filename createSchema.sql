@@ -130,41 +130,7 @@ CREATE TABLE ratings (
     UNIQUE KEY uq_rating_request (request_id)
 ) ENGINE=InnoDB;
 
-/* 10. Pagos */
-CREATE TABLE payments (
-    id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    request_id     BIGINT UNSIGNED NOT NULL,
-    provider_id    BIGINT UNSIGNED NOT NULL,
-    amount         DECIMAL(10,2)   NOT NULL,
-    currency       CHAR(3)         NOT NULL DEFAULT 'USD',
-    payment_method ENUM('stripe','mercadopago','paypal','cash') DEFAULT 'mercadopago',
-    status         ENUM('pending','paid','failed','refunded')   DEFAULT 'pending',
-    transaction_id VARCHAR(120) UNIQUE,
-    paid_at        DATETIME NULL,
-    created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (request_id)  REFERENCES service_requests(id)  ON DELETE CASCADE,
-    FOREIGN KEY (provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
 
-/* 11. Monedero del prestador (opcional) */
-CREATE TABLE provider_wallets (
-    provider_id BIGINT UNSIGNED PRIMARY KEY,
-    balance     DECIMAL(12,2) DEFAULT 0.0,
-    updated_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE wallet_transactions (
-    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    provider_id     BIGINT UNSIGNED NOT NULL,
-    payment_id      BIGINT UNSIGNED,
-    amount          DECIMAL(10,2) NOT NULL,
-    transaction_type ENUM('credit','debit') NOT NULL,
-    description     VARCHAR(255),
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE,
-    FOREIGN KEY (payment_id)  REFERENCES payments(id)          ON DELETE SET NULL
-) ENGINE=InnoDB;
 
 /* 12. Datos de ejemplo (3 licencias típicas) */
 INSERT INTO licenses (code, name, description) VALUES

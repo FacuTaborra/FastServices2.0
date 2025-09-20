@@ -3,13 +3,18 @@ from typing import Union
 from jose import jwt, JWTError
 from fastapi import HTTPException, Depends
 from sqlalchemy import select
-from settings import JWT_SECRET_KEY, JWT_ALGORITHM
+from settings import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRE_MINUTES
 from models.User import User
 from database.database import AsyncSessionLocal
 from fastapi.security import OAuth2PasswordBearer
 import bcrypt
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
+
+# Constantes para compatibilidad con routers existentes
+SECRET_KEY = JWT_SECRET_KEY
+ALGORITHM = JWT_ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = JWT_EXPIRE_MINUTES
 
 
 def is_password_valid(plain_password: str, hashed_password: str) -> bool:
@@ -24,6 +29,11 @@ def get_password_hash(password: str) -> str:
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
     return hashed.decode("utf-8")
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Alias para compatibilidad - verifica contraseña."""
+    return is_password_valid(plain_password, hashed_password)
 
 
 async def get_user_by_email(email: str) -> Union[User, None]:
@@ -93,3 +103,7 @@ async def check_user_login(
             detail="Inactive user",
         )
     return current_user
+
+
+# Alias para compatibilidad con los routers
+get_current_user = check_user_login

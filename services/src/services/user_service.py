@@ -144,6 +144,100 @@ class UserService:
             )
             return list(result.scalars().all())
 
+    @staticmethod
+    async def update_user_profile(user_id: int, update_data: dict) -> Optional[User]:
+        """
+        Actualizar perfil de usuario.
+
+        Args:
+            user_id: ID del usuario a actualizar
+            update_data: Diccionario con los datos a actualizar
+
+        Returns:
+            User: Usuario actualizado o None si no se encuentra
+        """
+        try:
+            async with AsyncSessionLocal() as session:
+                # Buscar el usuario
+                result = await session.execute(
+                    select(User).where(User.id == user_id, User.is_active)
+                )
+                user = result.scalar_one_or_none()
+
+                if not user:
+                    return None
+
+                # Actualizar solo los campos proporcionados
+                for field, value in update_data.items():
+                    if hasattr(user, field) and value is not None:
+                        setattr(user, field, value)
+
+                await session.commit()
+                await session.refresh(user)
+                return user
+
+        except Exception as e:
+            await session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al actualizar usuario: {str(e)}",
+            )
+
+    @staticmethod
+    async def change_user_password(
+        user_id: int, current_password: str, new_password: str
+    ) -> bool:
+        """
+        Cambiar contraseña de usuario.
+
+        Args:
+            user_id: ID del usuario
+            current_password: Contraseña actual
+            new_password: Nueva contraseña
+
+        Returns:
+            bool: True si se cambió exitosamente
+
+        Raises:
+            HTTPException: Si la contraseña actual es incorrecta
+        """
+        try:
+            async with AsyncSessionLocal() as session:
+                # Buscar el usuario
+                result = await session.execute(
+                    select(User).where(User.id == user_id, User.is_active)
+                )
+                user = result.scalar_one_or_none()
+
+                if not user:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Usuario no encontrado",
+                    )
+
+                # Verificar contraseña actual
+                from auth.auth_utils import verify_password, get_password_hash
+
+                if not verify_password(current_password, user.password_hash):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="La contraseña actual es incorrecta",
+                    )
+
+                # Actualizar contraseña
+                user.password_hash = get_password_hash(new_password)
+                await session.commit()
+                return True
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            await session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al cambiar contraseña: {str(e)}",
+            )
+
 
 # Instancia singleton del servicio
 user_service = UserService()
