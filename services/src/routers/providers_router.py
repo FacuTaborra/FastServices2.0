@@ -6,6 +6,8 @@ Maneja autenticación, registro y gestión de perfiles de proveedores.
 from datetime import timedelta
 from typing import List
 from fastapi import APIRouter, HTTPException, status, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from database.database import get_db
 from models.Token import Token
 from models.ProviderProfile import (
     ProviderRegisterRequest,
@@ -13,7 +15,7 @@ from models.ProviderProfile import (
     ProviderResponse,
     ProviderProfileUpdate,
 )
-from services.provider_service import provider_service
+from controllers.provider_controller import ProviderController
 from auth.auth_utils import (
     authenticate_user,
     create_access_token,
@@ -31,7 +33,9 @@ router = APIRouter(prefix="/providers")
     summary="Registrar nuevo proveedor",
     description="Crea una cuenta de proveedor con perfil completo en el sistema",
 )
-async def register_provider(provider_data: ProviderRegisterRequest):
+async def register_provider(
+    provider_data: ProviderRegisterRequest, db: AsyncSession = Depends(get_db)
+):
     """
     Registrar un nuevo proveedor de servicios.
 
@@ -47,7 +51,7 @@ async def register_provider(provider_data: ProviderRegisterRequest):
         ProviderResponse: Datos completos del proveedor creado
     """
     try:
-        new_provider = await provider_service.create_provider(provider_data)
+        new_provider = await ProviderController.create_provider(db, provider_data)
         return new_provider
     except HTTPException:
         raise
@@ -105,7 +109,9 @@ async def login_provider(login_data: ProviderLoginRequest):
     summary="Obtener perfil del proveedor actual",
     description="Retorna el perfil completo del proveedor autenticado",
 )
-async def get_current_provider_profile(current_user=Depends(get_current_user)):
+async def get_current_provider_profile(
+    current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
     """
     Obtener el perfil completo del proveedor autenticado.
 
@@ -124,7 +130,7 @@ async def get_current_provider_profile(current_user=Depends(get_current_user)):
         )
 
     # Obtener perfil completo
-    provider = await provider_service.get_provider_by_id(current_user.id)
+    provider = await ProviderController.get_provider_by_id(db, current_user.id)
     if not provider:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -141,7 +147,9 @@ async def get_current_provider_profile(current_user=Depends(get_current_user)):
     description="Actualiza la información del perfil del proveedor autenticado",
 )
 async def update_provider_profile(
-    profile_data: ProviderProfileUpdate, current_user=Depends(get_current_user)
+    profile_data: ProviderProfileUpdate,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Actualizar el perfil del proveedor autenticado.
@@ -161,8 +169,8 @@ async def update_provider_profile(
         )
 
     # Actualizar perfil
-    updated_provider = await provider_service.update_provider_profile(
-        current_user.id, profile_data
+    updated_provider = await ProviderController.update_provider_profile(
+        db, current_user.id, profile_data
     )
 
     if not updated_provider:
@@ -180,7 +188,9 @@ async def update_provider_profile(
     summary="Cambiar estado en línea",
     description="Alterna el estado en línea/fuera de línea del proveedor",
 )
-async def toggle_online_status(current_user=Depends(get_current_user)):
+async def toggle_online_status(
+    current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
     """
     Cambiar el estado en línea del proveedor.
 
@@ -198,7 +208,9 @@ async def toggle_online_status(current_user=Depends(get_current_user)):
         )
 
     # Cambiar estado
-    new_status = await provider_service.toggle_provider_online_status(current_user.id)
+    new_status = await ProviderController.toggle_provider_online_status(
+        db, current_user.id
+    )
 
     if new_status is None:
         raise HTTPException(
@@ -219,7 +231,11 @@ async def toggle_online_status(current_user=Depends(get_current_user)):
     description="Encuentra proveedores disponibles en un área específica",
 )
 async def get_nearby_providers(
-    latitude: float, longitude: float, radius_km: int = 20, limit: int = 50
+    latitude: float,
+    longitude: float,
+    radius_km: int = 20,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Buscar proveedores disponibles en un área específica.
@@ -233,7 +249,8 @@ async def get_nearby_providers(
         List[ProviderResponse]: Lista de proveedores disponibles en el área
     """
     try:
-        providers = await provider_service.get_providers_by_radius(
+        providers = await ProviderController.get_providers_by_radius(
+            db=db,
             latitude=latitude,
             longitude=longitude,
             max_distance_km=radius_km,
@@ -255,7 +272,9 @@ async def get_nearby_providers(
     summary="Obtener perfil público de proveedor",
     description="Retorna el perfil público de un proveedor específico",
 )
-async def get_provider_public_profile(provider_id: int):
+async def get_provider_public_profile(
+    provider_id: int, db: AsyncSession = Depends(get_db)
+):
     """
     Obtener el perfil público de un proveedor específico.
 
@@ -264,7 +283,7 @@ async def get_provider_public_profile(provider_id: int):
     Returns:
         ProviderResponse: Perfil público del proveedor
     """
-    provider = await provider_service.get_provider_by_id(provider_id)
+    provider = await ProviderController.get_provider_by_id(db, provider_id)
 
     if not provider:
         raise HTTPException(

@@ -4,7 +4,9 @@ Incluye endpoints para registro, login y operaciones básicas de usuario.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from controllers.user_controller import user_controller
+from sqlalchemy.ext.asyncio import AsyncSession
+from controllers.user_controller import user_controller, UserController
+from database.database import get_db
 from models.Token import Token
 from models.User import (
     User,
@@ -16,7 +18,6 @@ from models.User import (
     ChangePasswordRequest,
 )
 from auth.auth_utils import check_user_login
-from services.user_service import user_service
 
 router = APIRouter(prefix="/users", tags=["clients"])
 
@@ -28,10 +29,12 @@ router = APIRouter(prefix="/users", tags=["clients"])
     summary="Registrar nuevo usuario",
     description="Crea un nuevo usuario en el sistema con rol de cliente por defecto",
 )
-async def register_user(user_data: UserCreate) -> UserResponse:
+async def register_user(
+    user_data: UserCreate, db: AsyncSession = Depends(get_db)
+) -> UserResponse:
     """Endpoint para registrar un nuevo usuario."""
-    user = await user_service.create_user(user_data)
-    return UserResponse.from_orm(user)
+    user = await UserController.create_user(db, user_data)
+    return UserResponse.model_validate(user)
 
 
 @router.post(
@@ -68,7 +71,7 @@ async def login_for_access_token(login_data: LoginRequest) -> Token:
 )
 async def read_me(current_user: User = Depends(check_user_login)) -> UserResponse:
     """Endpoint protegido que retorna la información del usuario actual."""
-    return UserResponse.from_orm(current_user)
+    return UserResponse.model_validate(current_user)
 
 
 @router.get(
@@ -78,11 +81,13 @@ async def read_me(current_user: User = Depends(check_user_login)) -> UserRespons
     description="Obtiene una lista de usuarios con rol de proveedor",
 )
 async def get_providers(
-    limit: int = 50, current_user: User = Depends(check_user_login)
+    limit: int = 50,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
 ) -> list[UserResponse]:
     """Endpoint para obtener lista de proveedores activos."""
-    providers = await user_service.get_users_by_role(UserRole.PROVIDER, limit)
-    return [UserResponse.from_orm(provider) for provider in providers]
+    providers = await UserController.get_users_by_role(db, UserRole.PROVIDER, limit)
+    return [UserResponse.model_validate(provider) for provider in providers]
 
 
 @router.put(
@@ -92,7 +97,9 @@ async def get_providers(
     description="Actualiza la información del perfil del usuario autenticado",
 )
 async def update_user_profile(
-    update_data: UserUpdate, current_user: User = Depends(check_user_login)
+    update_data: UserUpdate,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
 ) -> UserResponse:
     """
     Actualizar el perfil del usuario autenticado.
@@ -111,24 +118,17 @@ async def update_user_profile(
             detail="Acceso denegado: Solo para clientes",
         )
 
-    # Convertir a diccionario excluyendo valores None
-    update_dict = update_data.model_dump(exclude_unset=True)
-
-    if not update_dict:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No se proporcionaron datos para actualizar",
-        )
-
     # Actualizar usuario
-    updated_user = await user_service.update_user_profile(current_user.id, update_dict)
+    updated_user = await UserController.update_user_profile(
+        db, current_user.id, update_data
+    )
 
     if not updated_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado"
         )
 
-    return UserResponse.from_orm(updated_user)
+    return UserResponse.model_validate(updated_user)
 
 
 @router.put(
@@ -137,7 +137,9 @@ async def update_user_profile(
     description="Cambia la contraseña del usuario autenticado",
 )
 async def change_password(
-    password_data: ChangePasswordRequest, current_user: User = Depends(check_user_login)
+    password_data: ChangePasswordRequest,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Cambiar la contraseña del usuario autenticado.
@@ -171,8 +173,8 @@ async def change_password(
         )
 
     # Cambiar contraseña
-    success = await user_service.change_user_password(
-        current_user.id, password_data.current_password, password_data.new_password
+    success = await UserController.change_user_password(
+        db, current_user.id, password_data.current_password, password_data.new_password
     )
 
     if success:

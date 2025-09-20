@@ -21,12 +21,20 @@ from .ProviderProfile import (
     ProviderLoginRequest,
     ProviderResponse,
 )
+from .Address import (
+    Address,
+    AddressCreate,
+    AddressUpdate,
+    AddressResponse,
+    AddressListResponse,
+)
 from .Token import Token
 
 __all__ = [
     # Modelos SQLAlchemy
     "User",
     "ProviderProfile",
+    "Address",
     # Enums
     "UserRole",
     # Modelos Pydantic para User
@@ -43,6 +51,11 @@ __all__ = [
     "ProviderRegisterRequest",
     "ProviderLoginRequest",
     "ProviderResponse",
+    # Modelos Pydantic para Address
+    "AddressCreate",
+    "AddressUpdate",
+    "AddressResponse",
+    "AddressListResponse",
     # Token
     "Token",
 ]

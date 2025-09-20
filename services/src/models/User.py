@@ -50,6 +50,12 @@ class User(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    addresses = relationship(
+        "Address",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="Address.is_default.desc(), Address.created_at.asc()",
+    )
 
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}', role='{self.role}')>"
