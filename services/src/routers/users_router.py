@@ -43,7 +43,9 @@ async def register_user(
     summary="Iniciar sesión",
     description="Autentica un usuario y retorna un token de acceso JWT",
 )
-async def login_for_access_token(login_data: LoginRequest) -> Token:
+async def login_for_access_token(
+    login_data: LoginRequest, db: AsyncSession = Depends(get_db)
+) -> Token:
     """Endpoint de login que acepta JSON con email y password."""
     try:
         # Crear objeto compatible con OAuth2PasswordRequestForm
@@ -55,7 +57,7 @@ async def login_for_access_token(login_data: LoginRequest) -> Token:
                 "password": login_data.password,
             },
         )
-        return await user_controller.authenticate_and_create_token(form_data)
+        return await user_controller.authenticate_and_create_token(db, form_data)
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -107,15 +109,16 @@ async def update_user_profile(
     - **first_name**: Nuevo nombre (opcional)
     - **last_name**: Nuevo apellido (opcional)
     - **phone**: Nuevo teléfono (opcional)
+    - **date_of_birth**: Nueva fecha de nacimiento (opcional)
 
     Returns:
         UserResponse: Perfil actualizado del usuario
     """
-    # Verificar que sea un cliente
-    if current_user.role != "client":
+    # Verificar que sea un cliente o proveedor
+    if current_user.role not in ["client", "provider"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso denegado: Solo para clientes",
+            detail="Acceso denegado: Solo para clientes y proveedores",
         )
 
     # Actualizar usuario

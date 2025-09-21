@@ -5,7 +5,7 @@ Contiene información adicional para usuarios con rol 'provider'.
 
 from typing import Optional
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, date
 from sqlalchemy import (
     Column,
     BigInteger,
@@ -18,7 +18,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from database.database import Base
 
 
@@ -104,6 +104,7 @@ class ProviderRegisterRequest(BaseModel):
     phone: str = Field(
         ..., min_length=8, max_length=30, description="Teléfono del proveedor"
     )
+    date_of_birth: Optional[date] = Field(None, description="Fecha de nacimiento")
     password: str = Field(..., min_length=6, description="Contraseña")
 
     # Datos del perfil
@@ -113,6 +114,18 @@ class ProviderRegisterRequest(BaseModel):
     service_radius_km: Optional[int] = Field(
         10, ge=1, le=100, description="Radio de servicio en kilómetros"
     )
+
+    @field_validator("date_of_birth")
+    @classmethod
+    def validate_age(cls, v):
+        if v is not None:
+            today = date.today()
+            age = today.year - v.year - ((today.month, today.day) < (v.month, v.day))
+            if age < 18:
+                raise ValueError(
+                    "Debes ser mayor de 18 años para registrarte como proveedor"
+                )
+        return v
 
 
 class ProviderLoginRequest(BaseModel):
@@ -133,6 +146,7 @@ class ProviderResponse(BaseModel):
     last_name: str
     email: str
     phone: str
+    date_of_birth: Optional[date]
     role: str
     is_active: bool
     created_at: datetime

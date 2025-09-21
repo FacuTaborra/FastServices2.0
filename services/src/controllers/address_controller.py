@@ -44,7 +44,7 @@ class AddressController:
                     detail="Usuario no encontrado",
                 )
 
-            # Si esta dirección se marca como default, desmarcar las otras
+            # Si la nueva dirección será predeterminada, desmarcamos las demás primero
             if address_data.is_default:
                 await AddressController._unset_default_addresses(db, user_id)
 
@@ -176,12 +176,11 @@ class AddressController:
                     detail="Dirección no encontrada",
                 )
 
-            # Si se marca como default, desmarcar las otras
-            if address_data.is_default:
-                await AddressController._unset_default_addresses(db, user_id)
-
-            # Actualizar los campos proporcionados
+            # Si la dirección será marcada como predeterminada, desmarcamos las demás primero
             update_data = address_data.model_dump(exclude_unset=True)
+
+            if update_data.get("is_default"):
+                await AddressController._unset_default_addresses(db, user_id)
 
             if update_data:
                 update_query = (
@@ -287,6 +286,10 @@ class AddressController:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Dirección no encontrada",
                 )
+
+            # Si ya es la dirección por defecto, no hacer nada
+            if address.is_default:
+                return AddressResponse.model_validate(address)
 
             # Desmarcar todas las direcciones como default
             await AddressController._unset_default_addresses(db, user_id)

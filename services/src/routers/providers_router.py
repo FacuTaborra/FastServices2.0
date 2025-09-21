@@ -68,7 +68,9 @@ async def register_provider(
     summary="Iniciar sesión como proveedor",
     description="Autentica un proveedor y retorna token JWT",
 )
-async def login_provider(login_data: ProviderLoginRequest):
+async def login_provider(
+    login_data: ProviderLoginRequest, db: AsyncSession = Depends(get_db)
+):
     """
     Iniciar sesión como proveedor de servicios.
 
@@ -79,7 +81,7 @@ async def login_provider(login_data: ProviderLoginRequest):
         Token: Token JWT para autenticación en requests posteriores
     """
     # Autenticar usuario
-    user = await authenticate_user(login_data.email, login_data.password)
+    user = await authenticate_user(login_data.email, login_data.password, db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

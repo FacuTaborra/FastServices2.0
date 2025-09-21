@@ -4,16 +4,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
-  Platform,
   Image,
-  ScrollView,
   Modal,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useNavigation } from '@react-navigation/native';
 import styles from './Register.styles';
@@ -27,6 +23,7 @@ export default function Register() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,6 +32,14 @@ export default function Register() {
   const [isProvider, setIsProvider] = useState(false);
   const [bio, setBio] = useState('');
   const [serviceRadius, setServiceRadius] = useState('10');
+
+  // Estados para dirección
+  const [addressTitle, setAddressTitle] = useState('');
+  const [street, setStreet] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [country, setCountry] = useState('Argentina');
 
   const validateForm = () => {
     // Validar campos requeridos
@@ -82,6 +87,39 @@ export default function Register() {
       return false;
     }
 
+    // Validación opcional de fecha de nacimiento
+    if (dateOfBirth && dateOfBirth.length > 0) {
+      if (dateOfBirth.length !== 10) {
+        Alert.alert('Error', 'Por favor ingresa una fecha de nacimiento válida (DD/MM/YYYY)');
+        return false;
+      }
+
+      const [day, month, year] = dateOfBirth.split('/');
+      const parsedDay = parseInt(day);
+      const parsedMonth = parseInt(month);
+      const parsedYear = parseInt(year);
+
+      if (parsedDay < 1 || parsedDay > 31 || parsedMonth < 1 || parsedMonth > 12 || parsedYear < 1900 || parsedYear > new Date().getFullYear()) {
+        Alert.alert('Error', 'Por favor ingresa una fecha de nacimiento válida');
+        return false;
+      }
+
+      // Validar que el usuario sea mayor de 18 años
+      const birthDate = new Date(parsedYear, parsedMonth - 1, parsedDay);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+
+      if (age < 18) {
+        Alert.alert('Error', 'Debes ser mayor de 18 años para registrarte en esta aplicación');
+        return false;
+      }
+    }
+
     // Validación de contraseña
     if (password.length < 6) {
       Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
@@ -108,6 +146,22 @@ export default function Register() {
       }
     }
 
+    // Validaciones para dirección
+    if (!street.trim()) {
+      Alert.alert('Error', 'Por favor ingresa tu dirección');
+      return false;
+    }
+
+    if (!city.trim()) {
+      Alert.alert('Error', 'Por favor ingresa tu ciudad');
+      return false;
+    }
+
+    if (!state.trim()) {
+      Alert.alert('Error', 'Por favor ingresa tu provincia/estado');
+      return false;
+    }
+
     return true;
   };
 
@@ -121,12 +175,22 @@ export default function Register() {
     try {
       console.log('📝 Iniciando registro para:', email);
 
+      // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD para el backend
+      let formattedDateOfBirth = null;
+      if (dateOfBirth && dateOfBirth.length === 10) {
+        const [day, month, year] = dateOfBirth.split('/');
+        if (day && month && year && year.length === 4) {
+          formattedDateOfBirth = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+      }
+
       // Preparar datos para el registro
       const userData = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
         phone: phone.trim(),
+        dateOfBirth: formattedDateOfBirth,
         password: password
       };
 
@@ -153,6 +217,27 @@ export default function Register() {
       const userInfo = await apiService.getCurrentUser();
 
       console.log('✅ Login automático completado para:', userInfo.first_name);
+
+      // Crear dirección después del registro exitoso
+      try {
+        console.log('📍 Creando dirección para el usuario...');
+
+        const addressData = {
+          title: addressTitle.trim(),
+          street: street.trim(),
+          city: city.trim(),
+          state: state.trim(),
+          postal_code: postalCode.trim() || null,
+          country: country.trim(),
+          is_default: true // Primera dirección siempre es por defecto
+        };
+
+        await apiService.createAddress(addressData);
+        console.log('✅ Dirección creada exitosamente');
+      } catch (addressError) {
+        console.error('⚠️ Error creando dirección (no crítico):', addressError);
+        // No bloqueamos el registro por errores de dirección
+      }
 
       // Navegar según el rol del usuario directamente sin alerta
       if (userInfo.role === 'provider') {
@@ -196,13 +281,13 @@ export default function Register() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
       enableOnAndroid
+      extraHeight={120}
+      extraScrollHeight={120}
+      enableAutomaticScroll
+      showsVerticalScrollIndicator={false}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.formContainer}>
           <Image source={fastservicesLogo} style={styles.logo} />
           <Text style={styles.title}>Crear cuenta</Text>
 
@@ -246,6 +331,26 @@ export default function Register() {
 
           <TextInput
             style={styles.input}
+            placeholder="Fecha de nacimiento (DD/MM/YYYY)"
+            value={dateOfBirth}
+            onChangeText={(text) => {
+              // Formatear la entrada como DD/MM/YYYY
+              let formatted = text.replace(/\D/g, ''); // Solo números
+              if (formatted.length >= 2) {
+                formatted = formatted.slice(0, 2) + '/' + formatted.slice(2);
+              }
+              if (formatted.length >= 5) {
+                formatted = formatted.slice(0, 5) + '/' + formatted.slice(5, 9);
+              }
+              setDateOfBirth(formatted);
+            }}
+            keyboardType="numeric"
+            maxLength={10}
+            editable={!loading}
+          />
+
+          <TextInput
+            style={styles.input}
             placeholder="Contraseña"
             value={password}
             onChangeText={setPassword}
@@ -262,21 +367,78 @@ export default function Register() {
             editable={!loading}
           />
 
-          {/* Checkbox para seleccionar si es proveedor */}
-          <TouchableOpacity
-            style={styles.checkboxContainer}
-            onPress={() => setIsProvider(!isProvider)}
-            disabled={loading}
-          >
-            <View style={styles.checkbox}>
-              {isProvider && (
-                <Ionicons name="checkmark" size={18} color="#4A90E2" />
-              )}
-            </View>
-            <Text style={styles.checkboxLabel}>
+          {/* Campos de dirección */}
+          <View style={styles.addressFields}>
+            <Text style={styles.sectionTitle}>Tu Dirección</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Título (ej: Casa, Trabajo)"
+              value={addressTitle}
+              onChangeText={setAddressTitle}
+              autoCapitalize="words"
+              editable={!loading}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Calle y número"
+              value={street}
+              onChangeText={setStreet}
+              autoCapitalize="words"
+              editable={!loading}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Ciudad"
+              value={city}
+              onChangeText={setCity}
+              autoCapitalize="words"
+              editable={!loading}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Provincia/Estado"
+              value={state}
+              onChangeText={setState}
+              autoCapitalize="words"
+              editable={!loading}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Código postal (opcional)"
+              value={postalCode}
+              onChangeText={setPostalCode}
+              keyboardType="numeric"
+              editable={!loading}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="País"
+              value={country}
+              onChangeText={setCountry}
+              autoCapitalize="words"
+              editable={!loading}
+            />
+          </View>
+
+          {/* Switch para seleccionar si es proveedor - MOVIDO DESPUÉS DE DIRECCIÓN */}
+          <View style={styles.providerContainer}>
+            <Text style={styles.providerText}>
               Quiero ofrecer servicios como proveedor
             </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.switch, isProvider && styles.switchActive]}
+              onPress={() => setIsProvider(!isProvider)}
+              disabled={loading}
+            >
+              <View style={[styles.switchThumb, isProvider && styles.switchThumbActive]} />
+            </TouchableOpacity>
+          </View>
 
           {/* Campos adicionales para proveedores */}
           {isProvider && (
@@ -318,6 +480,7 @@ export default function Register() {
           <TouchableOpacity
             onPress={() => navigation.navigate('Login', { animation: 'slide_from_left' })}
             disabled={loading}
+            style={styles.linkContainer}
           >
             <Text style={styles.link}>¿Ya tenés cuenta? Iniciar sesión</Text>
           </TouchableOpacity>
@@ -325,7 +488,7 @@ export default function Register() {
           <Modal visible={loading} transparent animationType="fade">
             <Spinner />
           </Modal>
-        </ScrollView>
+        </View>
       </TouchableWithoutFeedback>
     </KeyboardAwareScrollView>
   );

@@ -28,12 +28,12 @@ class UserController:
         self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
 
     async def authenticate_and_create_token(
-        self, form_data: OAuth2PasswordRequestForm
+        self, db: AsyncSession, form_data: OAuth2PasswordRequestForm
     ) -> Token:
         """
         Autentica un usuario y crea un token JWT.
         """
-        user = await authenticate_user(form_data.username, form_data.password)
+        user = await authenticate_user(form_data.username, form_data.password, db)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -72,6 +72,7 @@ class UserController:
                 last_name=user_data.last_name,
                 email=user_data.email,
                 phone=user_data.phone,
+                date_of_birth=user_data.date_of_birth,
                 password_hash=password_hash,
             )
 

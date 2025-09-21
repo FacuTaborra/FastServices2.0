@@ -12,6 +12,7 @@ CREATE TABLE users (
     last_name       VARCHAR(60)                       NOT NULL,
     email           VARCHAR(120)                      NOT NULL UNIQUE,
     phone           VARCHAR(30)                       NOT NULL UNIQUE,
+    date_of_birth   DATE,
     password_hash   CHAR(60)                          NOT NULL,
     is_active       TINYINT(1)                        NOT NULL DEFAULT 1,
     created_at      TIMESTAMP                         DEFAULT CURRENT_TIMESTAMP,

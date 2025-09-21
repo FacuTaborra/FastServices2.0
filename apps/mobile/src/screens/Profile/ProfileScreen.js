@@ -15,21 +15,6 @@ import styles from './ProfileScreen.styles';
 import apiService from '../../auth/apiService_auth';
 import Spinner from '../../components/Spinner/Spinner';
 
-const initialAddresses = [
-  'Av. Libertador 1001',
-  'Calle San Martín 234',
-  'Boulevard Mitre 456',
-  'Pasaje Los Pinos 789',
-  'Ruta Nacional 8 Km 12',
-  'Calle Belgrano 321',
-  'Av. Rivadavia 654',
-  'Calle Sarmiento 987',
-  'Camino Real 159',
-  'Calle Moreno 753',
-  'Av. Corrientes 852',
-  'Calle Independencia 369',
-];
-
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
@@ -40,15 +25,30 @@ export default function ProfileScreen() {
     last_name: '',
     email: '',
     phone: '',
+    date_of_birth: '',
     created_at: '',
     fullName: '',
-    address: '',
-    birthday: '',
     password: ''
   });
-  const [addresses, setAddresses] = useState(initialAddresses);
+
+  const [dateOfBirth, setDateOfBirth] = useState('');
+
+  // Estados para direcciones
+  const [addresses, setAddresses] = useState([]);
+  const [defaultAddress, setDefaultAddress] = useState(null);
   const [showAddressList, setShowAddressList] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(null);
+
+  // Estados para formulario de dirección
+  const [addressForm, setAddressForm] = useState({
+    title: '',
+    street: '',
+    city: '',
+    state: '',
+    postal_code: '',
+    country: 'Argentina'
+  });
   const [newAddress, setNewAddress] = useState('');
 
   useEffect(() => {
@@ -62,6 +62,7 @@ export default function ProfileScreen() {
 
       const userData = await apiService.getCurrentUser();
       console.log('✅ Perfil del usuario cargado:', userData);
+      console.log('📅 Fecha de nacimiento del backend:', userData.date_of_birth);
 
       setProfile(prevProfile => ({
         ...prevProfile,
@@ -69,12 +70,27 @@ export default function ProfileScreen() {
         last_name: userData.last_name || '',
         email: userData.email || '',
         phone: userData.phone || '',
+        date_of_birth: userData.date_of_birth || '',
         created_at: userData.created_at || '',
         fullName: `${userData.first_name || ''} ${userData.last_name || ''}`.trim(),
-        address: initialAddresses[0], // Por ahora usamos la primera dirección
-        birthday: '', // Campo que el backend no maneja aún
         password: '••••••••' // Placeholder para la contraseña
       }));
+
+      // Cargar la fecha de nacimiento en formato DD/MM/YYYY si existe
+      if (userData.date_of_birth) {
+        console.log('📅 Procesando fecha:', userData.date_of_birth);
+        const date = new Date(userData.date_of_birth);
+        console.log('📅 Objeto Date creado:', date);
+        const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+        console.log('📅 Fecha formateada:', formattedDate);
+        setDateOfBirth(formattedDate);
+      } else {
+        console.log('📅 No hay fecha de nacimiento en el perfil');
+        setDateOfBirth('');
+      }
+
+      // Cargar direcciones del usuario
+      await loadUserAddresses();
 
     } catch (error) {
       console.error('❌ Error cargando perfil:', error);
@@ -82,6 +98,126 @@ export default function ProfileScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadUserAddresses = async () => {
+    try {
+      console.log('📍 Cargando direcciones del usuario...');
+
+      const userAddresses = await apiService.getMyAddresses();
+      setAddresses(userAddresses);
+
+      // Buscar la dirección por defecto
+      const defaultAddr = userAddresses.find(addr => addr.is_default);
+      setDefaultAddress(defaultAddr);
+
+      console.log('✅ Direcciones cargadas:', userAddresses.length);
+    } catch (error) {
+      console.error('❌ Error cargando direcciones:', error);
+      // No mostramos alerta para no interrumpir la carga del perfil
+    }
+  };
+
+  const handleSetDefaultAddress = async (addressId) => {
+    try {
+      console.log('🏠 Estableciendo dirección por defecto:', addressId);
+      await apiService.setDefaultAddress(addressId);
+      await loadUserAddresses(); // Recargar direcciones
+      setShowAddressList(false);
+
+      // Feedback visual más suave
+      const selectedAddress = addresses.find(addr => addr.id === addressId);
+      Alert.alert(
+        '✅ Dirección actualizada',
+        `"${selectedAddress?.title}" es ahora tu dirección por defecto`
+      );
+    } catch (error) {
+      console.error('❌ Error setting default address:', error);
+      Alert.alert('Error', 'No se pudo establecer la dirección por defecto');
+    }
+  };
+
+  const handleEditAddress = (address) => {
+    console.log('✏️ Editando dirección:', address.title);
+    setEditingAddress(address);
+    setAddressForm({
+      title: address.title,
+      street: address.street,
+      city: address.city,
+      state: address.state,
+      postal_code: address.postal_code || '',
+      country: address.country
+    });
+    setShowAddressList(false);
+    setAddModalVisible(true);
+  };
+
+  const handleSaveAddress = async () => {
+    try {
+      // Validaciones mejoradas
+      const requiredFields = ['title', 'street', 'city', 'state'];
+      const missingFields = requiredFields.filter(field => !addressForm[field].trim());
+
+      if (missingFields.length > 0) {
+        const fieldNames = {
+          title: 'Título',
+          street: 'Calle',
+          city: 'Ciudad',
+          state: 'Provincia/Estado'
+        };
+        const missingNames = missingFields.map(field => fieldNames[field]).join(', ');
+        Alert.alert('Campos requeridos', `Por favor completa: ${missingNames}`);
+        return;
+      }
+
+      console.log('💾 Guardando dirección:', addressForm.title);
+
+      if (editingAddress) {
+        // Actualizar dirección existente
+        await apiService.updateAddress(editingAddress.id, addressForm);
+        Alert.alert('✅ Dirección actualizada', 'Los cambios se guardaron correctamente');
+      } else {
+        // Crear nueva dirección
+        await apiService.createAddress(addressForm);
+        Alert.alert('✅ Dirección creada', 'La nueva dirección se agregó correctamente');
+      }
+
+      await loadUserAddresses(); // Recargar direcciones
+      setAddModalVisible(false);
+      setEditingAddress(null);
+
+    } catch (error) {
+      console.error('❌ Error saving address:', error);
+      const action = editingAddress ? 'actualizar' : 'crear';
+      Alert.alert('Error', `No se pudo ${action} la dirección. Inténtalo de nuevo.`);
+    }
+  };
+
+  const handleDeleteAddress = async (addressId) => {
+    const addressToDelete = addresses.find(addr => addr.id === addressId);
+
+    Alert.alert(
+      '🗑️ Eliminar dirección',
+      `¿Estás seguro de que quieres eliminar "${addressToDelete?.title}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🗑️ Eliminando dirección:', addressId);
+              await apiService.deleteAddress(addressId);
+              await loadUserAddresses();
+              Alert.alert('✅ Dirección eliminada', 'La dirección se eliminó correctamente');
+            } catch (error) {
+              console.error('❌ Error deleting address:', error);
+              Alert.alert('Error', 'No se pudo eliminar la dirección');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleUpdateProfile = async () => {
@@ -94,20 +230,46 @@ export default function ProfileScreen() {
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
 
+      // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD para el backend
+      let backendDateOfBirth = null;
+      if (dateOfBirth) {
+        const [day, month, year] = dateOfBirth.split('/');
+        if (day && month && year && day.length === 2 && month.length === 2 && year.length === 4) {
+          // Validar que el usuario sea mayor de 18 años
+          const birthDate = new Date(year, month - 1, day);
+          const today = new Date();
+          let age = today.getFullYear() - birthDate.getFullYear();
+          const monthDiff = today.getMonth() - birthDate.getMonth();
+
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+          }
+
+          if (age < 18) {
+            Alert.alert('Error', 'Debes ser mayor de 18 años para usar esta aplicación');
+            setUpdating(false);
+            return;
+          }
+
+          backendDateOfBirth = `${year}-${month}-${day}`;
+        }
+      }
+
       const updateData = {
         first_name: firstName,
-        last_name: lastName
+        last_name: lastName,
+        date_of_birth: backendDateOfBirth
       };
 
-      await apiService.put('/users/me', updateData);
+      console.log('📤 Datos a enviar:', updateData);
+      console.log('📅 Fecha original:', dateOfBirth);
+      console.log('📅 Fecha convertida:', backendDateOfBirth);
+
+      await apiService.updateUserProfile(updateData);
       console.log('✅ Perfil actualizado exitosamente');
 
-      // Actualizar el estado local
-      setProfile(prev => ({
-        ...prev,
-        first_name: firstName,
-        last_name: lastName
-      }));
+      // Refrescar los datos del perfil desde el servidor
+      await loadUserProfile();
 
       Alert.alert('Éxito', 'Perfil actualizado correctamente');
 
@@ -215,6 +377,28 @@ export default function ProfileScreen() {
           editable={false}
         />
 
+        <Text style={styles.label}>Fecha de nacimiento</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Fecha de nacimiento (DD/MM/YYYY)"
+          placeholderTextColor="#5A5A5A"
+          value={dateOfBirth}
+          onChangeText={(text) => {
+            // Formatear la entrada como DD/MM/YYYY
+            let formatted = text.replace(/\D/g, ''); // Solo números
+            if (formatted.length >= 2) {
+              formatted = formatted.slice(0, 2) + '/' + formatted.slice(2);
+            }
+            if (formatted.length >= 5) {
+              formatted = formatted.slice(0, 5) + '/' + formatted.slice(5, 9);
+            }
+            setDateOfBirth(formatted);
+          }}
+          keyboardType="numeric"
+          maxLength={10}
+          editable={!updating}
+        />
+
         <Text style={styles.label}>Email</Text>
         <TextInput
           style={styles.input}
@@ -225,50 +409,125 @@ export default function ProfileScreen() {
           editable={false}
         />
 
-        <Text style={styles.label}>Direcciones</Text>
-        <TouchableOpacity
-          style={styles.dropdown}
-          onPress={() => setShowAddressList(!showAddressList)}
-        >
-          <Text style={styles.dropdownText}>
-            {profile.address || 'Select options'}
-          </Text>
-          <Ionicons name="chevron-down" size={16} color="#5A5A5A" />
-        </TouchableOpacity>
-        {showAddressList && (
-          <ScrollView style={styles.addressList} nestedScrollEnabled>
-            {addresses.map((addr) => (
+        <View style={styles.addressSection}>
+          <Text style={styles.label}>Direcciones</Text>
+
+          {addresses.length === 0 ? (
+            <View style={styles.emptyAddressContainer}>
+              <Ionicons name="location-outline" size={48} color="#9CA3AF" />
+              <Text style={styles.emptyAddressText}>
+                No tienes direcciones guardadas
+              </Text>
               <TouchableOpacity
-                key={addr}
-                style={styles.addressItem}
+                style={styles.quickAddButton}
                 onPress={() => {
-                  setProfile({ ...profile, address: addr });
-                  setShowAddressList(false);
+                  setEditingAddress(null);
+                  setAddressForm({
+                    title: '',
+                    street: '',
+                    city: '',
+                    state: '',
+                    postal_code: '',
+                    country: 'Argentina'
+                  });
+                  setAddModalVisible(true);
                 }}
               >
-                <Text style={styles.addressItemText}>{addr}</Text>
+                <Ionicons name="add" size={24} color="#3B82F6" />
+                <Text style={styles.quickAddButtonText}>Agregar primera dirección</Text>
               </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={styles.addAddressButton}
-              onPress={() => {
-                setShowAddressList(false);
-                setAddModalVisible(true);
-              }}
-            >
-              <Text style={styles.addAddressButtonText}>Agregar dirección</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        )}
+            </View>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.dropdown}
+                onPress={() => setShowAddressList(!showAddressList)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dropdownText, { fontSize: 12, color: '#6B7280' }]}>
+                    Dirección por defecto
+                  </Text>
+                  <Text style={[styles.dropdownText, { fontWeight: '600', color: '#1F2937' }]}>
+                    {defaultAddress ? defaultAddress.full_address : 'Sin dirección por defecto'}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={showAddressList ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color="#6B7280"
+                />
+              </TouchableOpacity>
 
-        <Text style={styles.label}>Fecha Nacimiento</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Set birthday"
-          placeholderTextColor="#5A5A5A"
-          value={profile.birthday}
-          onChangeText={(text) => setProfile({ ...profile, birthday: text })}
-        />
+              {showAddressList && (
+                <View style={styles.addressList}>
+                  {addresses.map((addr, index) => (
+                    <TouchableOpacity
+                      key={addr.id}
+                      style={[
+                        styles.addressItem,
+                        addr.is_default && styles.defaultAddressItem,
+                        index === addresses.length - 1 && { borderBottomWidth: 0 }
+                      ]}
+                      onPress={() => !addr.is_default && handleSetDefaultAddress(addr.id)}
+                      disabled={addr.is_default}
+                    >
+                      <View style={styles.addressItemContent}>
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: 4
+                        }}>
+                          <Text style={styles.addressItemTitle}>{addr.title}</Text>
+                          {addr.is_default && <Text style={styles.defaultLabel}>Por defecto</Text>}
+                        </View>
+                        <Text style={styles.addressItemText}>{addr.full_address}</Text>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {!addr.is_default && (
+                          <TouchableOpacity
+                            style={styles.setDefaultButton}
+                            onPress={() => handleSetDefaultAddress(addr.id)}
+                          >
+                            <Text style={styles.setDefaultButtonText}>Usar</Text>
+                          </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity
+                          style={styles.editAddressButton}
+                          onPress={() => handleEditAddress(addr)}
+                        >
+                          <Ionicons name="pencil" size={16} color="#6B7280" />
+                        </TouchableOpacity>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+
+                  <TouchableOpacity
+                    style={styles.addAddressButton}
+                    onPress={() => {
+                      setShowAddressList(false);
+                      setEditingAddress(null);
+                      setAddressForm({
+                        title: '',
+                        street: '',
+                        city: '',
+                        state: '',
+                        postal_code: '',
+                        country: 'Argentina'
+                      });
+                      setAddModalVisible(true);
+                    }}
+                  >
+                    <Ionicons name="add" size={20} color="#FFFFFF" />
+                    <Text style={styles.addAddressButtonText}>Agregar nueva dirección</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
+          )}
+        </View>
 
         <Text style={styles.label}>Contraseña</Text>
         <View style={styles.passwordRow}>
@@ -322,29 +581,106 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      <Modal visible={addModalVisible} transparent animationType="fade">
+      <Modal visible={addModalVisible} transparent animationType="slide">
         <View style={styles.modalBackground}>
           <View style={styles.modalBox}>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Nueva dirección"
-              placeholderTextColor="#5A5A5A"
-              value={newAddress}
-              onChangeText={setNewAddress}
-            />
-            <TouchableOpacity
-              style={styles.buttonPrimary}
-              onPress={() => {
-                if (newAddress.trim()) {
-                  setAddresses([...addresses, newAddress]);
-                  setProfile({ ...profile, address: newAddress });
-                  setNewAddress('');
-                }
-                setAddModalVisible(false);
-              }}
-            >
-              <Text style={styles.buttonPrimaryText}>Guardar</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
+              <Ionicons
+                name={editingAddress ? "pencil" : "add-circle"}
+                size={24}
+                color="#4776a6"
+              />
+              <Text style={[styles.modalTitle, { marginBottom: 0, marginLeft: 8 }]}>
+                {editingAddress ? 'Editar Dirección' : 'Nueva Dirección'}
+              </Text>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Título (ej: Casa, Trabajo)"
+                placeholderTextColor="#9CA3AF"
+                value={addressForm.title}
+                onChangeText={(text) => setAddressForm({ ...addressForm, title: text })}
+              />
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Calle y número *"
+                placeholderTextColor="#9CA3AF"
+                value={addressForm.street}
+                onChangeText={(text) => setAddressForm({ ...addressForm, street: text })}
+              />
+
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TextInput
+                  style={[styles.modalInput, { flex: 2 }]}
+                  placeholder="Ciudad *"
+                  placeholderTextColor="#9CA3AF"
+                  value={addressForm.city}
+                  onChangeText={(text) => setAddressForm({ ...addressForm, city: text })}
+                />
+
+                <TextInput
+                  style={[styles.modalInput, { flex: 1 }]}
+                  placeholder="CP"
+                  placeholderTextColor="#9CA3AF"
+                  value={addressForm.postal_code}
+                  onChangeText={(text) => setAddressForm({ ...addressForm, postal_code: text })}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Provincia/Estado *"
+                placeholderTextColor="#9CA3AF"
+                value={addressForm.state}
+                onChangeText={(text) => setAddressForm({ ...addressForm, state: text })}
+              />
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="País"
+                placeholderTextColor="#9CA3AF"
+                value={addressForm.country}
+                onChangeText={(text) => setAddressForm({ ...addressForm, country: text })}
+              />
+            </ScrollView>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.buttonSecondary}
+                onPress={() => {
+                  setAddModalVisible(false);
+                  setEditingAddress(null);
+                }}
+              >
+                <Text style={styles.buttonSecondaryText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.buttonPrimary}
+                onPress={handleSaveAddress}
+              >
+                <Text style={styles.buttonPrimaryText}>
+                  {editingAddress ? 'Actualizar' : 'Guardar'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {editingAddress && (
+              <TouchableOpacity
+                style={[styles.buttonDanger, { marginTop: 8 }]}
+                onPress={() => {
+                  setAddModalVisible(false);
+                  handleDeleteAddress(editingAddress.id);
+                }}
+              >
+                <Ionicons name="trash" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={styles.buttonDangerText}>Eliminar dirección</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>

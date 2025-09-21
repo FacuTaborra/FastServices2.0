@@ -3,9 +3,10 @@ from typing import Union
 from jose import jwt, JWTError
 from fastapi import HTTPException, Depends
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from settings import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRE_MINUTES
 from models.User import User
-from database.database import AsyncSessionLocal
+from database.database import get_db
 from fastapi.security import OAuth2PasswordBearer
 import bcrypt
 
@@ -36,18 +37,17 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return is_password_valid(plain_password, hashed_password)
 
 
-async def get_user_by_email(email: str) -> Union[User, None]:
+async def get_user_by_email(email: str, db: AsyncSession) -> Union[User, None]:
     """Obtiene un usuario de la base de datos por email."""
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(User).where(User.email == email, User.is_active)
-        )
-        return result.scalar_one_or_none()
+    result = await db.execute(select(User).where(User.email == email, User.is_active))
+    return result.scalar_one_or_none()
 
 
-async def authenticate_user(email: str, password: str) -> Union[User, None]:
+async def authenticate_user(
+    email: str, password: str, db: AsyncSession
+) -> Union[User, None]:
     """Autentica un usuario verificando email y password."""
-    user = await get_user_by_email(email)
+    user = await get_user_by_email(email, db)
     if not user or not is_password_valid(password, user.password_hash):
         return None
     return user
@@ -75,7 +75,9 @@ def decode_token(token: str) -> dict:
         )
 
 
-async def get_authenticated_user(token: str = Depends(oauth2_scheme)) -> User:
+async def get_authenticated_user(
+    token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
+) -> User:
     """Obtiene el usuario desde el token JWT."""
     payload = decode_token(token)
     email: str = payload.get("sub")
@@ -84,7 +86,7 @@ async def get_authenticated_user(token: str = Depends(oauth2_scheme)) -> User:
             status_code=401,
             detail="Could not validate credentials",
         )
-    user = await get_user_by_email(email)
+    user = await get_user_by_email(email, db)
     if user is None:
         raise HTTPException(
             status_code=401,

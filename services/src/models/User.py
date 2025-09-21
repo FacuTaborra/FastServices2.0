@@ -3,11 +3,11 @@ Modelo de Usuario para FastServices.
 Define la estructura del usuario y sus esquemas de validación.
 """
 
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
-from sqlalchemy import Column, BigInteger, String, Boolean, DateTime, func
+from sqlalchemy import Column, BigInteger, String, Boolean, DateTime, Date, func
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from database.database import Base
 import enum
 
@@ -36,6 +36,7 @@ class User(Base):
     last_name = Column(String(60), nullable=False)
     email = Column(String(120), nullable=False, unique=True, index=True)
     phone = Column(String(30), nullable=False, unique=True)
+    date_of_birth = Column(Date, nullable=True)
     password_hash = Column(String(60), nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=func.current_timestamp())
@@ -79,7 +80,18 @@ class UserCreate(BaseModel):
     last_name: str = Field(..., min_length=2, max_length=60)
     email: EmailStr
     phone: str = Field(..., min_length=8, max_length=30)
+    date_of_birth: Optional[date] = Field(None, description="Fecha de nacimiento")
     password: str = Field(..., min_length=6)
+
+    @field_validator("date_of_birth")
+    @classmethod
+    def validate_age(cls, v):
+        if v is not None:
+            today = date.today()
+            age = today.year - v.year - ((today.month, today.day) < (v.month, v.day))
+            if age < 18:
+                raise ValueError("Debes ser mayor de 18 años para registrarte")
+        return v
 
 
 class UserResponse(BaseModel):
@@ -91,6 +103,7 @@ class UserResponse(BaseModel):
     last_name: str
     email: str
     phone: str
+    date_of_birth: Optional[date]
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -124,6 +137,17 @@ class UserUpdate(BaseModel):
     phone: Optional[str] = Field(
         None, min_length=8, max_length=30, description="Teléfono del usuario"
     )
+    date_of_birth: Optional[date] = Field(None, description="Fecha de nacimiento")
+
+    @field_validator("date_of_birth")
+    @classmethod
+    def validate_age(cls, v):
+        if v is not None:
+            today = date.today()
+            age = today.year - v.year - ((today.month, today.day) < (v.month, v.day))
+            if age < 18:
+                raise ValueError("Debes ser mayor de 18 años")
+        return v
 
 
 class ChangePasswordRequest(BaseModel):

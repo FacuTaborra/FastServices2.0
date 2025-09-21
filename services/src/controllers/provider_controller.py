@@ -50,6 +50,7 @@ class ProviderController:
                 last_name=provider_data.last_name,
                 email=provider_data.email,
                 phone=provider_data.phone,
+                date_of_birth=provider_data.date_of_birth,
                 password_hash=password_hash,
             )
 

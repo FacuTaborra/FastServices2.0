@@ -118,9 +118,48 @@ class ApiService {
                 throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
 
+            // Para status 204 No Content, no hay cuerpo que parsear
+            if (response.status === 204) {
+                return {};
+            }
+
+            // Solo intentar parsear JSON si hay contenido
+            const contentLength = response.headers.get('content-length');
+            if (contentLength === '0') {
+                return {};
+            }
+
             return await response.json();
         } catch (error) {
             console.error('API DELETE Error:', error);
+            throw error;
+        }
+    }
+
+    // Método PATCH con autenticación
+    async patch(endpoint, data = null, requiresAuth = true) {
+        try {
+            const headers = await this.getHeaders(requiresAuth);
+
+            const requestOptions = {
+                method: 'PATCH',
+                headers,
+            };
+
+            if (data) {
+                requestOptions.body = JSON.stringify(data);
+            }
+
+            const response = await fetch(`${this.baseURL}${this.apiPrefix}${endpoint}`, requestOptions);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('API PATCH Error:', error);
             throw error;
         }
     }
@@ -182,6 +221,7 @@ class ApiService {
                 last_name: userData.lastName,
                 email: userData.email.trim(),
                 phone: userData.phone,
+                date_of_birth: userData.dateOfBirth || null,
                 password: userData.password
             };
 
@@ -206,6 +246,7 @@ class ApiService {
                 last_name: userData.lastName,
                 email: userData.email.trim(),
                 phone: userData.phone,
+                date_of_birth: userData.dateOfBirth || null,
                 password: userData.password,
                 bio: userData.bio || '',
                 service_radius_km: userData.service_radius_km || 10
@@ -227,11 +268,24 @@ class ApiService {
         try {
             console.log('👤 Obteniendo información del usuario actual...');
 
-            const response = await this.get('/users/me', true);
-
-            console.log('✅ Información del usuario obtenida');
-
-            return response;
+            // Primero intentar con el endpoint de usuarios
+            let response;
+            try {
+                response = await this.get('/users/me', true);
+                console.log('✅ Información del usuario obtenida (cliente)');
+                return response;
+            } catch (userError) {
+                // Si falla, intentar con el endpoint de proveedores
+                console.log('🔄 Intentando con endpoint de proveedores...');
+                try {
+                    response = await this.get('/providers/me', true);
+                    console.log('✅ Información del proveedor obtenida');
+                    return response;
+                } catch (providerError) {
+                    console.error('❌ Error obteniendo usuario/proveedor:', providerError.message);
+                    throw providerError;
+                }
+            }
         } catch (error) {
             console.error('❌ Error obteniendo usuario actual:', error.message);
             throw error;
@@ -294,6 +348,95 @@ class ApiService {
             await AsyncStorage.removeItem('user_data'); // Por si guardamos datos del usuario
         } catch (error) {
             console.error('Error limpiando tokens:', error);
+        }
+    }
+
+    // ===== DIRECCIONES =====
+
+    /**
+     * Crear una nueva dirección
+     * @param {Object} addressData - Datos de la dirección
+     * @returns {Promise<Object>} - Dirección creada
+     */
+    async createAddress(addressData) {
+        return await this.post('/addresses/', addressData);
+    }
+
+    /**
+     * Obtener todas las direcciones del usuario
+     * @param {boolean} includeInactive - Incluir direcciones inactivas
+     * @returns {Promise<Array>} - Lista de direcciones
+     */
+    async getMyAddresses(includeInactive = false) {
+        return await this.get(`/addresses/?include_inactive=${includeInactive}`);
+    }
+
+    /**
+     * Obtener la dirección por defecto
+     * @returns {Promise<Object>} - Dirección por defecto
+     */
+    async getDefaultAddress() {
+        try {
+            return await this.get('/addresses/default');
+        } catch (error) {
+            if (error.message.includes('404')) {
+                return null; // No hay dirección por defecto
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Actualizar una dirección
+     * @param {number} addressId - ID de la dirección
+     * @param {Object} addressData - Datos actualizados
+     * @returns {Promise<Object>} - Dirección actualizada
+     */
+    async updateAddress(addressId, addressData) {
+        return await this.put(`/addresses/${addressId}`, addressData);
+    }
+
+    /**
+     * Establecer como dirección por defecto
+     * @param {number} addressId - ID de la dirección
+     * @returns {Promise<Object>} - Dirección actualizada
+     */
+    async setDefaultAddress(addressId) {
+        return await this.patch(`/addresses/${addressId}/set-default`);
+    }
+
+    /**
+     * Eliminar una dirección
+     * @param {number} addressId - ID de la dirección
+     * @returns {Promise<void>}
+     */
+    async deleteAddress(addressId) {
+        return await this.delete(`/addresses/${addressId}`);
+    }
+
+    /**
+     * Actualizar perfil de usuario
+     * @param {Object} updateData - Datos a actualizar
+     * @returns {Promise<Object>} - Usuario actualizado
+     */
+    async updateUserProfile(updateData) {
+        try {
+            console.log('✏️ Actualizando perfil de usuario...');
+
+            // Intentar actualizar usando el endpoint de usuarios (clientes)
+            try {
+                const response = await this.put('/users/me', updateData);
+                console.log('✅ Perfil de cliente actualizado');
+                return response;
+            } catch (userError) {
+                // Si falla, el usuario podría ser un proveedor
+                // Los proveedores usan el mismo endpoint /users/me ahora
+                console.error('❌ Error actualizando perfil:', userError.message);
+                throw userError;
+            }
+        } catch (error) {
+            console.error('❌ Error actualizando perfil de usuario:', error.message);
+            throw error;
         }
     }
 }
