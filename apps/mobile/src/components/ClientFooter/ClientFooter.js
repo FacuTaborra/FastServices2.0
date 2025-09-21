@@ -11,7 +11,7 @@ const Footer = ({ state, navigation }) => {
 
   const colorFor = (name) => (current === name ? '#4776a6' : '#6B7280');
   return (
-    <SafeAreaView style={styles.footerSafeArea}>
+    <SafeAreaView edges={['bottom']} style={styles.footerSafeArea}>
       <View style={styles.footerContainer}>
         <TouchableOpacity
           style={styles.footerButton}

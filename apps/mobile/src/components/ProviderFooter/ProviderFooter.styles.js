@@ -3,13 +3,15 @@ import { StyleSheet } from 'react-native';
 export default StyleSheet.create({
   safeArea: {
     backgroundColor: '#FFFFFF',
+    marginTop: 0,
   },
   container: {
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingVertical: 10,
+    paddingTop: 6,
+    paddingBottom: 2,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
