@@ -17,20 +17,18 @@
             "cwd": "${workspaceFolder}/services/src",
             "envFile": "${workspaceFolder}/.env",
             "justMyCode": false,
-            "console": "externalTerminal",
+            "console": "integratedTerminal",
             "jinja": true
         },
         {
             "name": "Start Expo",
-            "type": "node",
+            "type": "node-terminal",
             "request": "launch",
-            "program": "${workspaceFolder}/apps/mobile/node_modules/@expo/cli/build/bin/cli",
-            "args": [
-                "start"
-            ],
+            "command": "npm run start",
             "cwd": "${workspaceFolder}/apps/mobile",
-            "console": "externalTerminal",
-            "internalConsoleOptions": "neverOpen"
+            "env": {
+                "EXPO_DEVTOOLS_LISTEN_ADDRESS": "0.0.0.0"
+            }
         }
     ],
     "compounds": [
