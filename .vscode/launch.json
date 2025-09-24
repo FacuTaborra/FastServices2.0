@@ -21,10 +21,20 @@
             "jinja": true
         },
         {
-            "name": "Start Expo",
+            "name": "Start Expo (Android)",
             "type": "node-terminal",
             "request": "launch",
             "command": "npm run start",
+            "cwd": "${workspaceFolder}/apps/mobile",
+            "env": {
+                "EXPO_DEVTOOLS_LISTEN_ADDRESS": "0.0.0.0"
+            }
+        },
+        {
+            "name": "Start Expo (iOS)",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "npm run start-tunnel",
             "cwd": "${workspaceFolder}/apps/mobile",
             "env": {
                 "EXPO_DEVTOOLS_LISTEN_ADDRESS": "0.0.0.0"
@@ -33,10 +43,26 @@
     ],
     "compounds": [
         {
+            "name": "Start Full Development (Android)",
+            "configurations": [
+                "Debug FastAPI",
+                "Start Expo (Android)"
+            ],
+            "stopAll": true
+        },
+        {
+            "name": "Start Full Development (iOS)",
+            "configurations": [
+                "Debug FastAPI",
+                "Start Expo (iOS)"
+            ],
+            "stopAll": true
+        },
+        {
             "name": "Start Full Development",
             "configurations": [
                 "Debug FastAPI",
-                "Start Expo"
+                "Start Expo (Android)"
             ],
             "stopAll": true
         }

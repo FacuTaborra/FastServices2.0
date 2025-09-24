@@ -6,8 +6,10 @@
     "start": "expo start --lan",
     "start-tunnel": "expo start --tunnel",
     "start-localhost": "expo start --localhost",
+    "start-auto": "expo start --lan --clear",
+    "start-ios": "expo start --tunnel --ios",
     "android": "expo start --android --lan",
-    "ios": "expo start --ios --lan"
+    "ios": "expo start --ios --tunnel"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
