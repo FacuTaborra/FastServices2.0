@@ -1,29 +1,45 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { URL_SERVER } from '../../settings';
+/**
+ * FACADE DE COMPATIBILIDAD - apiService_auth.js
+ * 
+ * Este archivo mantiene 100% de compatibilidad con el código existente
+ * mientras delega internamente a los nuevos servicios modulares.
+ * 
+ * @deprecated Use los nuevos servicios y hooks en su lugar:
+ * - import * as Auth from '../services/auth.service';
+ * - import { useAuth } from '../hooks/useAuth';
+ * - import { useUsers } from '../hooks/useUsers';
+ * - import { useAddresses } from '../hooks/useAddresses';
+ * - import { useImages } from '../hooks/useImages';
+ */
+
+// Importar los nuevos servicios modulares
+import * as Auth from '../services/auth.service';
+import * as Users from '../services/users.service';
+import * as Addresses from '../services/addresses.service';
+import * as Images from '../services/images.service';
+import { tokenStore } from '../auth/tokenStore';
+import { api } from '../api/http';
 
 class ApiService {
     constructor() {
+        console.warn('⚠️ ApiService es deprecated. Use los nuevos servicios modulares y hooks de React Query.');
+        // Importar URL del archivo de configuración existente para compatibilidad
+        const { URL_SERVER } = require('../../settings');
         this.baseURL = URL_SERVER;
         this.apiPrefix = '/api';
     }
 
-    // Obtener el token del AsyncStorage
+    // ========== MÉTODOS DE COMPATIBILIDAD HTTP ==========
+
+    /** @deprecated Use tokenStore.getAuthHeader() */
     async getAuthToken() {
-        try {
-            const token = await AsyncStorage.getItem('access_token');
-            const tokenType = await AsyncStorage.getItem('token_type');
-            return token ? `${tokenType || 'Bearer'} ${token}` : null;
-        } catch (error) {
-            console.error('Error obteniendo token:', error);
-            return null;
-        }
+        return await tokenStore.getAuthHeader();
     }
 
-    // Headers base para requests
+    /** @deprecated Use api.defaults.headers directamente */
     async getHeaders(includeAuth = true, isFormData = false) {
         const headers = {};
 
-        // Solo agregar Content-Type para JSON, no para FormData
         if (!isFormData) {
             headers['Content-Type'] = 'application/json';
         }
@@ -38,529 +54,211 @@ class ApiService {
         return headers;
     }
 
-    // Método GET con autenticación
+    /** @deprecated Use api.get() directamente */
     async get(endpoint, requiresAuth = true) {
         try {
-            const headers = await this.getHeaders(requiresAuth);
-
-            const response = await fetch(`${this.baseURL}${this.apiPrefix}${endpoint}`, {
-                method: 'GET',
-                headers,
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-
-            return await response.json();
+            const response = await api.get(endpoint);
+            return response;
         } catch (error) {
-            console.error('API GET Error:', error);
-            throw error;
+            throw this._normalizeError(error);
         }
     }
 
-    // Método POST con autenticación
+    /** @deprecated Use api.post() directamente */
     async post(endpoint, data, requiresAuth = true) {
         try {
-            const headers = await this.getHeaders(requiresAuth);
-
-            const response = await fetch(`${this.baseURL}${this.apiPrefix}${endpoint}`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(data),
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-
-            return await response.json();
+            const response = await api.post(endpoint, data);
+            return response;
         } catch (error) {
-            console.error('API POST Error:', error);
-            throw error;
+            throw this._normalizeError(error);
         }
     }
 
-    // Método PUT con autenticación
+    /** @deprecated Use api.put() directamente */
     async put(endpoint, data, requiresAuth = true) {
         try {
-            const headers = await this.getHeaders(requiresAuth);
-
-            const response = await fetch(`${this.baseURL}${this.apiPrefix}${endpoint}`, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify(data),
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-
-            return await response.json();
+            const response = await api.put(endpoint, data);
+            return response;
         } catch (error) {
-            console.error('API PUT Error:', error);
-            throw error;
+            throw this._normalizeError(error);
         }
     }
 
-    // Método DELETE con autenticación
+    /** @deprecated Use api.delete() directamente */
     async delete(endpoint, requiresAuth = true) {
         try {
-            const headers = await this.getHeaders(requiresAuth);
-
-            const response = await fetch(`${this.baseURL}${this.apiPrefix}${endpoint}`, {
-                method: 'DELETE',
-                headers,
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-
-            // Para status 204 No Content, no hay cuerpo que parsear
-            if (response.status === 204) {
-                return {};
-            }
-
-            // Solo intentar parsear JSON si hay contenido
-            const contentLength = response.headers.get('content-length');
-            if (contentLength === '0') {
-                return {};
-            }
-
-            return await response.json();
+            const response = await api.delete(endpoint);
+            return response || {};
         } catch (error) {
-            console.error('API DELETE Error:', error);
-            throw error;
+            throw this._normalizeError(error);
         }
     }
 
-    // Método PATCH con autenticación
+    /** @deprecated Use api.patch() directamente */
     async patch(endpoint, data = null, requiresAuth = true) {
         try {
-            const headers = await this.getHeaders(requiresAuth);
-
-            const requestOptions = {
-                method: 'PATCH',
-                headers,
-            };
-
-            if (data) {
-                requestOptions.body = JSON.stringify(data);
-            }
-
-            const response = await fetch(`${this.baseURL}${this.apiPrefix}${endpoint}`, requestOptions);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-
-            return await response.json();
+            const response = await api.patch(endpoint, data);
+            return response;
         } catch (error) {
-            console.error('API PATCH Error:', error);
-            throw error;
+            throw this._normalizeError(error);
         }
+    }
+
+    // Normalizar errores para mantener compatibilidad
+    _normalizeError(error) {
+        // Crear error compatible con el formato original
+        const originalError = new Error(error.message);
+        originalError.response = {
+            status: error.status,
+            data: error.data,
+        };
+        return originalError;
     }
 
     // ========== MÉTODOS DE AUTENTICACIÓN ==========
 
-    // Login de usuario (clientes y proveedores)
+    /** @deprecated Use Auth.login() o useLogin() hook */
     async login(email, password) {
-        try {
-            console.log('🔐 Intentando login con email:', email);
-
-            const loginData = {
-                email: email.trim(),
-                password: password
-            };
-
-            // Primero intentar login como cliente
-            try {
-                const response = await this.post('/users/login', loginData, false);
-                console.log('✅ Login exitoso como cliente, guardando tokens...');
-
-                // Guardar tokens en AsyncStorage
-                await AsyncStorage.setItem('access_token', response.access_token);
-                await AsyncStorage.setItem('token_type', response.token_type);
-
-                return response;
-            } catch (clientError) {
-                console.log('❌ Login como cliente falló, intentando como proveedor...');
-
-                // Si falla como cliente, intentar como proveedor
-                try {
-                    const response = await this.post('/providers/login', loginData, false);
-                    console.log('✅ Login exitoso como proveedor, guardando tokens...');
-
-                    // Guardar tokens en AsyncStorage
-                    await AsyncStorage.setItem('access_token', response.access_token);
-                    await AsyncStorage.setItem('token_type', response.token_type);
-
-                    return response;
-                } catch (providerError) {
-                    console.error('❌ Login falló en ambos endpoints');
-                    throw new Error('Email o contraseña incorrectos');
-                }
-            }
-        } catch (error) {
-            console.error('❌ Error en login:', error.message);
-            throw error;
-        }
+        return await Auth.login(email, password);
     }
 
-    // Registro de cliente
+    /** @deprecated Use Auth.registerClient() o useRegisterClient() hook */
     async registerClient(userData) {
-        try {
-            console.log('📝 Registrando cliente:', userData.email);
-
-            const registerData = {
-                role: 'client',
-                first_name: userData.firstName,
-                last_name: userData.lastName,
-                email: userData.email.trim(),
-                phone: userData.phone,
-                date_of_birth: userData.dateOfBirth || null,
-                password: userData.password
-            };
-
-            const response = await this.post('/users/register', registerData, false);
-
-            console.log('✅ Cliente registrado exitosamente');
-
-            return response;
-        } catch (error) {
-            console.error('❌ Error en registro:', error.message);
-            throw error;
-        }
+        return await Auth.registerClient(userData);
     }
 
-    // Registro de proveedor
+    /** @deprecated Use Auth.registerProvider() o useRegisterProvider() hook */
     async registerProvider(userData) {
-        try {
-            console.log('📝 Registrando proveedor:', userData.email);
-
-            const registerData = {
-                first_name: userData.firstName,
-                last_name: userData.lastName,
-                email: userData.email.trim(),
-                phone: userData.phone,
-                date_of_birth: userData.dateOfBirth || null,
-                password: userData.password,
-                bio: userData.bio || '',
-                service_radius_km: userData.service_radius_km || 10
-            };
-
-            const response = await this.post('/providers/register', registerData, false);
-
-            console.log('✅ Proveedor registrado exitosamente');
-
-            return response;
-        } catch (error) {
-            console.error('❌ Error en registro de proveedor:', error.message);
-            throw error;
-        }
+        return await Auth.registerProvider(userData);
     }
 
-    // Obtener información del usuario actual
+    /** @deprecated Use Users.getCurrentUser() o useCurrentUser() hook */
     async getCurrentUser() {
-        try {
-            console.log('👤 Obteniendo información del usuario actual...');
-
-            // Primero intentar con el endpoint de usuarios
-            let response;
-            try {
-                response = await this.get('/users/me', true);
-                console.log('✅ Información del usuario obtenida (cliente)');
-                return response;
-            } catch (userError) {
-                // Si falla, intentar con el endpoint de proveedores
-                console.log('🔄 Intentando con endpoint de proveedores...');
-                try {
-                    response = await this.get('/providers/me', true);
-                    console.log('✅ Información del proveedor obtenida');
-                    return response;
-                } catch (providerError) {
-                    console.error('❌ Error obteniendo usuario/proveedor:', providerError.message);
-                    throw providerError;
-                }
-            }
-        } catch (error) {
-            console.error('❌ Error obteniendo usuario actual:', error.message);
-            throw error;
-        }
+        return await Users.getCurrentUser();
     }
 
-    // Verificar si el usuario está autenticado
+    /** @deprecated Use Auth.isAuthenticated() o useIsAuthenticated() hook */
     async isAuthenticated() {
-        try {
-            const token = await AsyncStorage.getItem('access_token');
-            if (!token) {
-                return false;
-            }
-
-            // Intentar obtener información del usuario para verificar que el token es válido
-            await this.getCurrentUser();
-            return true;
-        } catch (error) {
-            console.log('❌ Token inválido, limpiando...');
-            await this.clearTokens();
-            return false;
-        }
+        return await Auth.isAuthenticated();
     }
 
-    // Verificar autenticación y obtener información del usuario
+    /** @deprecated Use Auth.checkAuthAndGetUser() o useAuthCheck() hook */
     async checkAuthAndGetUser() {
-        try {
-            const token = await AsyncStorage.getItem('access_token');
-            if (!token) {
-                return { isAuthenticated: false, user: null };
-            }
-
-            // Intentar obtener información del usuario para verificar que el token es válido
-            const userData = await this.getCurrentUser();
-            return { isAuthenticated: true, user: userData };
-        } catch (error) {
-            console.log('❌ Token inválido, limpiando...');
-            await this.clearTokens();
-            return { isAuthenticated: false, user: null };
-        }
+        return await Auth.checkAuthAndGetUser();
     }
 
-    // Logout - limpiar tokens
+    /** @deprecated Use Auth.logout() o useLogout() hook */
     async logout() {
-        try {
-            console.log('🚪 Cerrando sesión...');
-            await this.clearTokens();
-            console.log('✅ Sesión cerrada');
-        } catch (error) {
-            console.error('❌ Error en logout:', error);
-            throw error;
-        }
+        return await Auth.logout();
     }
 
-    // Limpiar tokens (para logout)
+    /** @deprecated Use tokenStore.clear() */
     async clearTokens() {
-        try {
-            await AsyncStorage.removeItem('access_token');
-            await AsyncStorage.removeItem('token_type');
-            await AsyncStorage.removeItem('user_data'); // Por si guardamos datos del usuario
-        } catch (error) {
-            console.error('Error limpiando tokens:', error);
-        }
+        return await Auth.clearTokens();
     }
 
-    // ===== DIRECCIONES =====
+    // ========== MÉTODOS DE DIRECCIONES ==========
 
-    /**
-     * Crear una nueva dirección
-     * @param {Object} addressData - Datos de la dirección
-     * @returns {Promise<Object>} - Dirección creada
-     */
+    /** @deprecated Use Addresses.createAddress() o useCreateAddress() hook */
     async createAddress(addressData) {
-        return await this.post('/addresses/', addressData);
+        return await Addresses.createAddress(addressData);
     }
 
-    /**
-     * Obtener todas las direcciones del usuario
-     * @param {boolean} includeInactive - Incluir direcciones inactivas
-     * @returns {Promise<Array>} - Lista de direcciones
-     */
+    /** @deprecated Use Addresses.getMyAddresses() o useMyAddresses() hook */
     async getMyAddresses(includeInactive = false) {
-        return await this.get(`/addresses/?include_inactive=${includeInactive}`);
+        return await Addresses.getMyAddresses(includeInactive);
     }
 
-    /**
-     * Obtener la dirección por defecto
-     * @returns {Promise<Object>} - Dirección por defecto
-     */
+    /** @deprecated Use Addresses.getDefaultAddress() o useDefaultAddress() hook */
     async getDefaultAddress() {
-        try {
-            return await this.get('/addresses/default');
-        } catch (error) {
-            if (error.message.includes('404')) {
-                return null; // No hay dirección por defecto
-            }
-            throw error;
-        }
+        return await Addresses.getDefaultAddress();
     }
 
-    /**
-     * Actualizar una dirección
-     * @param {number} addressId - ID de la dirección
-     * @param {Object} addressData - Datos actualizados
-     * @returns {Promise<Object>} - Dirección actualizada
-     */
+    /** @deprecated Use Addresses.updateAddress() o useUpdateAddress() hook */
     async updateAddress(addressId, addressData) {
-        return await this.put(`/addresses/${addressId}`, addressData);
+        return await Addresses.updateAddress(addressId, addressData);
     }
 
-    /**
-     * Establecer como dirección por defecto
-     * @param {number} addressId - ID de la dirección
-     * @returns {Promise<Object>} - Dirección actualizada
-     */
+    /** @deprecated Use Addresses.setDefaultAddress() o useSetDefaultAddress() hook */
     async setDefaultAddress(addressId) {
-        return await this.patch(`/addresses/${addressId}/set-default`);
+        return await Addresses.setDefaultAddress(addressId);
     }
 
-    /**
-     * Eliminar una dirección
-     * @param {number} addressId - ID de la dirección
-     * @returns {Promise<void>}
-     */
+    /** @deprecated Use Addresses.deleteAddress() o useDeleteAddress() hook */
     async deleteAddress(addressId) {
-        return await this.delete(`/addresses/${addressId}`);
+        return await Addresses.deleteAddress(addressId);
     }
 
-    /**
-     * Actualizar perfil de usuario
-     * @param {Object} updateData - Datos a actualizar
-     * @returns {Promise<Object>} - Usuario actualizado
-     */
+    // ========== MÉTODOS DE USUARIOS ==========
+
+    /** @deprecated Use Users.updateUserProfile() o useUpdateUserProfile() hook */
     async updateUserProfile(updateData) {
-        try {
-            console.log('✏️ Actualizando perfil de usuario...');
-
-            // Intentar actualizar usando el endpoint de usuarios (clientes)
-            try {
-                const response = await this.put('/users/me', updateData);
-                console.log('✅ Perfil de cliente actualizado');
-                return response;
-            } catch (userError) {
-                // Si falla, el usuario podría ser un proveedor
-                // Los proveedores usan el mismo endpoint /users/me ahora
-                console.error('❌ Error actualizando perfil:', userError.message);
-                throw userError;
-            }
-        } catch (error) {
-            console.error('❌ Error actualizando perfil de usuario:', error.message);
-            throw error;
-        }
+        return await Users.updateUserProfile(updateData);
     }
 
-    /**
-     * Subir imagen de perfil a S3
-     * @param {FormData} formData - FormData con la imagen
-     * @returns {Promise<Object>} - Respuesta del servidor con s3_key y public_url
-     */
-    async uploadProfileImage(formData) {
-        try {
-            console.log('📤 Subiendo imagen de perfil a S3...');
-            console.log('📋 FormData keys:', Array.from(formData.keys()));
-
-            const headers = await this.getHeaders(true, true); // isFormData = true
-
-            // Para React Native con FormData, eliminar headers que pueden causar problemas
-            delete headers['Content-Length'];
-            delete headers['Content-Type']; // Dejar que React Native lo maneje automáticamente
-
-            console.log('🔧 Headers finales:', headers);
-            console.log('🌐 URL:', `${this.baseURL}${this.apiPrefix}/images/upload-profile`);
-
-            const response = await fetch(`${this.baseURL}${this.apiPrefix}/images/upload-profile`, {
-                method: 'POST',
-                headers,
-                body: formData,
-            });
-
-            console.log('📡 Respuesta recibida:', response.status, response.statusText); if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-
-            const result = await response.json();
-            console.log('✅ Imagen de perfil subida a S3 exitosamente:', result.s3_key);
-            return result;
-
-        } catch (error) {
-            console.error('❌ Error subiendo imagen de perfil:', error.message);
-            throw error;
-        }
-    }
-
-    /**
-     * Actualizar perfil de usuario con imagen
-     * @param {Object} imageData - Datos de la imagen (s3_key, public_url)
-     * @returns {Promise<Object>} - Usuario actualizado
-     */
+    /** @deprecated Use Users.updateProfileImage() o useUpdateProfileImage() hook */
     async updateProfileImage(imageData) {
-        try {
-            console.log('🔄 Actualizando perfil con imagen...', imageData.s3_key);
-
-            const response = await this.put('/users/update-profile-image', imageData);
-            console.log('✅ Perfil actualizado con imagen exitosamente');
-            return response;
-
-        } catch (error) {
-            console.error('❌ Error actualizando perfil con imagen:', error.message);
-            throw error;
-        }
+        return await Users.updateProfileImage(imageData);
     }
 
-    /**
-     * Eliminar imagen de perfil
-     * @param {string} s3Key - Clave S3 de la imagen
-     * @returns {Promise<Object>} - Respuesta del servidor
-     */
+    // ========== MÉTODOS DE IMÁGENES ==========
+
+    /** @deprecated Use Images.uploadProfileImage() o useUploadProfileImage() hook */
+    async uploadProfileImage(formData) {
+        return await Images.uploadProfileImage(formData);
+    }
+
+    /** @deprecated Use Images.deleteProfileImage() o useDeleteProfileImage() hook */
     async deleteProfileImage(s3Key) {
-        try {
-            console.log('🗑️ Eliminando imagen de perfil:', s3Key);
-
-            const headers = await this.getHeaders(true);
-
-            const response = await fetch(`${this.baseURL}${this.apiPrefix}/images/${encodeURIComponent(s3Key)}`, {
-                method: 'DELETE',
-                headers,
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-
-            const result = await response.json();
-            console.log('✅ Imagen eliminada exitosamente');
-            return result;
-
-        } catch (error) {
-            console.error('❌ Error eliminando imagen:', error.message);
-            throw error;
-        }
+        return await Images.deleteProfileImage(s3Key);
     }
 
-    // Eliminar completamente la imagen de perfil (S3 + Base de datos)
+    /** @deprecated Use Images.deleteCompleteProfileImage() o useDeleteCompleteProfileImage() hook */
     async deleteCompleteProfileImage() {
-        try {
-            console.log('🗑️ Eliminando imagen de perfil completamente...');
-
-            const headers = await this.getHeaders();
-
-            const response = await fetch(`${this.baseURL}${this.apiPrefix}/users/delete-profile-image`, {
-                method: 'DELETE',
-                headers,
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-
-            const result = await response.json();
-            console.log('✅ Imagen de perfil eliminada completamente');
-            return result;
-
-        } catch (error) {
-            console.error('❌ Error eliminando imagen de perfil:', error.message);
-            throw error;
-        }
+        return await Images.deleteCompleteProfileImage();
     }
 }
 
-// Exportar una instancia singleton
+// ========== INSTANCIA SINGLETON PARA COMPATIBILIDAD ==========
+
+/**
+ * @deprecated Esta instancia singleton se mantiene solo para compatibilidad.
+ * Use los nuevos servicios modulares y hooks de React Query:
+ * 
+ * // Autenticación
+ * import { useAuth, useLogin, useLogout } from '../hooks/useAuth';
+ * 
+ * // Usuarios
+ * import { useUsers, useCurrentUser } from '../hooks/useUsers';
+ * 
+ * // Direcciones  
+ * import { useAddresses, useMyAddresses } from '../hooks/useAddresses';
+ * 
+ * // Imágenes
+ * import { useImages, useUploadProfileImage } from '../hooks/useImages';
+ * 
+ * // O servicios directos si necesario:
+ * import * as Auth from '../services/auth.service';
+ * import * as Users from '../services/users.service';
+ * import * as Addresses from '../services/addresses.service';
+ * import * as Images from '../services/images.service';
+ */
 const apiService = new ApiService();
+
+// Exportar instancia singleton (compatibilidad)
 export default apiService;
+
+// También exportar funciones directas para migración gradual
+export {
+    // Servicios modulares
+    Auth,
+    Users,
+    Addresses,
+    Images,
+
+    // Token store
+    tokenStore,
+
+    // HTTP client
+    api,
+};
