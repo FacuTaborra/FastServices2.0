@@ -20,10 +20,13 @@ class ApiService {
     }
 
     // Headers base para requests
-    async getHeaders(includeAuth = true) {
-        const headers = {
-            'Content-Type': 'application/json',
-        };
+    async getHeaders(includeAuth = true, isFormData = false) {
+        const headers = {};
+
+        // Solo agregar Content-Type para JSON, no para FormData
+        if (!isFormData) {
+            headers['Content-Type'] = 'application/json';
+        }
 
         if (includeAuth) {
             const authToken = await this.getAuthToken();
@@ -436,6 +439,123 @@ class ApiService {
             }
         } catch (error) {
             console.error('❌ Error actualizando perfil de usuario:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Subir imagen de perfil a S3
+     * @param {FormData} formData - FormData con la imagen
+     * @returns {Promise<Object>} - Respuesta del servidor con s3_key y public_url
+     */
+    async uploadProfileImage(formData) {
+        try {
+            console.log('📤 Subiendo imagen de perfil a S3...');
+            console.log('📋 FormData keys:', Array.from(formData.keys()));
+
+            const headers = await this.getHeaders(true, true); // isFormData = true
+
+            // Para React Native con FormData, eliminar headers que pueden causar problemas
+            delete headers['Content-Length'];
+            delete headers['Content-Type']; // Dejar que React Native lo maneje automáticamente
+
+            console.log('🔧 Headers finales:', headers);
+            console.log('🌐 URL:', `${this.baseURL}${this.apiPrefix}/images/upload-profile`);
+
+            const response = await fetch(`${this.baseURL}${this.apiPrefix}/images/upload-profile`, {
+                method: 'POST',
+                headers,
+                body: formData,
+            });
+
+            console.log('📡 Respuesta recibida:', response.status, response.statusText); if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const result = await response.json();
+            console.log('✅ Imagen de perfil subida a S3 exitosamente:', result.s3_key);
+            return result;
+
+        } catch (error) {
+            console.error('❌ Error subiendo imagen de perfil:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Actualizar perfil de usuario con imagen
+     * @param {Object} imageData - Datos de la imagen (s3_key, public_url)
+     * @returns {Promise<Object>} - Usuario actualizado
+     */
+    async updateProfileImage(imageData) {
+        try {
+            console.log('🔄 Actualizando perfil con imagen...', imageData.s3_key);
+
+            const response = await this.put('/users/update-profile-image', imageData);
+            console.log('✅ Perfil actualizado con imagen exitosamente');
+            return response;
+
+        } catch (error) {
+            console.error('❌ Error actualizando perfil con imagen:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Eliminar imagen de perfil
+     * @param {string} s3Key - Clave S3 de la imagen
+     * @returns {Promise<Object>} - Respuesta del servidor
+     */
+    async deleteProfileImage(s3Key) {
+        try {
+            console.log('🗑️ Eliminando imagen de perfil:', s3Key);
+
+            const headers = await this.getHeaders(true);
+
+            const response = await fetch(`${this.baseURL}${this.apiPrefix}/images/${encodeURIComponent(s3Key)}`, {
+                method: 'DELETE',
+                headers,
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const result = await response.json();
+            console.log('✅ Imagen eliminada exitosamente');
+            return result;
+
+        } catch (error) {
+            console.error('❌ Error eliminando imagen:', error.message);
+            throw error;
+        }
+    }
+
+    // Eliminar completamente la imagen de perfil (S3 + Base de datos)
+    async deleteCompleteProfileImage() {
+        try {
+            console.log('🗑️ Eliminando imagen de perfil completamente...');
+
+            const headers = await this.getHeaders();
+
+            const response = await fetch(`${this.baseURL}${this.apiPrefix}/users/delete-profile-image`, {
+                method: 'DELETE',
+                headers,
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const result = await response.json();
+            console.log('✅ Imagen de perfil eliminada completamente');
+            return result;
+
+        } catch (error) {
+            console.error('❌ Error eliminando imagen de perfil:', error.message);
             throw error;
         }
     }

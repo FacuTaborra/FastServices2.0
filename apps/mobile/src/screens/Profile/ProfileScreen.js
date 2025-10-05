@@ -6,20 +6,28 @@ import {
   TouchableOpacity,
   Image,
   Modal,
-  ScrollView,
-  Alert
+  ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import styles from './ProfileScreen.styles';
-import apiService from '../../auth/apiService_auth';
 import Spinner from '../../components/Spinner/Spinner';
+
+// Importar handlers
+import { profileImageHandler } from './handlers/ProfileImageHandler';
+import { addressHandler } from './handlers/AddressHandler';
+import { profileHandler } from './handlers/ProfileHandler';
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Estado para imagen de perfil
+  const [profileImage, setProfileImage] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const [profile, setProfile] = useState({
     first_name: '',
     last_name: '',
@@ -49,283 +57,109 @@ export default function ProfileScreen() {
     postal_code: '',
     country: 'Argentina'
   });
-  const [newAddress, setNewAddress] = useState('');
 
   useEffect(() => {
+    initializeHandlers();
     loadUserProfile();
   }, []);
+
+  // Configurar callbacks de los handlers
+  const initializeHandlers = () => {
+    // Configurar handler de imagen de perfil
+    profileImageHandler.setCallbacks({
+      onImageUpdate: setProfileImage,
+      onUploadStart: () => setUploadingImage(true),
+      onUploadEnd: () => setUploadingImage(false),
+      onImageUploadSuccess: () => {
+        // Recargar perfil completo después de subir imagen exitosamente
+        console.log('🔄 Recargando perfil después de actualizar imagen...');
+        profileHandler.loadUserProfile();
+      }
+    });
+
+    // Configurar handler de direcciones
+    addressHandler.setCallbacks({
+      onAddressesUpdate: (userAddresses, defaultAddr) => {
+        setAddresses(userAddresses);
+        setDefaultAddress(defaultAddr);
+      }
+    });
+
+    // Configurar handler de perfil
+    profileHandler.setCallbacks({
+      onProfileUpdate: (profileData, formattedDateOfBirth) => {
+        setProfile(profileData);
+        setDateOfBirth(formattedDateOfBirth);
+        // Actualizar la imagen de perfil desde el backend
+        setProfileImage(profileData.profile_image_url);
+      }
+    });
+  };
 
   const loadUserProfile = async () => {
     try {
       setLoading(true);
-      console.log('🔍 Cargando perfil del usuario...');
 
-      const userData = await apiService.getCurrentUser();
-      console.log('✅ Perfil del usuario cargado:', userData);
-      console.log('📅 Fecha de nacimiento del backend:', userData.date_of_birth);
-
-      setProfile(prevProfile => ({
-        ...prevProfile,
-        first_name: userData.first_name || '',
-        last_name: userData.last_name || '',
-        email: userData.email || '',
-        phone: userData.phone || '',
-        date_of_birth: userData.date_of_birth || '',
-        created_at: userData.created_at || '',
-        fullName: `${userData.first_name || ''} ${userData.last_name || ''}`.trim(),
-        password: '••••••••' // Placeholder para la contraseña
-      }));
-
-      // Cargar la fecha de nacimiento en formato DD/MM/YYYY si existe
-      if (userData.date_of_birth) {
-        console.log('📅 Procesando fecha:', userData.date_of_birth);
-        const date = new Date(userData.date_of_birth);
-        console.log('📅 Objeto Date creado:', date);
-        const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
-        console.log('📅 Fecha formateada:', formattedDate);
-        setDateOfBirth(formattedDate);
-      } else {
-        console.log('📅 No hay fecha de nacimiento en el perfil');
-        setDateOfBirth('');
-      }
+      // Cargar perfil del usuario
+      await profileHandler.loadUserProfile();
 
       // Cargar direcciones del usuario
-      await loadUserAddresses();
+      await addressHandler.loadUserAddresses();
 
     } catch (error) {
-      console.error('❌ Error cargando perfil:', error);
-      Alert.alert('Error', 'No se pudo cargar el perfil del usuario');
+      // Error ya manejado en el handler
     } finally {
       setLoading(false);
     }
   };
 
-  const loadUserAddresses = async () => {
-    try {
-      console.log('📍 Cargando direcciones del usuario...');
-
-      const userAddresses = await apiService.getMyAddresses();
-      setAddresses(userAddresses);
-
-      // Buscar la dirección por defecto
-      const defaultAddr = userAddresses.find(addr => addr.is_default);
-      setDefaultAddress(defaultAddr);
-
-      console.log('✅ Direcciones cargadas:', userAddresses.length);
-    } catch (error) {
-      console.error('❌ Error cargando direcciones:', error);
-      // No mostramos alerta para no interrumpir la carga del perfil
-    }
-  };
-
+  // Funciones de manejo de direcciones usando AddressHandler
   const handleSetDefaultAddress = async (addressId) => {
-    try {
-      console.log('🏠 Estableciendo dirección por defecto:', addressId);
-      await apiService.setDefaultAddress(addressId);
-      await loadUserAddresses(); // Recargar direcciones
-      setShowAddressList(false);
-
-      // Feedback visual más suave
-      const selectedAddress = addresses.find(addr => addr.id === addressId);
-      Alert.alert(
-        '✅ Dirección actualizada',
-        `"${selectedAddress?.title}" es ahora tu dirección por defecto`
-      );
-    } catch (error) {
-      console.error('❌ Error setting default address:', error);
-      Alert.alert('Error', 'No se pudo establecer la dirección por defecto');
-    }
+    await addressHandler.setDefaultAddress(addressId, addresses);
+    setShowAddressList(false);
   };
 
   const handleEditAddress = (address) => {
     console.log('✏️ Editando dirección:', address.title);
     setEditingAddress(address);
-    setAddressForm({
-      title: address.title,
-      street: address.street,
-      city: address.city,
-      state: address.state,
-      postal_code: address.postal_code || '',
-      country: address.country
-    });
+    setAddressForm(addressHandler.createFormFromAddress(address));
     setShowAddressList(false);
     setAddModalVisible(true);
   };
 
   const handleSaveAddress = async () => {
-    try {
-      // Validaciones mejoradas
-      const requiredFields = ['title', 'street', 'city', 'state'];
-      const missingFields = requiredFields.filter(field => !addressForm[field].trim());
-
-      if (missingFields.length > 0) {
-        const fieldNames = {
-          title: 'Título',
-          street: 'Calle',
-          city: 'Ciudad',
-          state: 'Provincia/Estado'
-        };
-        const missingNames = missingFields.map(field => fieldNames[field]).join(', ');
-        Alert.alert('Campos requeridos', `Por favor completa: ${missingNames}`);
-        return;
-      }
-
-      console.log('💾 Guardando dirección:', addressForm.title);
-
-      if (editingAddress) {
-        // Actualizar dirección existente
-        await apiService.updateAddress(editingAddress.id, addressForm);
-        Alert.alert('✅ Dirección actualizada', 'Los cambios se guardaron correctamente');
-      } else {
-        // Crear nueva dirección
-        await apiService.createAddress(addressForm);
-        Alert.alert('✅ Dirección creada', 'La nueva dirección se agregó correctamente');
-      }
-
-      await loadUserAddresses(); // Recargar direcciones
+    const success = await addressHandler.saveAddress(addressForm, editingAddress);
+    if (success) {
       setAddModalVisible(false);
       setEditingAddress(null);
-
-    } catch (error) {
-      console.error('❌ Error saving address:', error);
-      const action = editingAddress ? 'actualizar' : 'crear';
-      Alert.alert('Error', `No se pudo ${action} la dirección. Inténtalo de nuevo.`);
     }
   };
 
   const handleDeleteAddress = async (addressId) => {
-    const addressToDelete = addresses.find(addr => addr.id === addressId);
-
-    Alert.alert(
-      '🗑️ Eliminar dirección',
-      `¿Estás seguro de que quieres eliminar "${addressToDelete?.title}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('🗑️ Eliminando dirección:', addressId);
-              await apiService.deleteAddress(addressId);
-              await loadUserAddresses();
-              Alert.alert('✅ Dirección eliminada', 'La dirección se eliminó correctamente');
-            } catch (error) {
-              console.error('❌ Error deleting address:', error);
-              Alert.alert('Error', 'No se pudo eliminar la dirección');
-            }
-          }
-        }
-      ]
-    );
+    const success = await addressHandler.deleteAddress(addressId, addresses);
+    if (success) {
+      setAddModalVisible(false);
+    }
   };
 
+  // Función de actualización de perfil usando ProfileHandler
   const handleUpdateProfile = async () => {
     try {
       setUpdating(true);
-      console.log('🔄 Actualizando perfil del usuario...');
+      const success = await profileHandler.updateUserProfile(profile.fullName, dateOfBirth);
 
-      // Separar el nombre completo en nombre y apellido
-      const nameParts = profile.fullName.trim().split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-
-      // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD para el backend
-      let backendDateOfBirth = null;
-      if (dateOfBirth) {
-        const [day, month, year] = dateOfBirth.split('/');
-        if (day && month && year && day.length === 2 && month.length === 2 && year.length === 4) {
-          // Validar que el usuario sea mayor de 18 años
-          const birthDate = new Date(year, month - 1, day);
-          const today = new Date();
-          let age = today.getFullYear() - birthDate.getFullYear();
-          const monthDiff = today.getMonth() - birthDate.getMonth();
-
-          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-          }
-
-          if (age < 18) {
-            Alert.alert('Error', 'Debes ser mayor de 18 años para usar esta aplicación');
-            setUpdating(false);
-            return;
-          }
-
-          backendDateOfBirth = `${year}-${month}-${day}`;
-        }
+      if (success) {
+        // Refrescar los datos del perfil desde el servidor
+        await loadUserProfile();
       }
-
-      const updateData = {
-        first_name: firstName,
-        last_name: lastName,
-        date_of_birth: backendDateOfBirth
-      };
-
-      console.log('📤 Datos a enviar:', updateData);
-      console.log('📅 Fecha original:', dateOfBirth);
-      console.log('📅 Fecha convertida:', backendDateOfBirth);
-
-      await apiService.updateUserProfile(updateData);
-      console.log('✅ Perfil actualizado exitosamente');
-
-      // Refrescar los datos del perfil desde el servidor
-      await loadUserProfile();
-
-      Alert.alert('Éxito', 'Perfil actualizado correctamente');
-
-    } catch (error) {
-      console.error('❌ Error actualizando perfil:', error);
-      Alert.alert('Error', 'No se pudo actualizar el perfil');
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro que quieres cerrar sesión?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel'
-        },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('🚪 Cerrando sesión...');
-              await apiService.logout();
-              console.log('✅ Sesión cerrada');
-
-              // Navegar al login y resetear el stack
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-              });
-            } catch (error) {
-              console.error('❌ Error cerrando sesión:', error);
-              Alert.alert('Error', 'No se pudo cerrar la sesión');
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'No disponible';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch {
-      return 'Fecha inválida';
-    }
+  // Función de logout usando ProfileHandler
+  const handleLogout = async () => {
+    await profileHandler.handleLogout(navigation);
   };
 
   if (loading) {
@@ -350,12 +184,31 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.avatarContainer}>
-          <Image
-            source={{ uri: 'https://dthezntil550i.cloudfront.net/f4/latest/f41908291942413280009640715/1280_960/1b2d9510-d66d-43a2-971a-cfcbb600e7fe.png' }}
-            style={styles.avatar}
-          />
-          <TouchableOpacity style={styles.editIconWrapper}>
-            <Ionicons name="pencil" size={14} color="#FFFFFF" />
+          {uploadingImage ? (
+            <View style={[styles.avatar, { justifyContent: 'center', alignItems: 'center' }]}>
+              <Spinner />
+            </View>
+          ) : (
+            <Image
+              source={{
+                uri: profileImage || 'https://dthezntil550i.cloudfront.net/f4/latest/f41908291942413280009640715/1280_960/1b2d9510-d66d-43a2-971a-cfcbb600e7fe.png'
+              }}
+              style={styles.avatar}
+            />
+          )}
+          <TouchableOpacity
+            style={styles.editIconWrapper}
+            onPress={() => profileImageHandler.showImagePickerOptionsWithDelete(
+              !!profile.profile_image_url,
+              profile.profile_image_s3_key
+            )}
+            disabled={uploadingImage}
+          >
+            {uploadingImage ? (
+              <Ionicons name="hourglass" size={14} color="#FFFFFF" />
+            ) : (
+              <Ionicons name="camera" size={14} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
         </View>
         <Text style={styles.label}>Nombre Completo</Text>
@@ -422,14 +275,7 @@ export default function ProfileScreen() {
                 style={styles.quickAddButton}
                 onPress={() => {
                   setEditingAddress(null);
-                  setAddressForm({
-                    title: '',
-                    street: '',
-                    city: '',
-                    state: '',
-                    postal_code: '',
-                    country: 'Argentina'
-                  });
+                  setAddressForm(addressHandler.createEmptyForm());
                   setAddModalVisible(true);
                 }}
               >
@@ -509,14 +355,7 @@ export default function ProfileScreen() {
                     onPress={() => {
                       setShowAddressList(false);
                       setEditingAddress(null);
-                      setAddressForm({
-                        title: '',
-                        street: '',
-                        city: '',
-                        state: '',
-                        postal_code: '',
-                        country: 'Argentina'
-                      });
+                      setAddressForm(addressHandler.createEmptyForm());
                       setAddModalVisible(true);
                     }}
                   >
@@ -551,7 +390,7 @@ export default function ProfileScreen() {
 
         <Text style={styles.label}>Miembro desde</Text>
         <View style={styles.infoContainer}>
-          <Text style={styles.infoText}>{formatDate(profile.created_at)}</Text>
+          <Text style={styles.infoText}>{profileHandler.formatDateForInfo(profile.created_at)}</Text>
         </View>
 
         <TouchableOpacity

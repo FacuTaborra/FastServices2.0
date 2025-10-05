@@ -33,6 +33,16 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 # Debug mode (solo para desarrollo)
 DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
 
+# Configuración MinIO S3
+S3_ENDPOINT = os.getenv("S3_ENDPOINT")
+S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY")
+S3_SECRET_KEY = os.getenv("S3_SECRET_KEY")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+S3_REGION = os.getenv("S3_REGION", "us-east-1")
+
+# URL pública base para las imágenes
+S3_PUBLIC_URL_BASE = os.getenv("S3_PUBLIC_URL_BASE", f"{S3_ENDPOINT}/{S3_BUCKET_NAME}")
+
 # Mostrar configuración en modo debug
 if DEBUG_MODE:
     print("🔧 Configuración de FastServices:")
@@ -41,4 +51,6 @@ if DEBUG_MODE:
     print(f"   User: {DB_USER}")
     print(f"   JWT Expire: {JWT_EXPIRE_MINUTES} minutos")
     print(f"   Log Level: {LOG_LEVEL}")
+    print(f"   S3 Endpoint: {S3_ENDPOINT}")
+    print(f"   S3 Bucket: {S3_BUCKET_NAME}")
     print(f"   Connection String: {CONNECTION_STRING}")

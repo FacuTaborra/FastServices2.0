@@ -39,6 +39,18 @@ class User(Base):
     date_of_birth = Column(Date, nullable=True)
     password_hash = Column(String(60), nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
+
+    # Campos para imagen de perfil (integración con S3)
+    profile_image_s3_key = Column(
+        String(255), nullable=True, comment="Clave S3 de la imagen de perfil"
+    )
+    profile_image_url = Column(
+        String(500), nullable=True, comment="URL pública de la imagen de perfil"
+    )
+    profile_image_uploaded_at = Column(
+        DateTime, nullable=True, comment="Fecha de subida de la imagen"
+    )
+
     created_at = Column(DateTime, default=func.current_timestamp())
     updated_at = Column(
         DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp()
@@ -105,6 +117,12 @@ class UserResponse(BaseModel):
     phone: str
     date_of_birth: Optional[date]
     is_active: bool
+
+    # Campos de imagen de perfil
+    profile_image_s3_key: Optional[str]
+    profile_image_url: Optional[str]
+    profile_image_uploaded_at: Optional[datetime]
+
     created_at: datetime
     updated_at: datetime
 
@@ -138,6 +156,17 @@ class UserUpdate(BaseModel):
         None, min_length=8, max_length=30, description="Teléfono del usuario"
     )
     date_of_birth: Optional[date] = Field(None, description="Fecha de nacimiento")
+
+    # Campos de imagen de perfil
+    profile_image_s3_key: Optional[str] = Field(
+        None, description="Clave S3 de imagen de perfil"
+    )
+    profile_image_url: Optional[str] = Field(
+        None, description="URL pública de imagen de perfil"
+    )
+    profile_image_uploaded_at: Optional[datetime] = Field(
+        None, description="Fecha de subida de imagen"
+    )
 
     @field_validator("date_of_birth")
     @classmethod

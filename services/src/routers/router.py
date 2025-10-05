@@ -4,7 +4,7 @@ Centraliza todos los endpoints disponibles.
 """
 
 from fastapi import APIRouter
-from routers import users_router, providers_router, addresses_router
+from routers import users_router, providers_router, addresses_router, images_router
 
 # Crear router principal sin versionado
 router = APIRouter(prefix="/api", tags=["FastServices API"])
@@ -15,3 +15,5 @@ router.include_router(users_router.router, tags=["clients"])
 router.include_router(providers_router.router, tags=["providers"])
 
 router.include_router(addresses_router.router, tags=["addresses"])
+
+router.include_router(images_router.router, tags=["images"])

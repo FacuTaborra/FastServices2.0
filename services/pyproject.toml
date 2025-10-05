@@ -6,10 +6,14 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "aiomysql>=0.2.0",
+    "alembic>=1.13.0",
     "asyncmy>=0.2.10",
     "bcrypt>=4.3.0",
+    "boto3>=1.34.0",
     "fastapi>=0.116.1",
+    "minio>=7.2.0",
     "mysqlclient>=2.2.7",
+    "pillow>=10.0.0",
     "pydantic[email]>=2.11.7",
     "python-dotenv>=1.1.1",
     "python-jose[cryptography]>=3.5.0",

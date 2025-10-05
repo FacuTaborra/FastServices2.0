@@ -3,6 +3,7 @@ Router para operaciones de usuarios.
 Incluye endpoints para registro, login y operaciones básicas de usuario.
 """
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from controllers.user_controller import user_controller, UserController
@@ -18,6 +19,8 @@ from models.User import (
     ChangePasswordRequest,
 )
 from auth.auth_utils import check_user_login
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["clients"])
 
@@ -186,4 +189,136 @@ async def change_password(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al cambiar la contraseña",
+        )
+
+
+@router.put(
+    "/update-profile-image",
+    response_model=UserResponse,
+    summary="Actualizar imagen de perfil",
+    description="Actualiza la imagen de perfil del usuario autenticado",
+)
+async def update_profile_image(
+    image_data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(check_user_login),
+):
+    """
+    Actualizar imagen de perfil del usuario.
+
+    Recibe los datos de la imagen subida a S3 y actualiza el perfil del usuario.
+    """
+    try:
+        # Validar datos requeridos
+        if not image_data.get("s3_key") or not image_data.get("public_url"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Faltan datos de la imagen (s3_key y public_url requeridos)",
+            )
+
+        # Eliminar imagen anterior si existe
+        if current_user.profile_image_s3_key:
+            try:
+                from services.s3_service import s3_service
+
+                logger.info(
+                    f"🗑️ Eliminando imagen anterior: {current_user.profile_image_s3_key}"
+                )
+                s3_service.delete_image(current_user.profile_image_s3_key)
+                logger.info("✅ Imagen anterior eliminada exitosamente")
+            except Exception as delete_error:
+                logger.warning(f"⚠️ No se pudo eliminar imagen anterior: {delete_error}")
+                # No fallar la operación completa por esto
+
+        # Actualizar en la base de datos
+        from datetime import datetime
+
+        update_data = UserUpdate(
+            profile_image_s3_key=image_data["s3_key"],
+            profile_image_url=image_data["public_url"],
+            profile_image_uploaded_at=datetime.now(),
+        )
+
+        updated_user = await UserController.update_user_profile(
+            db, current_user.id, update_data
+        )
+
+        if not updated_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado"
+            )
+
+        return updated_user
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error actualizando imagen de perfil: {str(e)}",
+        )
+
+
+@router.delete("/delete-profile-image", response_model=UserResponse)
+async def delete_profile_image(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(check_user_login),
+):
+    """
+    Eliminar imagen de perfil del usuario.
+
+    Elimina la imagen de S3 y limpia los campos de imagen en el perfil del usuario.
+    """
+    try:
+        # Verificar que el usuario tenga una imagen para eliminar
+        if not current_user.profile_image_s3_key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El usuario no tiene imagen de perfil para eliminar",
+            )
+
+        # Eliminar imagen de S3
+        try:
+            from services.s3_service import s3_service
+
+            logger.info(
+                f"🗑️ Eliminando imagen de perfil: {current_user.profile_image_s3_key}"
+            )
+            success = s3_service.delete_image(current_user.profile_image_s3_key)
+
+            if success:
+                logger.info("✅ Imagen eliminada de S3 exitosamente")
+            else:
+                logger.warning("⚠️ No se pudo eliminar la imagen de S3")
+
+        except Exception as delete_error:
+            logger.error(f"❌ Error eliminando imagen de S3: {delete_error}")
+            # Continuar con la limpieza de la base de datos aunque falle S3
+
+        # Limpiar campos de imagen en la base de datos
+        update_data = UserUpdate(
+            profile_image_s3_key=None,
+            profile_image_url=None,
+            profile_image_uploaded_at=None,
+        )
+
+        updated_user = await UserController.update_user_profile(
+            db, current_user.id, update_data
+        )
+
+        if not updated_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado"
+            )
+
+        logger.info(f"✅ Imagen de perfil eliminada para usuario {current_user.email}")
+        return updated_user
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error eliminando imagen de perfil: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error eliminando imagen de perfil: {str(e)}",
         )
