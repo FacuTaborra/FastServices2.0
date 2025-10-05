@@ -15,11 +15,19 @@ import styles from './ProviderProfileScreen.styles';
 import apiService from '../../auth/apiService_auth';
 import Spinner from '../../components/Spinner/Spinner';
 
+// Importar handler de imagen de perfil
+import { profileImageHandler } from '../Profile/handlers/ProfileImageHandler';
+
 export default function ProviderProfileScreen() {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Estado para imagen de perfil
+  const [profileImage, setProfileImage] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const [profile, setProfile] = useState({
     first_name: '',
     last_name: '',
@@ -30,12 +38,30 @@ export default function ProviderProfileScreen() {
     rating_avg: 0,
     total_reviews: 0,
     is_online: false,
-    created_at: ''
+    created_at: '',
+    // Campos de imagen de perfil
+    profile_image_url: null,
+    profile_image_s3_key: null
   });
 
   useEffect(() => {
+    initializeImageHandler();
     loadProviderProfile();
   }, []);
+
+  // Configurar callbacks del handler de imagen de perfil
+  const initializeImageHandler = () => {
+    profileImageHandler.setCallbacks({
+      onImageUpdate: setProfileImage,
+      onUploadStart: () => setUploadingImage(true),
+      onUploadEnd: () => setUploadingImage(false),
+      onImageUploadSuccess: () => {
+        // Recargar perfil completo después de subir imagen exitosamente
+        console.log('🔄 Recargando perfil de proveedor después de actualizar imagen...');
+        loadProviderProfile();
+      }
+    });
+  };
 
   const loadProviderProfile = async () => {
     try {
@@ -56,8 +82,14 @@ export default function ProviderProfileScreen() {
         rating_avg: parseFloat(providerData.provider_profile?.rating_avg) || 0,
         total_reviews: providerData.provider_profile?.total_reviews || 0,
         is_online: providerData.provider_profile?.is_online || false,
-        created_at: providerData.created_at || ''
+        created_at: providerData.created_at || '',
+        // Campos de imagen de perfil
+        profile_image_url: providerData.profile_image_url || null,
+        profile_image_s3_key: providerData.profile_image_s3_key || null
       }));
+
+      // Actualizar imagen de perfil desde el backend
+      setProfileImage(providerData.profile_image_url);
 
     } catch (error) {
       console.error('❌ Error cargando perfil:', error);
@@ -190,14 +222,31 @@ export default function ProviderProfileScreen() {
         </View>
 
         <View style={styles.avatarContainer}>
-          <Image
-            source={{
-              uri: 'https://dthezntil550i.cloudfront.net/f4/latest/f41908291942413280009640715/1280_960/1b2d9510-d66d-43a2-971a-cfcbb600e7fe.png'
-            }}
-            style={styles.avatar}
-          />
-          <TouchableOpacity style={styles.editIconWrapper}>
-            <Ionicons name="pencil" size={14} color="#FFFFFF" />
+          {uploadingImage ? (
+            <View style={[styles.avatar, { justifyContent: 'center', alignItems: 'center' }]}>
+              <Spinner />
+            </View>
+          ) : (
+            <Image
+              source={{
+                uri: profileImage || 'https://dthezntil550i.cloudfront.net/f4/latest/f41908291942413280009640715/1280_960/1b2d9510-d66d-43a2-971a-cfcbb600e7fe.png'
+              }}
+              style={styles.avatar}
+            />
+          )}
+          <TouchableOpacity
+            style={styles.editIconWrapper}
+            onPress={() => profileImageHandler.showImagePickerOptionsWithDelete(
+              !!profile.profile_image_url,
+              profile.profile_image_s3_key
+            )}
+            disabled={uploadingImage}
+          >
+            {uploadingImage ? (
+              <Ionicons name="hourglass" size={14} color="#FFFFFF" />
+            ) : (
+              <Ionicons name="camera" size={14} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
         </View>
 

@@ -237,7 +237,7 @@ export class ProfileImageHandler {
 
             if (this.onUploadStart) this.onUploadStart();
 
-            // Usar el nuevo endpoint que elimina de S3 y actualiza la BD automáticamente
+            // Usar el endpoint que elimina de S3 y actualiza la BD automáticamente
             await apiService.deleteCompleteProfileImage();
             console.log('✅ Imagen de perfil eliminada completamente');
 

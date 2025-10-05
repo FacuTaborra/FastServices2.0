@@ -1,7 +1,3 @@
-/**
- * Utilidades de autenticación para la aplicación móvil
- */
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from './apiService_auth';
 
@@ -11,7 +7,6 @@ class AuthManager {
         this.authListeners = [];
     }
 
-    // Verificar si el usuario está autenticado
     async isAuthenticated() {
         try {
             return await apiService.isAuthenticated();
@@ -21,7 +16,6 @@ class AuthManager {
         }
     }
 
-    // Obtener el usuario actual desde AsyncStorage
     async getCurrentUser() {
         try {
             if (this.currentUser) {
@@ -34,7 +28,6 @@ class AuthManager {
                 return this.currentUser;
             }
 
-            // Si no hay datos guardados, intentar obtener del servidor
             if (await this.isAuthenticated()) {
                 const user = await apiService.getCurrentUser();
                 await AsyncStorage.setItem('user_data', JSON.stringify(user));
@@ -49,7 +42,6 @@ class AuthManager {
         }
     }
 
-    // Login del usuario
     async login(email, password) {
         try {
             const loginResponse = await apiService.login(email, password);
@@ -58,7 +50,6 @@ class AuthManager {
             await AsyncStorage.setItem('user_data', JSON.stringify(userData));
             this.currentUser = userData;
 
-            // Notificar a los listeners
             this.notifyAuthListeners('login', userData);
 
             return { loginResponse, userData };
@@ -68,12 +59,10 @@ class AuthManager {
         }
     }
 
-    // Registro de cliente
     async registerClient(userData) {
         try {
             const registerResponse = await apiService.registerClient(userData);
 
-            // Hacer login automático después del registro
             const loginResult = await this.login(userData.email, userData.password);
 
             return { registerResponse, ...loginResult };
@@ -83,13 +72,11 @@ class AuthManager {
         }
     }
 
-    // Logout del usuario
     async logout() {
         try {
             await apiService.logout();
             this.currentUser = null;
 
-            // Notificar a los listeners
             this.notifyAuthListeners('logout', null);
 
             console.log('✅ Logout completado');
@@ -99,17 +86,14 @@ class AuthManager {
         }
     }
 
-    // Agregar listener para cambios de autenticación
     addAuthListener(listener) {
         this.authListeners.push(listener);
     }
 
-    // Remover listener
     removeAuthListener(listener) {
         this.authListeners = this.authListeners.filter(l => l !== listener);
     }
 
-    // Notificar a todos los listeners
     notifyAuthListeners(event, userData) {
         this.authListeners.forEach(listener => {
             try {
@@ -120,42 +104,36 @@ class AuthManager {
         });
     }
 
-    // Verificar si el usuario es cliente
     isClient(user = null) {
         const currentUser = user || this.currentUser;
         return currentUser?.role === 'client';
     }
 
-    // Verificar si el usuario es proveedor
     isProvider(user = null) {
         const currentUser = user || this.currentUser;
         return currentUser?.role === 'provider';
     }
 
-    // Verificar si el usuario es admin
     isAdmin(user = null) {
         const currentUser = user || this.currentUser;
         return currentUser?.role === 'admin';
     }
 
-    // Obtener nombre completo del usuario
+
     getUserFullName(user = null) {
         const currentUser = user || this.currentUser;
         if (!currentUser) return '';
         return `${currentUser.first_name} ${currentUser.last_name}`.trim();
     }
 
-    // Limpiar caché del usuario
     clearUserCache() {
         this.currentUser = null;
     }
 }
 
-// Exportar instancia singleton
 const authManager = new AuthManager();
 export default authManager;
 
-// También exportar funciones individuales para conveniencia
 export const {
     isAuthenticated,
     getCurrentUser,
