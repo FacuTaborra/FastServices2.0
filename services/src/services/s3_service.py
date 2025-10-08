@@ -69,7 +69,6 @@ class S3Service:
             raise
         except Exception as e:
             logger.error(f"❌ Error verificando bucket: {e}")
-            raise
 
     def _validate_image(self, file: UploadFile) -> None:
         """Validar que el archivo es una imagen válida."""

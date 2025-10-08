@@ -3,7 +3,7 @@ Modelo de perfil de proveedor de servicios.
 Contiene información adicional para usuarios con rol 'provider'.
 """
 
-from typing import Optional
+from typing import Optional, List
 from decimal import Decimal
 from datetime import datetime, date
 from sqlalchemy import (
@@ -12,7 +12,8 @@ from sqlalchemy import (
     Text,
     DECIMAL,
     Integer,
-    Boolean,
+    String,
+    Date,
     TIMESTAMP,
     ForeignKey,
     func,
@@ -25,7 +26,7 @@ from database.database import Base
 class ProviderProfile(Base):
     """
     Modelo SQLAlchemy para perfiles de proveedores de servicios.
-    Extiende la información del usuario con datos específicos de negocio.
+    Extiende la informacion del usuario con datos especificos de negocio.
     """
 
     __tablename__ = "provider_profiles"
@@ -39,14 +40,50 @@ class ProviderProfile(Base):
         unique=True,
     )
     bio = Column(Text, nullable=True)
-    rating_avg = Column(DECIMAL(3, 2), default=0.0)
-    total_reviews = Column(Integer, default=0)
-    is_online = Column(Boolean, default=False, nullable=False)
-    service_radius_km = Column(Integer, default=10)
-    created_at = Column(TIMESTAMP, default=func.current_timestamp())
+    rating_avg = Column(DECIMAL(3, 2), nullable=False, default=0.0)
+    total_reviews = Column(Integer, nullable=False, default=0)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
+    updated_at = Column(
+        TIMESTAMP,
+        server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp(),
+    )
 
     # Relaciones
     user = relationship("User", back_populates="provider_profile")
+    licenses = relationship(
+        "ProviderLicense",
+        back_populates="provider_profile",
+        cascade="all, delete-orphan",
+    )
+
+
+class ProviderLicense(Base):
+    """
+    Modelo SQLAlchemy para licencias profesionales asociadas a proveedores.
+    """
+
+    __tablename__ = "provider_licenses"
+
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    provider_profile_id = Column(
+        BigInteger,
+        ForeignKey("provider_profiles.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    license_number = Column(String(120), nullable=False)
+    license_type = Column(String(120), nullable=True)
+    issued_by = Column(String(120), nullable=True)
+    issued_at = Column(Date, nullable=True)
+    expires_at = Column(Date, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
+    updated_at = Column(
+        TIMESTAMP,
+        server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp(),
+    )
+
+    provider_profile = relationship("ProviderProfile", back_populates="licenses")
 
 
 # === Esquemas Pydantic para validación ===
@@ -56,11 +93,39 @@ class ProviderProfileBase(BaseModel):
     """Esquema base para ProviderProfile."""
 
     bio: Optional[str] = Field(
-        None, max_length=1000, description="Biografía del proveedor"
+        None, max_length=1000, description="Biografia del proveedor"
     )
-    service_radius_km: Optional[int] = Field(
-        10, ge=1, le=100, description="Radio de servicio en kilómetros"
+
+
+class ProviderLicenseBase(BaseModel):
+    """Esquema base para licencias de proveedor."""
+
+    license_number: str = Field(
+        ..., max_length=120, description="Numero identificatorio de la licencia"
     )
+    license_type: Optional[str] = Field(
+        None, max_length=120, description="Tipo o categoria de la licencia"
+    )
+    issued_by: Optional[str] = Field(
+        None, max_length=120, description="Entidad emisora de la licencia"
+    )
+    issued_at: Optional[date] = Field(
+        None, description="Fecha de emision de la licencia"
+    )
+    expires_at: Optional[date] = Field(
+        None, description="Fecha de expiracion de la licencia"
+    )
+
+
+class ProviderLicenseResponse(ProviderLicenseBase):
+    """Esquema de respuesta para licencias de proveedor."""
+
+    id: int
+    provider_profile_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProviderProfileCreate(ProviderProfileBase):
@@ -73,8 +138,6 @@ class ProviderProfileUpdate(BaseModel):
     """Esquema para actualizar un perfil de proveedor."""
 
     bio: Optional[str] = Field(None, max_length=1000)
-    service_radius_km: Optional[int] = Field(None, ge=1, le=100)
-    is_online: Optional[bool] = None
 
 
 class ProviderProfileResponse(ProviderProfileBase):
@@ -85,9 +148,12 @@ class ProviderProfileResponse(ProviderProfileBase):
     id: int
     user_id: int
     rating_avg: Decimal = Field(description="Promedio de calificaciones")
-    total_reviews: int = Field(description="Total de reseñas recibidas")
-    is_online: bool = Field(description="Estado en línea del proveedor")
-    created_at: datetime = Field(description="Fecha de creación del perfil")
+    total_reviews: int = Field(description="Total de resenas recibidas")
+    created_at: datetime = Field(description="Fecha de creacion del perfil")
+    updated_at: datetime = Field(description="Fecha de ultima actualizacion del perfil")
+    licenses: List[ProviderLicenseResponse] = Field(
+        default_factory=list, description="Licencias profesionales del proveedor"
+    )
 
 
 class ProviderRegisterRequest(BaseModel):
@@ -109,10 +175,7 @@ class ProviderRegisterRequest(BaseModel):
 
     # Datos del perfil
     bio: Optional[str] = Field(
-        None, max_length=1000, description="Biografía del proveedor"
-    )
-    service_radius_km: Optional[int] = Field(
-        10, ge=1, le=100, description="Radio de servicio en kilómetros"
+        None, max_length=1000, description="Biografia del proveedor"
     )
 
     @field_validator("date_of_birth")
@@ -150,6 +213,10 @@ class ProviderResponse(BaseModel):
     role: str
     is_active: bool
     created_at: datetime
+    updated_at: datetime
+    profile_image_url: Optional[str]
+    profile_image_s3_key: Optional[str]
+    profile_image_uploaded_at: Optional[datetime]
 
     # Datos del perfil
     provider_profile: ProviderProfileResponse

@@ -4,7 +4,6 @@ Maneja autenticación, registro y gestión de perfiles de proveedores.
 """
 
 from datetime import timedelta
-from typing import List
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.database import get_db
@@ -45,7 +44,6 @@ async def register_provider(
     - **phone**: Teléfono único del proveedor
     - **password**: Contraseña (mínimo 6 caracteres)
     - **bio**: Biografía opcional del proveedor
-    - **service_radius_km**: Radio de servicio (1-100 km, default: 10)
 
     Returns:
         ProviderResponse: Datos completos del proveedor creado
@@ -157,8 +155,6 @@ async def update_provider_profile(
     Actualizar el perfil del proveedor autenticado.
 
     - **bio**: Nueva biografía (opcional)
-    - **service_radius_km**: Nuevo radio de servicio (opcional)
-    - **is_online**: Estado en línea (opcional)
 
     Returns:
         ProviderResponse: Perfil actualizado del proveedor
@@ -182,90 +178,6 @@ async def update_provider_profile(
         )
 
     return updated_provider
-
-
-@router.post(
-    "/me/toggle-online",
-    response_model=dict,
-    summary="Cambiar estado en línea",
-    description="Alterna el estado en línea/fuera de línea del proveedor",
-)
-async def toggle_online_status(
-    current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
-):
-    """
-    Cambiar el estado en línea del proveedor.
-
-    Alterna entre en línea (disponible para recibir solicitudes)
-    y fuera de línea (no disponible).
-
-    Returns:
-        dict: Nuevo estado en línea del proveedor
-    """
-    # Verificar que sea un proveedor
-    if current_user.role != "provider":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso denegado: Solo para proveedores de servicios",
-        )
-
-    # Cambiar estado
-    new_status = await ProviderController.toggle_provider_online_status(
-        db, current_user.id
-    )
-
-    if new_status is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Perfil de proveedor no encontrado",
-        )
-
-    return {
-        "is_online": new_status,
-        "message": f"Estado cambiado a {'en línea' if new_status else 'fuera de línea'}",
-    }
-
-
-@router.get(
-    "/nearby",
-    response_model=List[ProviderResponse],
-    summary="Buscar proveedores cercanos",
-    description="Encuentra proveedores disponibles en un área específica",
-)
-async def get_nearby_providers(
-    latitude: float,
-    longitude: float,
-    radius_km: int = 20,
-    limit: int = 50,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Buscar proveedores disponibles en un área específica.
-
-    - **latitude**: Latitud del punto de búsqueda
-    - **longitude**: Longitud del punto de búsqueda
-    - **radius_km**: Radio de búsqueda en kilómetros (default: 20)
-    - **limit**: Máximo número de resultados (default: 50)
-
-    Returns:
-        List[ProviderResponse]: Lista de proveedores disponibles en el área
-    """
-    try:
-        providers = await ProviderController.get_providers_by_radius(
-            db=db,
-            latitude=latitude,
-            longitude=longitude,
-            max_distance_km=radius_km,
-            limit=limit,
-        )
-
-        return providers
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al buscar proveedores: {str(e)}",
-        )
 
 
 @router.get(

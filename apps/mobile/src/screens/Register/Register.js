@@ -31,7 +31,6 @@ export default function Register() {
   // Estados para el proveedor
   const [isProvider, setIsProvider] = useState(false);
   const [bio, setBio] = useState('');
-  const [serviceRadius, setServiceRadius] = useState('10');
 
   // Estados para dirección
   const [addressTitle, setAddressTitle] = useState('');
@@ -138,12 +137,6 @@ export default function Register() {
         Alert.alert('Error', 'Por favor describe tus servicios');
         return false;
       }
-
-      const radius = parseInt(serviceRadius);
-      if (isNaN(radius) || radius < 1 || radius > 100) {
-        Alert.alert('Error', 'El radio de servicio debe ser entre 1 y 100 km');
-        return false;
-      }
     }
 
     // Validaciones para dirección
@@ -199,7 +192,6 @@ export default function Register() {
       if (isProvider) {
         // Agregar datos específicos del proveedor
         userData.bio = bio.trim();
-        userData.service_radius_km = parseInt(serviceRadius);
 
         // Registrar proveedor
         registerResponse = await apiService.registerProvider(userData);
@@ -456,14 +448,6 @@ export default function Register() {
                 editable={!loading}
               />
 
-              <TextInput
-                style={styles.input}
-                placeholder="Radio de servicio (km)"
-                value={serviceRadius}
-                onChangeText={setServiceRadius}
-                keyboardType="numeric"
-                editable={!loading}
-              />
             </View>
           )}
 

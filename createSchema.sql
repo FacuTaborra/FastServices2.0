@@ -21,14 +21,13 @@ CREATE TABLE users (
 
 /* 3. Perfil extra para prestadores */
 CREATE TABLE provider_profiles (
-    id                BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    user_id           BIGINT UNSIGNED NOT NULL,
-    bio               TEXT,
-    rating_avg        DECIMAL(3,2)   DEFAULT 0.0,
-    total_reviews     INT UNSIGNED   DEFAULT 0,
-    is_online         TINYINT(1)     NOT NULL DEFAULT 0,
-    service_radius_km INT            DEFAULT 10,
-    created_at        TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+    id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id        BIGINT UNSIGNED NOT NULL,
+    bio            TEXT,
+    rating_avg     DECIMAL(3,2)   DEFAULT 0.0,
+    total_reviews  INT UNSIGNED   DEFAULT 0,
+    created_at     TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -48,13 +47,16 @@ CREATE TABLE licenses (
 ) ENGINE=InnoDB;
 
 CREATE TABLE provider_licenses (
-    provider_id   BIGINT UNSIGNED NOT NULL,
-    license_id    INT UNSIGNED    NOT NULL,
-    license_number VARCHAR(60),
-    expiry_date   DATE,
-    PRIMARY KEY (provider_id, license_id),
-    FOREIGN KEY (provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE,
-    FOREIGN KEY (license_id)  REFERENCES licenses(id)  ON DELETE CASCADE
+    id                  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    provider_profile_id BIGINT UNSIGNED NOT NULL,
+    license_number      VARCHAR(120)    NOT NULL,
+    license_type        VARCHAR(120),
+    issued_by           VARCHAR(120),
+    issued_at           DATE,
+    expires_at          DATE,
+    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (provider_profile_id) REFERENCES provider_profiles(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 /* 6. Solicitudes de servicio */

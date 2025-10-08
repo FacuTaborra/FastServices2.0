@@ -190,8 +190,7 @@ export async function registerProvider(userData) {
             phone: userData.phone,
             date_of_birth: userData.dateOfBirth || null,
             password: userData.password,
-            bio: userData.bio || '',
-            service_radius_km: userData.service_radius_km || 10
+            bio: userData.bio || ''
         };
 
         const response = await api.post('/providers/register', registerData);
