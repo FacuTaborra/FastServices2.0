@@ -20,6 +20,9 @@ from .ProviderProfile import (
     ProviderRegisterRequest,
     ProviderLoginRequest,
     ProviderResponse,
+    ProviderLicense,
+    LicenseType,
+    ProviderServiceArea,
 )
 from .Address import (
     Address,
@@ -29,14 +32,57 @@ from .Address import (
     AddressListResponse,
 )
 from .Token import Token
+from .ServiceRequest import (
+    ServiceRequestType,
+    ServiceRequestStatus,
+    ProposalStatus,
+    ValidationStatus,
+    MatchStatus,
+    ServiceStatus,
+    ServiceRequest,
+    ServiceRequestImage,
+    ServiceRequestMatch,
+    ServiceRequestProposal,
+    Service,
+    Currency,
+    AIModel,
+    RequestInferredLicense,
+    ServiceReview,
+    ServiceStatusHistory,
+)
+from .ServiceRequestSchemas import (
+    ServiceRequestAttachment,
+    ServiceRequestCreate,
+    ServiceRequestImageResponse,
+    ServiceRequestResponse,
+)
 
 __all__ = [
     # Modelos SQLAlchemy
     "User",
     "ProviderProfile",
+    "ProviderLicense",
+    "ProviderServiceArea",
+    "LicenseType",
     "Address",
+    "ServiceRequest",
+    "ServiceRequestImage",
+    "ServiceRequestMatch",
+    "ServiceRequestProposal",
+    "Service",
+    "Currency",
+    "AIModel",
+    "RequestInferredLicense",
+    "ServiceReview",
+    "ServiceStatusHistory",
     # Enums
     "UserRole",
+    "ServiceRequestType",
+    "ServiceRequestStatus",
+    "ProposalStatus",
+    "ValidationStatus",
+    "MatchStatus",
+    "ServiceStatus",
     # Modelos Pydantic para User
     "UserCreate",
     "UserResponse",
@@ -56,6 +102,11 @@ __all__ = [
     "AddressUpdate",
     "AddressResponse",
     "AddressListResponse",
+    # Modelos Pydantic para ServiceRequest
+    "ServiceRequestAttachment",
+    "ServiceRequestCreate",
+    "ServiceRequestImageResponse",
+    "ServiceRequestResponse",
     # Token
     "Token",
 ]

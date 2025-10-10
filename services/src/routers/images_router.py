@@ -47,6 +47,33 @@ async def upload_profile_image(
         raise
 
 
+@router.post("/upload-service-request", response_model=ImageUploadResponse)
+async def upload_service_request_image(
+    file: UploadFile = File(...),
+    optimize: bool = Query(default=True, description="Optimizar imagen"),
+    max_width: int = Query(default=1200, description="Ancho máximo para optimización"),
+    current_user: User = Depends(get_current_user),
+):
+    """Subir imagen asociada a una solicitud de servicio."""
+
+    try:
+        logger.info(
+            "👤 Usuario %s subiendo imagen de solicitud (%s)",
+            current_user.email,
+            file.filename,
+        )
+
+        result = await image_controller.upload_image(
+            file=file, folder="services", optimize=optimize, max_width=max_width
+        )
+
+        return result
+
+    except Exception as e:  # noqa: BLE001
+        logger.error("❌ Error subiendo imagen de solicitud: %s", e)
+        raise
+
+
 @router.delete("/{s3_key:path}", response_model=DeleteImageResponse)
 async def delete_image(s3_key: str, current_user: User = Depends(get_current_user)):
     """

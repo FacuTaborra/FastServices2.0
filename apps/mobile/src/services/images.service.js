@@ -9,19 +9,17 @@ import { tokenStore } from '../auth/tokenStore';
 // Pequeño util de espera (para evitar condición de carrera tras delete en S3/CDN)
 const delay = (ms) => new Promise(r => setTimeout(r, ms));
 
-/**
- * Subir imagen de perfil a S3
- */
-export async function uploadProfileImage(
+async function uploadImageToEndpoint(
+    endpoint,
     formData,
     {
         optimize = true,
         maxWidth = 800,
         waitAfterDeleteMs = 0,
-        settleDelayMs = 60,          // Pequeña espera para asegurar que el archivo manipulado está "flushed"
-        preflight = true,            // Hacer una petición rápida antes para calentar conexión
-        retries = 2,                 // Reintentos ante errores de red
-        backoffBaseMs = 150          // Base para backoff exponencial
+        settleDelayMs = 60,
+        preflight = true,
+        retries = 2,
+        backoffBaseMs = 150,
     } = {}
 ) {
     if (waitAfterDeleteMs > 0) await delay(waitAfterDeleteMs);
@@ -29,7 +27,6 @@ export async function uploadProfileImage(
     if (!(formData instanceof FormData)) throw new Error('formData inválido');
     if (![...formData.keys()].includes('file')) throw new Error("FormData debe incluir 'file'");
 
-    // Sanitizar nombre (algunos paths traen doble punto antes de extensión)
     try {
         const fileEntry = formData.get('file');
         if (fileEntry && typeof fileEntry === 'object') {
@@ -40,7 +37,6 @@ export async function uploadProfileImage(
         }
     } catch { }
 
-    // Preflight simple (ignorar errores) para "despertar" la conexión si viene de inactividad
     if (preflight) {
         try { await api.get('/users/me'); } catch { /* ignore */ }
     }
@@ -48,15 +44,14 @@ export async function uploadProfileImage(
     if (settleDelayMs > 0) await delay(settleDelayMs);
 
     const authHeader = await tokenStore.getAuthHeader();
-    const fullUrl = `${api.defaults.baseURL}/images/upload-profile?optimize=${optimize}&max_width=${maxWidth}`;
+    const fullUrl = `${api.defaults.baseURL}/images/${endpoint}?optimize=${optimize}&max_width=${maxWidth}`;
 
     let lastErr;
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-            // Usar fetch como primaria (más estable con multipart en RN Android)
             const resp = await fetch(fullUrl, {
                 method: 'POST',
-                headers: authHeader ? { 'Authorization': authHeader } : {},
+                headers: authHeader ? { Authorization: authHeader } : {},
                 body: formData,
             });
 
@@ -68,7 +63,8 @@ export async function uploadProfileImage(
         } catch (err) {
             lastErr = err;
             const msg = err?.message || '';
-            const transient = msg.includes('Network') || msg.includes('timeout') || err?.name === 'TypeError';
+            const transient =
+                msg.includes('Network') || msg.includes('timeout') || err?.name === 'TypeError';
             if (attempt < retries && transient) {
                 const backoff = backoffBaseMs * Math.pow(2, attempt);
                 await delay(backoff);
@@ -78,6 +74,27 @@ export async function uploadProfileImage(
         }
     }
     throw lastErr || new Error('Fallo desconocido subiendo imagen');
+}
+
+/**
+ * Subir imagen de perfil a S3
+ */
+export async function uploadProfileImage(formData, options = {}) {
+    return uploadImageToEndpoint('upload-profile', formData, options);
+}
+
+/**
+ * Subir imagen para solicitudes de servicio a S3
+ */
+export async function uploadServiceRequestImage(
+    formData,
+    options = {}
+) {
+    const { maxWidth = 1200, ...rest } = options;
+    return uploadImageToEndpoint('upload-service-request', formData, {
+        maxWidth,
+        ...rest,
+    });
 }
 
 /**

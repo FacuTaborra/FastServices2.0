@@ -14,6 +14,7 @@ from sqlalchemy import (
     func,
     ForeignKey,
     Text,
+    Numeric,
 )
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel, Field
@@ -41,8 +42,8 @@ class Address(Base):
     additional_info = Column(Text, nullable=True)  # Departamento, piso, referencias
     is_default = Column(Boolean, nullable=False, default=False)
     is_active = Column(Boolean, nullable=False, default=True)
-    latitude = Column(String(50), nullable=True)  # Para geolocalización futura
-    longitude = Column(String(50), nullable=True)  # Para geolocalización futura
+    latitude = Column(Numeric(9, 6), nullable=True)  # Para geolocalización futura
+    longitude = Column(Numeric(9, 6), nullable=True)  # Para geolocalización futura
     created_at = Column(DateTime, default=func.current_timestamp())
     updated_at = Column(
         DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp()
@@ -50,6 +51,7 @@ class Address(Base):
 
     # Relaciones
     user = relationship("User", back_populates="addresses")
+    service_requests = relationship("ServiceRequest", back_populates="address")
 
     def __repr__(self):
         return f"<Address(id={self.id}, title='{self.title}', user_id={self.user_id})>"

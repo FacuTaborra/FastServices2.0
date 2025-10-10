@@ -5,7 +5,16 @@ Define la estructura del usuario y sus esquemas de validación.
 
 from datetime import datetime, date
 from typing import Optional
-from sqlalchemy import Column, BigInteger, String, Boolean, DateTime, Date, func
+from sqlalchemy import (
+    Column,
+    BigInteger,
+    String,
+    Boolean,
+    DateTime,
+    Date,
+    func,
+    Enum as SAEnum,
+)
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from database.database import Base
@@ -31,7 +40,9 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    role = Column(String(20), nullable=False, default="client")
+    role = Column(
+        SAEnum(UserRole, name="user_role"), nullable=False, default=UserRole.CLIENT
+    )
     first_name = Column(String(60), nullable=False)
     last_name = Column(String(60), nullable=False)
     email = Column(String(120), nullable=False, unique=True, index=True)
@@ -68,6 +79,36 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
         order_by="Address.is_default.desc(), Address.created_at.asc()",
+    )
+    service_requests = relationship(
+        "ServiceRequest",
+        back_populates="client",
+        cascade="all, delete-orphan",
+        foreign_keys="ServiceRequest.client_id",
+    )
+    services_as_client = relationship(
+        "Service",
+        back_populates="client",
+        cascade="all, delete-orphan",
+        foreign_keys="Service.client_id",
+    )
+    validated_inferences = relationship(
+        "RequestInferredLicense",
+        back_populates="validated_by_user",
+        foreign_keys="RequestInferredLicense.validated_by",
+        passive_deletes=True,
+    )
+    service_reviews_authored = relationship(
+        "ServiceReview",
+        back_populates="rater",
+        foreign_keys="ServiceReview.rater_user_id",
+        passive_deletes=True,
+    )
+    service_status_changes = relationship(
+        "ServiceStatusHistory",
+        back_populates="changed_by_user",
+        foreign_keys="ServiceStatusHistory.changed_by",
+        passive_deletes=True,
     )
 
     def __repr__(self):

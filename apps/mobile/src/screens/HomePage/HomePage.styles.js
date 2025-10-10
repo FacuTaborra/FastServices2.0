@@ -1,88 +1,317 @@
-// HomePage.styles.js
 import { StyleSheet } from 'react-native';
 
+export const PALETTE = {
+  primary: '#3B82F6',
+  backgroundLight: '#F7F8FA',
+  textPrimary: '#1F2937',
+  textSecondary: '#6B7280',
+  cardLight: '#FFFFFF',
+  borderSubtle: '#E5E7EB',
+  white: '#FFFFFF',
+  warning: '#F59E0B',
+  warningSoft: '#FEF3C7',
+  infoSoft: '#DBEAFE',
+  success: '#10B981',
+  successSoft: '#D1FAE5',
+  danger: '#EF4444',
+  dangerSoft: '#FEE2E2',
+  dangerText: '#B91C1C',
+};
+
+export const STATUS_CARD_COLORS = {
+  active: {
+    pill: PALETTE.danger,
+    background: PALETTE.dangerSoft,
+    icon: PALETTE.dangerText,
+  },
+  inProgress: {
+    pill: PALETTE.warning,
+    background: PALETTE.warningSoft,
+    icon: '#92400E',
+  },
+  upcoming: {
+    pill: '#2563EB',
+    background: PALETTE.infoSoft,
+    icon: '#1E3A8A',
+  },
+  completed: {
+    pill: PALETTE.success,
+    background: PALETTE.successSoft,
+    icon: '#047857',
+  },
+};
+
 export default StyleSheet.create({
-  /** Contenedor principal de la página */
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PALETTE.backgroundLight,
   },
-
-  /** Contenedor del contenido (entre Header y Footer) */
-  content: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 10,
   },
-
-  /** Estilos para el buscador */
-  searchContainer: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 60,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#374151',
-  },
-  filterButton: {
-    padding: 4,
-  },
-
-  /** Estilos para el botón "Generar Solicitud" */
-  generateButton: {
-    backgroundColor: '#4776a6',
-    borderRadius: 8,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 20,
-  },
-  generateButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-
-  /** Título de sección “Servicios Fast Recurrentes” */
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 12,
-  },
-
-  /** Contenedor de la lista de servicios */
-  servicesList: {
-    paddingBottom: 20,
-  },
-
-  /** Cada elemento de servicio en la lista */
-  serviceItem: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    marginTop: 12,
+    marginBottom: 24,
   },
-  serviceLeft: {
+  brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  serviceIcon: {
+  brandIcon: {
+    width: 62,
+    height: 62,
+    resizeMode: 'contain',
     marginRight: 10,
   },
-  serviceLabel: {
+  brandText: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: PALETTE.borderSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PALETTE.cardLight,
+  },
+  notificationIcon: {
+    color: PALETTE.textSecondary,
+  },
+  heroCard: {
+    backgroundColor: PALETTE.primary,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 28,
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  heroBadgeText: {
+    color: '#E0E7FF',
+    fontSize: 12,
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+  heroBadgeIcon: {
+    color: '#FACC15',
+  },
+  heroTitle: {
+    color: PALETTE.white,
+    fontSize: 26,
+    fontWeight: '700',
+    marginBottom: 12,
+    lineHeight: 32,
+  },
+  heroSubtitle: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  heroButton: {
+    backgroundColor: PALETTE.white,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+  },
+  heroButtonText: {
+    color: PALETTE.primary,
+    fontSize: 15,
+    fontWeight: '700',
+    marginRight: 10,
+  },
+  sectionTitleStandalone: {
+    fontSize: 25,
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  activeSection: {
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  activeList: {
+    marginTop: 4,
+  },
+  activeCard: {
+    backgroundColor: STATUS_CARD_COLORS.active.background,
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    marginBottom: 14,
+  },
+  activeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  activeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: STATUS_CARD_COLORS.active.pill,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  activeBadgeIcon: {
+    color: PALETTE.white,
+    marginRight: 6,
+  },
+  activeBadgeText: {
+    color: PALETTE.white,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  activeCardTitle: {
     fontSize: 16,
-    color: '#1F2937',
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
+    marginBottom: 6,
+  },
+  activeCardMeta: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+    marginBottom: 6,
+  },
+  activeCardDescription: {
+    fontSize: 14,
+    color: PALETTE.dangerText,
+    lineHeight: 20,
+  },
+  activeLoading: {
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeLoadingText: {
+    marginTop: 8,
+    color: PALETTE.textSecondary,
+    fontSize: 13,
+  },
+  activeErrorBox: {
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  activeErrorText: {
+    color: '#B91C1C',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  activeRetryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PALETTE.primary,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  activeRetryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  activeEmptyBox: {
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.borderSubtle,
+    backgroundColor: PALETTE.cardLight,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  activeEmptyIcon: {
+    marginBottom: 10,
+    color: PALETTE.textSecondary,
+  },
+  activeEmptyText: {
+    color: PALETTE.textSecondary,
+    textAlign: 'center',
+    fontSize: 13,
+  },
+  statusList: {
+    marginTop: 8,
+  },
+  statusCard: {
+    marginBottom: 16,
+  },
+  statusPill: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  statusPillText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  statusBody: {
+    borderRadius: 20,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: PALETTE.borderSubtle,
+  },
+  statusTextBlock: {
+    flex: 1,
+    marginRight: 12,
+  },
+  statusTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
+    marginBottom: 6,
+  },
+  statusDescription: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+  },
+  statusIconBubble: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: PALETTE.cardLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  statusIcon: {
+    color: PALETTE.primary,
   },
 });
