@@ -124,9 +124,16 @@ class ServiceRequestProposalResponse(BaseModel):
     id: int
     provider_profile_id: int
     provider_display_name: str
+    provider_rating_avg: Optional[Decimal]
+    provider_total_reviews: Optional[int]
+    provider_image_url: Optional[str]
     quoted_price: Decimal
     currency: str
     status: ProposalStatus
+    proposed_start_at: Optional[datetime]
+    proposed_end_at: Optional[datetime]
+    valid_until: Optional[datetime]
+    notes: Optional[str]
     created_at: datetime
     updated_at: datetime
 

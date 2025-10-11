@@ -152,22 +152,38 @@ class ServiceRequestController:
         serialized: List[ServiceRequestProposalResponse] = []
         for proposal in proposals:
             provider_name = "Proveedor sin nombre"
+            provider_rating = None
+            provider_reviews = None
+            provider_image_url = None
+            if proposal.provider:
+                provider_rating = getattr(proposal.provider, "rating_avg", None)
+                provider_reviews = getattr(proposal.provider, "total_reviews", None)
+
             if proposal.provider and proposal.provider.user:
-                first = (proposal.provider.user.first_name or "").strip()
-                last = (proposal.provider.user.last_name or "").strip()
+                user = proposal.provider.user
+                first = (user.first_name or "").strip()
+                last = (user.last_name or "").strip()
                 provider_name = (
                     " ".join(part for part in [first, last] if part).strip()
                     or provider_name
                 )
+                provider_image_url = getattr(user, "profile_image_url", None)
 
             serialized.append(
                 ServiceRequestProposalResponse(
                     id=proposal.id,
                     provider_profile_id=proposal.provider_profile_id,
                     provider_display_name=provider_name,
+                    provider_rating_avg=provider_rating,
+                    provider_total_reviews=provider_reviews,
+                    provider_image_url=provider_image_url,
                     quoted_price=proposal.quoted_price,
                     currency=proposal.currency,
                     status=proposal.status,
+                    proposed_start_at=proposal.proposed_start_at,
+                    proposed_end_at=proposal.proposed_end_at,
+                    valid_until=proposal.valid_until,
+                    notes=proposal.notes,
                     created_at=proposal.created_at,
                     updated_at=proposal.updated_at,
                 )
