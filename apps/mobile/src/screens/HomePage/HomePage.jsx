@@ -17,6 +17,7 @@ import myRequestsData from '../../data/myRequests';
 import { useActiveServiceRequests } from '../../hooks/useServiceRequests';
 
 const heroIcon = require('../../../assets/icon.png');
+const FAST_WINDOW_SECONDS = 5 * 60;
 
 const ICON_BY_STATUS = {
   Confirmado: 'checkmark-done-outline',
@@ -66,6 +67,12 @@ const describeActiveRequest = (request) => {
     parts.push('FAST ⚡');
   } else if (request.request_type === 'LICITACION') {
     parts.push('Licitación');
+    if (Number.isFinite(request.proposal_count) && request.proposal_count > 0) {
+      const label = request.proposal_count === 1
+        ? '1 oferta'
+        : `${request.proposal_count} ofertas`;
+      parts.push(label);
+    }
   }
 
   if (request.city_snapshot) {
@@ -78,6 +85,44 @@ const describeActiveRequest = (request) => {
   }
 
   return parts.join(' · ') || DEFAULT_STATUS_CARD.description;
+};
+
+const formatFastCountdown = (secondsRemaining) => {
+  const safeSeconds = Number.isFinite(secondsRemaining)
+    ? Math.max(0, secondsRemaining)
+    : 0;
+  const minutes = Math.floor(safeSeconds / 60)
+    .toString()
+    .padStart(2, '0');
+  const seconds = Math.floor(safeSeconds % 60)
+    .toString()
+    .padStart(2, '0');
+  return `${minutes}:${seconds}`;
+};
+
+const computeFastMetrics = (request, nowMs) => {
+  if (!request?.created_at) {
+    return null;
+  }
+
+  const createdAt = new Date(request.created_at);
+  const createdAtMs = createdAt.getTime();
+  if (Number.isNaN(createdAtMs)) {
+    return null;
+  }
+
+  const elapsedSeconds = Math.max(0, Math.floor((nowMs - createdAtMs) / 1000));
+  const remainingSeconds = Math.max(0, FAST_WINDOW_SECONDS - elapsedSeconds);
+  const progressElapsed = Math.min(Math.max(elapsedSeconds / FAST_WINDOW_SECONDS, 0), 1);
+  const progressRemaining = 1 - progressElapsed;
+
+  return {
+    remainingSeconds,
+    formattedCountdown: formatFastCountdown(remainingSeconds),
+    progressElapsed,
+    progressRemaining,
+    isExpired: remainingSeconds === 0,
+  };
 };
 
 const buildActiveDescriptionSnippet = (description) => {
@@ -155,6 +200,7 @@ const buildSecondaryCards = () => {
 const HomePage = () => {
   const navigation = useNavigation();
   const secondaryCards = React.useMemo(() => buildSecondaryCards(), []);
+  const [nowMs, setNowMs] = React.useState(Date.now());
   const {
     data: activeRequests,
     isLoading: activeLoading,
@@ -167,6 +213,25 @@ const HomePage = () => {
   const showError = activeError && !activeRequestsSafe.length;
   const showEmpty = !activeRequestsSafe.length && !showLoading && !showError;
 
+  const hasFastRequests = React.useMemo(
+    () => activeRequestsSafe.some((request) => request?.request_type === 'FAST'),
+    [activeRequestsSafe],
+  );
+
+  React.useEffect(() => {
+    if (!hasFastRequests) {
+      return undefined;
+    }
+
+    setNowMs(Date.now());
+
+    const intervalId = setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [hasFastRequests]);
+
   const statusCards = React.useMemo(
     () => secondaryCards,
     [secondaryCards],
@@ -175,6 +240,40 @@ const HomePage = () => {
   const handleCreateRequest = () => {
     navigation.navigate('RequestDetail', { showButton: true });
   };
+
+  const buildRequestSummary = React.useCallback((request) => ({
+    id: request.id,
+    title: request.title?.trim() || 'Solicitud sin título',
+    description: request.description ?? '',
+    address: request.city_snapshot || 'Dirección pendiente.',
+    created_at: request.created_at,
+    bidding_deadline: request.bidding_deadline,
+    status: request.status,
+    proposal_count: request.proposal_count ?? 0,
+    proposals: Array.isArray(request.proposals) ? request.proposals : [],
+    attachments: Array.isArray(request.attachments)
+      ? request.attachments
+      : [],
+  }), []);
+
+  const handleActiveRequestPress = React.useCallback((request) => {
+    const summary = buildRequestSummary(request);
+
+    if (request.request_type === 'FAST') {
+      navigation.navigate('FastMatch', {
+        requestId: request.id,
+        requestSummary: summary,
+      });
+      return;
+    }
+
+    if (request.request_type === 'LICITACION') {
+      navigation.navigate('Licitacion', {
+        requestId: request.id,
+        requestSummary: summary,
+      });
+    }
+  }, [buildRequestSummary, navigation]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -259,19 +358,64 @@ const HomePage = () => {
               const title = request.title?.trim() || 'Solicitud sin título';
               const meta = describeActiveRequest(request);
               const snippet = buildActiveDescriptionSnippet(request.description);
+              const isFastRequest = request.request_type === 'FAST';
+              const isLicitacionRequest = request.request_type === 'LICITACION';
+              const fastMetrics = isFastRequest ? computeFastMetrics(request, nowMs) : null;
+              const isPressable = isFastRequest || isLicitacionRequest;
 
               return (
-                <View key={request.id} style={styles.activeCard}>
+                <TouchableOpacity
+                  key={request.id}
+                  style={[
+                    styles.activeCard,
+                    isFastRequest && styles.fastActiveCard,
+                    isLicitacionRequest && styles.licitationActiveCard,
+                  ]}
+                  onPress={() => handleActiveRequestPress(request)}
+                  activeOpacity={isPressable ? 0.92 : 1}
+                  disabled={!isPressable}
+                >
                   <View style={styles.activeCardHeader}>
                     <View style={styles.activeBadge}>
                       <Ionicons name="flash-outline" size={14} style={styles.activeBadgeIcon} />
                       <Text style={styles.activeBadgeText}>Activa</Text>
                     </View>
+                    {isFastRequest ? (
+                      <View style={styles.fastBadge}>
+                        <Ionicons name="flash" size={12} style={styles.fastBadgeIcon} />
+                        <Text style={styles.fastBadgeText}>FAST</Text>
+                      </View>
+                    ) : null}
+                    {isLicitacionRequest ? (
+                      <View style={styles.licitationBadge}>
+                        <Ionicons name="time-outline" size={12} style={styles.licitationBadgeIcon} />
+                        <Text style={styles.licitationBadgeText}>LICITACIÓN</Text>
+                      </View>
+                    ) : null}
                   </View>
                   <Text style={styles.activeCardTitle}>{title}</Text>
                   <Text style={styles.activeCardMeta}>{meta}</Text>
                   {snippet ? <Text style={styles.activeCardDescription}>{snippet}</Text> : null}
-                </View>
+                  {fastMetrics ? (
+                    <View style={styles.fastCountdownBlock}>
+                      <View style={styles.fastCountdownRow}>
+                        <Ionicons name="time-outline" size={16} color={PALETTE.textPrimary} />
+                        <Text style={styles.fastCountdownValue}>{fastMetrics.formattedCountdown}</Text>
+                        <Text style={styles.fastCountdownLabel}>
+                          {fastMetrics.isExpired ? 'Tiempo finalizado' : 'Tiempo restante'}
+                        </Text>
+                      </View>
+                      <View style={styles.fastProgressTrack}>
+                        <View
+                          style={[
+                            styles.fastProgressFill,
+                            { width: `${Math.max(0, Math.min(fastMetrics.progressRemaining, 1)) * 100}%` },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
               );
             })}
           </View>

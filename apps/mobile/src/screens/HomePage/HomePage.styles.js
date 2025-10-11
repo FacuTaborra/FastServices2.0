@@ -160,10 +160,19 @@ export default StyleSheet.create({
     borderColor: '#FCA5A5',
     marginBottom: 14,
   },
+  fastActiveCard: {
+    borderColor: '#F97316',
+    backgroundColor: '#FFF7ED',
+  },
+  licitationActiveCard: {
+    borderColor: '#38BDF8',
+    backgroundColor: '#F0F9FF',
+  },
   activeCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
+    justifyContent: 'space-between',
   },
   activeBadge: {
     flexDirection: 'row',
@@ -183,6 +192,42 @@ export default StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
+  fastBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FCA5A5',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  fastBadgeIcon: {
+    color: '#FFFFFF',
+    marginRight: 4,
+  },
+  fastBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  licitationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#38BDF8',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  licitationBadgeIcon: {
+    color: '#FFFFFF',
+    marginRight: 4,
+  },
+  licitationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
   activeCardTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -198,6 +243,37 @@ export default StyleSheet.create({
     fontSize: 14,
     color: PALETTE.dangerText,
     lineHeight: 20,
+  },
+  fastCountdownBlock: {
+    marginTop: 16,
+  },
+  fastCountdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  fastCountdownValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
+    marginLeft: 6,
+    marginRight: 10,
+  },
+  fastCountdownLabel: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+  },
+  fastProgressTrack: {
+    height: 10,
+    borderRadius: 6,
+    backgroundColor: '#FEE2E2',
+    overflow: 'hidden',
+  },
+  fastProgressFill: {
+    height: '100%',
+    backgroundColor: '#F97316',
+    borderRadius: 6,
+    alignSelf: 'flex-start',
   },
   activeLoading: {
     paddingVertical: 24,

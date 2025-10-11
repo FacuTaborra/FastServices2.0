@@ -56,23 +56,62 @@ const styles = StyleSheet.create({
         fontSize: 22,
         fontWeight: '700',
         color: '#111827',
-        marginBottom: 12,
+        marginBottom: 8,
+        textAlign: 'center',
     },
-    countdown: {
-        fontSize: 54,
+    timerLabel: {
+        fontSize: 13,
+        color: '#64748b',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    timerValue: {
+        marginTop: 4,
+        fontSize: 34,
         fontWeight: '700',
-        color: '#111827',
-        letterSpacing: 4,
+        color: '#0f172a',
+    },
+    timerValueClosed: {
+        color: '#9ca3af',
     },
     statusSubtitle: {
-        marginTop: 12,
+        marginTop: 8,
         fontSize: 15,
         color: '#6b7280',
         textAlign: 'center',
     },
+    infoPill: {
+        marginTop: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        backgroundColor: '#ecfdf5',
+        borderRadius: 999,
+    },
+    infoPillText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#047857',
+        textAlign: 'center',
+    },
+    offerBadge: {
+        marginTop: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#e0f2fe',
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 999,
+    },
+    offerBadgeText: {
+        marginLeft: 8,
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#0369a1',
+    },
     listContent: {
         paddingHorizontal: 18,
-        paddingBottom: 24,
+        paddingVertical: 20,
+        paddingBottom: 32,
     },
     offerCard: {
         backgroundColor: '#f0f5f2',
@@ -82,14 +121,27 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    offerAvatar: {
+    winnerOfferCard: {
+        borderColor: '#facc15',
+        borderWidth: 2,
+        backgroundColor: '#fefce8',
+    },
+    offerAvatarPlaceholder: {
         width: 52,
         height: 52,
         borderRadius: 26,
+        backgroundColor: '#e0ecff',
+        alignItems: 'center',
+        justifyContent: 'center',
         marginRight: 16,
     },
     offerContent: {
         flex: 1,
+    },
+    offerHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     offerName: {
         fontSize: 17,
@@ -101,42 +153,69 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#6b7280',
     },
-    offerMetaRow: {
-        marginTop: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
     offerPrice: {
+        marginTop: 12,
         fontSize: 18,
         fontWeight: '700',
         color: '#0f172a',
     },
-    offerRating: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    offerRatingText: {
-        marginLeft: 6,
-        fontSize: 15,
+    offerPriceHidden: {
+        marginTop: 12,
+        fontSize: 13,
         fontWeight: '600',
-        color: '#0f172a',
+        color: '#94a3b8',
     },
-    acceptButton: {
-        marginLeft: 16,
-        backgroundColor: '#e57355',
-        borderRadius: 12,
-        paddingVertical: 10,
-        paddingHorizontal: 18,
+    offerRankPill: {
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        backgroundColor: '#fef3c7',
+        borderRadius: 999,
     },
-    acceptButtonText: {
-        color: '#fff',
+    offerRankText: {
+        fontSize: 12,
         fontWeight: '700',
-        fontSize: 16,
+        color: '#b45309',
+    },
+    emptyOffersBox: {
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        padding: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptyOffersText: {
+        marginTop: 12,
+        fontSize: 14,
+        color: '#475569',
+        textAlign: 'center',
     },
     footerWrapper: {
         paddingHorizontal: 24,
         paddingBottom: 32,
+    },
+    closeButton: {
+        borderRadius: 16,
+        paddingVertical: 16,
+        alignItems: 'center',
+        backgroundColor: '#0f766e',
+        marginBottom: 12,
+    },
+    closeButtonDisabled: {
+        backgroundColor: '#94a3b8',
+    },
+    closeButtonText: {
+        color: '#ffffff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    closeButtonTextDisabled: {
+        color: '#e2e8f0',
+    },
+    closeHelperText: {
+        marginTop: 6,
+        fontSize: 13,
+        color: '#f0fdfa',
     },
     cancelButton: {
         borderRadius: 16,
@@ -145,7 +224,6 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         alignItems: 'center',
         backgroundColor: '#fff5f5',
-        marginBottom: 12,
     },
     cancelButtonText: {
         color: '#b91c1c',
@@ -158,30 +236,28 @@ const styles = StyleSheet.create({
     buttonDisabled: {
         opacity: 0.6,
     },
-    switchButton: {
-        backgroundColor: '#0f766e',
-        borderRadius: 16,
-        paddingVertical: 16,
-        alignItems: 'center',
-    },
-    switchButtonDisabled: {
-        backgroundColor: '#94a3b8',
-    },
-    switchButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '700',
-    },
-    switchButtonTextDisabled: {
-        color: '#e2e8f0',
-    },
-    switchHelperText: {
-        marginTop: 6,
+    helperCaption: {
+        marginTop: 12,
         fontSize: 13,
-        color: '#e2e8f0',
+        color: '#64748b',
+        textAlign: 'center',
     },
-    switchHelperTextReady: {
-        color: '#f0fdfa',
+    closedBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        borderRadius: 14,
+        backgroundColor: '#fef3c7',
+        borderWidth: 1,
+        borderColor: '#f59e0b',
+        marginBottom: 16,
+    },
+    closedBannerText: {
+        marginLeft: 10,
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#b45309',
+        flex: 1,
     },
     modalOverlay: {
         flex: 1,

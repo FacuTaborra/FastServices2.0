@@ -54,6 +54,7 @@ from .ServiceRequestSchemas import (
     ServiceRequestAttachment,
     ServiceRequestCreate,
     ServiceRequestImageResponse,
+    ServiceRequestProposalResponse,
     ServiceRequestResponse,
 )
 
@@ -106,6 +107,7 @@ __all__ = [
     "ServiceRequestAttachment",
     "ServiceRequestCreate",
     "ServiceRequestImageResponse",
+    "ServiceRequestProposalResponse",
     "ServiceRequestResponse",
     # Token
     "Token",

@@ -8,7 +8,11 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from models.ServiceRequest import ServiceRequestStatus, ServiceRequestType
+from models.ServiceRequest import (
+    ProposalStatus,
+    ServiceRequestStatus,
+    ServiceRequestType,
+)
 
 MAX_ATTACHMENTS = 6
 
@@ -114,6 +118,21 @@ class ServiceRequestImageResponse(BaseModel):
     model_config = dict(from_attributes=True)
 
 
+class ServiceRequestProposalResponse(BaseModel):
+    """Resumen de una propuesta vinculada a la solicitud."""
+
+    id: int
+    provider_profile_id: int
+    provider_display_name: str
+    quoted_price: Decimal
+    currency: str
+    status: ProposalStatus
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = dict(from_attributes=True)
+
+
 class ServiceRequestResponse(BaseModel):
     """Respuesta básica para una solicitud creada."""
 
@@ -132,7 +151,26 @@ class ServiceRequestResponse(BaseModel):
     lon_snapshot: Optional[Decimal]
     license_type_ids: List[int] = Field(default_factory=list)
     attachments: List[ServiceRequestImageResponse] = Field(default_factory=list)
+    proposal_count: int = Field(0, ge=0)
+    proposals: List[ServiceRequestProposalResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
     model_config = dict(from_attributes=True)
+
+
+class ServiceRequestUpdate(BaseModel):
+    """Payload parcial para actualizar una solicitud existente."""
+
+    request_type: Optional[ServiceRequestType] = Field(
+        default=None, description="Nuevo tipo de solicitud"
+    )
+    status: Optional[ServiceRequestStatus] = Field(
+        default=None, description="Nuevo estado de la solicitud"
+    )
+
+    @model_validator(mode="after")
+    def validate_fields(self) -> "ServiceRequestUpdate":
+        if self.request_type is None and self.status is None:
+            raise ValueError("Debes especificar al menos un campo para actualizar")
+        return self

@@ -12,10 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from models.Address import Address
-from models.ProviderProfile import LicenseType
+from models.ProviderProfile import LicenseType, ProviderProfile
 from models.ServiceRequest import (
     RequestInferredLicense,
     ServiceRequest,
+    ServiceRequestProposal,
     ServiceRequestImage,
     ServiceRequestStatus,
     ServiceRequestType,
@@ -25,6 +26,7 @@ from models.ServiceRequestSchemas import (
     MAX_ATTACHMENTS,
     ServiceRequestAttachment,
     ServiceRequestCreate,
+    ServiceRequestUpdate,
 )
 from models.User import User, UserRole
 
@@ -293,6 +295,11 @@ class ServiceRequestService:
             .options(
                 selectinload(ServiceRequest.images),
                 selectinload(ServiceRequest.inferred_licenses),
+                selectinload(ServiceRequest.proposals).options(
+                    selectinload(ServiceRequestProposal.provider).options(
+                        selectinload(ProviderProfile.user)
+                    )
+                ),
             )
             .where(ServiceRequest.id == request_id)
         )
@@ -314,6 +321,11 @@ class ServiceRequestService:
             .options(
                 selectinload(ServiceRequest.images),
                 selectinload(ServiceRequest.inferred_licenses),
+                selectinload(ServiceRequest.proposals).options(
+                    selectinload(ServiceRequestProposal.provider).options(
+                        selectinload(ProviderProfile.user)
+                    )
+                ),
             )
             .where(
                 ServiceRequest.client_id == client_id,
@@ -325,6 +337,71 @@ class ServiceRequestService:
 
         result = await db.execute(stmt)
         return list(result.scalars().all())
+
+    @staticmethod
+    async def update_service_request(
+        db: AsyncSession,
+        *,
+        client_id: int,
+        request_id: int,
+        payload: ServiceRequestUpdate,
+    ) -> ServiceRequest:
+        stmt: Select[ServiceRequest] = select(ServiceRequest).where(
+            ServiceRequest.id == request_id,
+            ServiceRequest.client_id == client_id,
+        )
+        result = await db.execute(stmt)
+        service_request = result.scalar_one_or_none()
+
+        if service_request is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="La solicitud no existe o no pertenece al usuario",
+            )
+
+        has_changes = False
+
+        if payload.status is not None:
+            if (
+                service_request.status == ServiceRequestStatus.CANCELLED
+                and payload.status == ServiceRequestStatus.CANCELLED
+            ):
+                pass
+            else:
+                service_request.status = payload.status
+                has_changes = True
+
+        if payload.request_type is not None:
+            if service_request.request_type == payload.request_type:
+                pass
+            else:
+                if (
+                    service_request.request_type != ServiceRequestType.FAST
+                    and payload.request_type == ServiceRequestType.LICITACION
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Solo las solicitudes FAST pueden pasar a licitación",
+                    )
+
+                service_request.request_type = payload.request_type
+                has_changes = True
+
+                if payload.request_type == ServiceRequestType.LICITACION:
+                    now = datetime.now(timezone.utc)
+                    bidding_deadline = (now + timedelta(hours=72)).replace(
+                        minute=0, second=0, microsecond=0
+                    )
+                    service_request.bidding_deadline = bidding_deadline
+                elif payload.request_type == ServiceRequestType.FAST:
+                    service_request.bidding_deadline = None
+
+        if has_changes:
+            await db.commit()
+
+        return await ServiceRequestService._fetch_request_with_relations(
+            db, service_request.id
+        )
 
 
 __all__ = ["ServiceRequestService"]

@@ -298,6 +298,38 @@ const RequestDetailScreen = () => {
           return;
         }
 
+        if (createdType === 'LICITACION') {
+          const createdAddressId = createdRequest?.address_id ?? payload.address_id;
+          const selectedAddress = addressList.find((addr) => addr.id === createdAddressId);
+          const licitacionSummary = {
+            id: createdRequest?.id,
+            title: createdRequest?.title ?? payload.title,
+            description: createdRequest?.description ?? payload.description,
+            address:
+              createdRequest?.city_snapshot ??
+              selectedAddress?.full_address ??
+              'Dirección pendiente.',
+            created_at: createdRequest?.created_at ?? new Date().toISOString(),
+            bidding_deadline:
+              createdRequest?.bidding_deadline ?? payload.bidding_deadline ?? null,
+            status: createdRequest?.status ?? 'PUBLISHED',
+            proposal_count: createdRequest?.proposal_count ?? 0,
+            proposals: Array.isArray(createdRequest?.proposals)
+              ? createdRequest.proposals
+              : [],
+            attachments: Array.isArray(createdRequest?.attachments)
+              ? createdRequest.attachments
+              : payload.attachments ?? [],
+          };
+
+          navigation.navigate('Licitacion', {
+            requestId: createdRequest?.id,
+            requestSummary: licitacionSummary,
+            animation: 'slide_from_right',
+          });
+          return;
+        }
+
         Alert.alert(
           'Solicitud creada',
           'Tu solicitud fue publicada exitosamente.',
@@ -381,7 +413,7 @@ const RequestDetailScreen = () => {
                   requestType === 'LICITACION' && styles.toggleButtonTextActive,
                 ]}
               >
-                Licitación
+                Licitación ⏰
               </Text>
             </TouchableOpacity>
           </View>
@@ -390,7 +422,7 @@ const RequestDetailScreen = () => {
               FAST ⚡: Publicá y recibí ayuda lo antes posible.
             </Text>
             <Text style={styles.requestTypeHelperText}>
-              Licitación: Permití que varios prestadores te envíen propuestas antes de decidir.
+              LICITACIÓN ⏰: Permití que varios prestadores te envíen propuestas antes de decidir.
             </Text>
           </View>
         </View>

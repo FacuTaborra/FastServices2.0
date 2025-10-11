@@ -43,7 +43,25 @@ export async function getActiveServiceRequests() {
     }
 }
 
+export async function updateServiceRequest(requestId, payload) {
+    try {
+        console.log('✏️ Actualizando solicitud de servicio...', {
+            requestId,
+            payload,
+        });
+
+        const response = await api.put(`/service-requests/${requestId}`, payload);
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error actualizando solicitud de servicio:', { status, message });
+        throw error;
+    }
+}
+
 export default {
     createServiceRequest,
     getActiveServiceRequests,
+    updateServiceRequest,
 };

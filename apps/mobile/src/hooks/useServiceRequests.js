@@ -41,7 +41,25 @@ export function useActiveServiceRequests(options = {}) {
     });
 }
 
+export function useUpdateServiceRequest() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ requestId, data }) =>
+            serviceRequestService.updateServiceRequest(requestId, data),
+        onSuccess: (updatedRequest) => {
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.active });
+            if (updatedRequest?.id) {
+                queryClient.invalidateQueries({
+                    queryKey: serviceRequestKeys.detail(updatedRequest.id),
+                });
+            }
+        },
+    });
+}
+
 export default {
     useCreateServiceRequest,
     useActiveServiceRequests,
+    useUpdateServiceRequest,
 };

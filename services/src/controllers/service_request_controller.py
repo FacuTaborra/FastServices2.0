@@ -12,7 +12,9 @@ from models.ServiceRequest import ServiceRequest
 from models.ServiceRequestSchemas import (
     ServiceRequestCreate,
     ServiceRequestImageResponse,
+    ServiceRequestProposalResponse,
     ServiceRequestResponse,
+    ServiceRequestUpdate,
 )
 from models.User import User
 from services.service_request_service import ServiceRequestService
@@ -66,6 +68,35 @@ class ServiceRequestController:
                 detail="Error interno al obtener las solicitudes activas",
             ) from exc
 
+    @staticmethod
+    async def update_request(
+        db: AsyncSession,
+        current_user: User,
+        request_id: int,
+        payload: ServiceRequestUpdate,
+    ) -> ServiceRequestResponse:
+        try:
+            updated_request = await ServiceRequestService.update_service_request(
+                db,
+                client_id=current_user.id,
+                request_id=request_id,
+                payload=payload,
+            )
+            return ServiceRequestController._build_response(updated_request)
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "Error actualizando la solicitud %s del cliente %s: %s",
+                request_id,
+                current_user.id,
+                exc,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error interno al actualizar la solicitud",
+            ) from exc
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -78,6 +109,8 @@ class ServiceRequestController:
                 for inference in service_request.inferred_licenses
             }
         )
+
+        proposals = ServiceRequestController._serialize_proposals(service_request)
 
         return ServiceRequestResponse(
             id=service_request.id,
@@ -95,6 +128,8 @@ class ServiceRequestController:
             lon_snapshot=service_request.lon_snapshot,
             license_type_ids=license_type_ids,
             attachments=attachments,
+            proposal_count=len(proposals),
+            proposals=proposals,
             created_at=service_request.created_at,
             updated_at=service_request.updated_at,
         )
@@ -106,6 +141,39 @@ class ServiceRequestController:
         images = list(service_request.images or [])
         images.sort(key=lambda img: (img.sort_order or 0, img.id))
         return [ServiceRequestImageResponse.model_validate(img) for img in images]
+
+    @staticmethod
+    def _serialize_proposals(
+        service_request: ServiceRequest,
+    ) -> List[ServiceRequestProposalResponse]:
+        proposals = list(service_request.proposals or [])
+        proposals.sort(key=lambda proposal: (proposal.quoted_price, proposal.id))
+
+        serialized: List[ServiceRequestProposalResponse] = []
+        for proposal in proposals:
+            provider_name = "Proveedor sin nombre"
+            if proposal.provider and proposal.provider.user:
+                first = (proposal.provider.user.first_name or "").strip()
+                last = (proposal.provider.user.last_name or "").strip()
+                provider_name = (
+                    " ".join(part for part in [first, last] if part).strip()
+                    or provider_name
+                )
+
+            serialized.append(
+                ServiceRequestProposalResponse(
+                    id=proposal.id,
+                    provider_profile_id=proposal.provider_profile_id,
+                    provider_display_name=provider_name,
+                    quoted_price=proposal.quoted_price,
+                    currency=proposal.currency,
+                    status=proposal.status,
+                    created_at=proposal.created_at,
+                    updated_at=proposal.updated_at,
+                )
+            )
+
+        return serialized
 
 
 __all__ = ["ServiceRequestController"]
