@@ -640,7 +640,6 @@ export default function ProviderProfileScreen() {
         <View style={styles.modalBackground}>
           <View style={styles.modalBox}>
             <Spinner />
-            <Text style={styles.modalText}>Actualizando perfil...</Text>
           </View>
         </View>
       </Modal>
