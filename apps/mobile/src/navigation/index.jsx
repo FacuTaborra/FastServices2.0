@@ -24,6 +24,7 @@ import HelpSupportScreen from '../screens/HelpSupport/HelpSupportScreen';
 import StatsScreen from '../screens/Stats/StatsScreen';
 import MoreScreen from '../screens/More/MoreScreen';
 import ProviderFooter from '../components/ProviderFooter/ProviderFooter';
+import FastMatchScreen from '../screens/FastMatch/FastMatchScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -96,6 +97,7 @@ export default function AppNavigator() {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Payment" component={PaymentScreen} />
         <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+        <Stack.Screen name="FastMatch" component={FastMatchScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -287,7 +287,17 @@ const RequestDetailScreen = () => {
 
     createRequestMutation.mutate(payload, {
       onSuccess: (createdRequest) => {
+        const createdType = createdRequest?.request_type ?? requestType;
         resetForm();
+
+        if (createdType === 'FAST') {
+          navigation.navigate('FastMatch', {
+            requestId: createdRequest?.id,
+            animation: 'slide_from_right',
+          });
+          return;
+        }
+
         Alert.alert(
           'Solicitud creada',
           'Tu solicitud fue publicada exitosamente.',
@@ -295,8 +305,10 @@ const RequestDetailScreen = () => {
             {
               text: 'Crear otra',
               onPress: () => {
-                setRequestType(createdRequest?.request_type ?? 'FAST');
-                setSelectedAddressId(createdRequest?.address_id ?? selectedAddressId);
+                setRequestType(createdType);
+                setSelectedAddressId(
+                  createdRequest?.address_id ?? selectedAddressId,
+                );
               },
             },
             {
