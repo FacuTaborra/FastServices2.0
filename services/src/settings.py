@@ -42,15 +42,3 @@ S3_REGION = os.getenv("S3_REGION", "us-east-1")
 
 # URL pública base para las imágenes
 S3_PUBLIC_URL_BASE = os.getenv("S3_PUBLIC_URL_BASE", f"{S3_ENDPOINT}/{S3_BUCKET_NAME}")
-
-# Mostrar configuración en modo debug
-if DEBUG_MODE:
-    print("🔧 Configuración de FastServices:")
-    print(f"   Host DB: {DB_HOST}:{DB_PORT}")
-    print(f"   Database: {DB_NAME}")
-    print(f"   User: {DB_USER}")
-    print(f"   JWT Expire: {JWT_EXPIRE_MINUTES} minutos")
-    print(f"   Log Level: {LOG_LEVEL}")
-    print(f"   S3 Endpoint: {S3_ENDPOINT}")
-    print(f"   S3 Bucket: {S3_BUCKET_NAME}")
-    print(f"   Connection String: {CONNECTION_STRING}")
