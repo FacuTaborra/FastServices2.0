@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer
 from datetime import timedelta
 from models.User import User, UserCreate, UserRole, UserUpdate
 from models.Token import Token
@@ -25,15 +25,14 @@ class UserController:
     """Controlador para operaciones con usuarios."""
 
     def __init__(self):
-        self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
+        self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
     async def authenticate_and_create_token(
-        self, db: AsyncSession, form_data: OAuth2PasswordRequestForm
+        self, db: AsyncSession, email: str, password: str
     ) -> Token:
-        """
-        Autentica un usuario y crea un token JWT.
-        """
-        user = await authenticate_user(form_data.username, form_data.password, db)
+        """Autentica un usuario con email y password y retorna un token JWT."""
+
+        user = await authenticate_user(email, password, db)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -42,9 +41,19 @@ class UserController:
 
         access_token_expires = timedelta(minutes=JWT_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": user.email}, expires_delta=access_token_expires
+            data={
+                "sub": user.email,
+                "role": getattr(user.role, "value", user.role),
+                "uid": user.id,
+            },
+            expires_delta=access_token_expires,
         )
-        return Token(access_token=access_token, token_type="bearer")
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            role=getattr(user.role, "value", user.role),
+            user_id=user.id,
+        )
 
     @staticmethod
     async def create_user(db: AsyncSession, user_data: UserCreate) -> User:

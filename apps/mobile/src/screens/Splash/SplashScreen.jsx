@@ -58,20 +58,12 @@ export default function SplashScreen() {
             <Image
                 source={fastservicesLogo}
                 style={{
-                    width: 120,
-                    height: 120,
+                    width: 240,
+                    height: 240,
                     marginBottom: 30
                 }}
                 resizeMode="contain"
             />
-            <Text style={{
-                fontSize: 24,
-                fontWeight: 'bold',
-                color: '#333',
-                marginBottom: 40
-            }}>
-                FastServices
-            </Text>
             <Spinner />
         </View>
     );

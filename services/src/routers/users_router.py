@@ -6,13 +6,11 @@ Incluye endpoints para registro, login y operaciones básicas de usuario.
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from controllers.user_controller import user_controller, UserController
+from controllers.user_controller import UserController
 from database.database import get_db
-from models.Token import Token
 from models.User import (
     User,
     UserResponse,
-    LoginRequest,
     UserCreate,
     UserRole,
     UserUpdate,
@@ -38,34 +36,6 @@ async def register_user(
     """Endpoint para registrar un nuevo usuario."""
     user = await UserController.create_user(db, user_data)
     return UserResponse.model_validate(user)
-
-
-@router.post(
-    "/login",
-    response_model=Token,
-    summary="Iniciar sesión",
-    description="Autentica un usuario y retorna un token de acceso JWT",
-)
-async def login_for_access_token(
-    login_data: LoginRequest, db: AsyncSession = Depends(get_db)
-) -> Token:
-    """Endpoint de login que acepta JSON con email y password."""
-    try:
-        # Crear objeto compatible con OAuth2PasswordRequestForm
-        form_data = type(
-            "FormData",
-            (object,),
-            {
-                "username": login_data.email,
-                "password": login_data.password,
-            },
-        )
-        return await user_controller.authenticate_and_create_token(db, form_data)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos",
-        )
 
 
 @router.get(

@@ -12,6 +12,7 @@ from models.ServiceRequest import (
     ProposalStatus,
     ServiceRequestStatus,
     ServiceRequestType,
+    ServiceStatus,
 )
 
 MAX_ATTACHMENTS = 6
@@ -140,6 +141,20 @@ class ServiceRequestProposalResponse(BaseModel):
     model_config = dict(from_attributes=True)
 
 
+class ServiceSummaryResponse(BaseModel):
+    """Resumen del servicio generado a partir de la solicitud."""
+
+    id: int
+    status: ServiceStatus
+    scheduled_start_at: Optional[datetime]
+    scheduled_end_at: Optional[datetime]
+    total_price: Optional[Decimal]
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = dict(from_attributes=True)
+
+
 class ServiceRequestResponse(BaseModel):
     """Respuesta básica para una solicitud creada."""
 
@@ -160,6 +175,9 @@ class ServiceRequestResponse(BaseModel):
     attachments: List[ServiceRequestImageResponse] = Field(default_factory=list)
     proposal_count: int = Field(0, ge=0)
     proposals: List[ServiceRequestProposalResponse] = Field(default_factory=list)
+    service: Optional[ServiceSummaryResponse] = Field(
+        default=None, description="Servicio confirmado asociado a la solicitud"
+    )
     created_at: datetime
     updated_at: datetime
 
@@ -181,3 +199,14 @@ class ServiceRequestUpdate(BaseModel):
         if self.request_type is None and self.status is None:
             raise ValueError("Debes especificar al menos un campo para actualizar")
         return self
+
+
+class ServiceRequestConfirmPayment(BaseModel):
+    """Payload para confirmar el pago de una propuesta ganadora."""
+
+    proposal_id: int = Field(..., description="Identificador de la propuesta aceptada")
+    payment_reference: Optional[str] = Field(
+        None,
+        max_length=120,
+        description="Referencia opcional del comprobante de pago",
+    )

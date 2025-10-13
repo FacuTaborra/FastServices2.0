@@ -8,121 +8,54 @@ import { tokenStore } from '../auth/tokenStore';
 import * as userService from './users.service'; // ✅ Import estático para mejor rendimiento
 
 /**
- * Login de usuario (intenta cliente primero, luego proveedor)
+ * Login de usuario unificado contra /auth/login
  */
 export async function login(email, password) {
     try {
-        console.log('🔐 === INICIANDO PROCESO DE LOGIN ===');
-        console.log('📧 Email:', email);
-        console.log('🌐 API Base URL:', api.defaults.baseURL);
-        console.log('⏰ Timeout configurado:', api.defaults.timeout);
+        console.log('🔐 Iniciando login unificado...');
 
-        const loginData = {
+        const payload = {
             email: email.trim(),
-            password: password
+            password,
         };
 
-        console.log('📋 Login data prepared:', {
-            email: loginData.email,
-            passwordLength: password?.length || 0
-        });
-
-        let response;
-        let userType = 'client';
-
-        // Intentar login - detectar automáticamente el tipo de endpoint disponible
-        let clientEndpointExists = true;
-        let providerEndpointExists = true;
-
-        // Primero intentar login como cliente
-        try {
-            console.log('🔗 Intentando POST a:', api.defaults.baseURL + '/users/login');
-            response = await api.post('/users/login', loginData);
-            console.log('✅ Login exitoso como cliente');
-        } catch (clientError) {
-            console.log('❌ Login como cliente falló:', {
-                message: clientError.message,
-                status: clientError.status,
-                data: clientError.data
-            });
-
-            // Si es Network Error, el endpoint no existe
-            if (clientError.message === 'Network Error' || clientError.status === 404) {
-                console.log('ℹ️ Endpoint /users/login no disponible');
-                clientEndpointExists = false;
-            }
-
-            console.log('🔄 Intentando como proveedor...');
-
-            // Si falla como cliente, intentar como proveedor
-            try {
-                console.log('🔗 Intentando POST a:', api.defaults.baseURL + '/providers/login');
-                response = await api.post('/providers/login', loginData);
-                userType = 'provider';
-                console.log('✅ Login exitoso como proveedor');
-            } catch (providerError) {
-                console.error('❌ Login falló en ambos endpoints:', {
-                    clientError: {
-                        message: clientError.message,
-                        status: clientError.status,
-                        endpointExists: clientEndpointExists
-                    },
-                    providerError: {
-                        message: providerError.message,
-                        status: providerError.status
-                    }
-                });
-
-                // Si es Network Error en ambos, es problema de conectividad
-                if (clientError.message === 'Network Error' && providerError.message.includes('Network Error')) {
-                    throw new Error('No se puede conectar al servidor. Verifica tu conexión a internet.');
-                }
-
-                // Si el cliente endpoint no existe pero el proveedor sí, es problema de credenciales
-                if (!clientEndpointExists && (providerError.status === 401 || providerError.status === 403)) {
-                    throw new Error('Email o contraseña incorrectos');
-                }
-
-                // Si ambos endpoints existen pero fallan, es problema de credenciales
-                if (clientError.status === 401 && providerError.status === 401) {
-                    throw new Error('Email o contraseña incorrectos');
-                }
-
-                // Error genérico
-                const mainError = providerError.status === 401 || clientError.status === 401
-                    ? 'Email o contraseña incorrectos'
-                    : `Error de conexión: ${providerError.message || clientError.message}`;
-
-                throw new Error(mainError);
-            }
-        }
-
-        // Guardar tokens (axios devuelve response.data)
+        const response = await api.post('/auth/login', payload);
         const tokenData = response.data || response;
-        console.log('💾 Guardando tokens:', {
-            access_token: tokenData.access_token ? '✅ Present' : '❌ Missing',
-            token_type: tokenData.token_type || 'Bearer',
-            refresh_token: tokenData.refresh_token ? '✅ Present' : 'ℹ️ Not provided'
-        });
+        const normalizedRole = typeof tokenData.role === 'string'
+            ? tokenData.role.toLowerCase()
+            : null;
 
         await tokenStore.setTokens(
             tokenData.access_token,
             tokenData.refresh_token || null,
-            tokenData.token_type || 'Bearer'
+            tokenData.token_type || 'Bearer',
         );
 
-        // Persistir user type para futuras llamadas optimizadas
-        try { await tokenStore.setUserType(userType); } catch { }
+        try {
+            await tokenStore.setUserType(normalizedRole);
+        } catch (storeError) {
+            console.warn('⚠️ No se pudo guardar el rol del usuario:', storeError?.message);
+        }
 
-        console.log('✅ Tokens guardados exitosamente');
+        console.log('✅ Login exitoso');
 
         return {
             ...tokenData,
-            user_type: userType
+            user_type: normalizedRole,
         };
     } catch (error) {
-        console.error('❌ Error en login:', error.message);
-        throw error;
+        const status = error?.response?.status ?? error?.status;
+        const message = error?.response?.data?.detail || error?.message || 'No pudimos iniciar sesión.';
+
+        if (status === 401 || status === 403) {
+            throw new Error('Email o contraseña incorrectos');
+        }
+
+        if (message === 'Network Error') {
+            throw new Error('No se pudo conectar al servidor. Verificá tu conexión.');
+        }
+
+        throw new Error(message);
     }
 }
 

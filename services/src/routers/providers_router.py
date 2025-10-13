@@ -3,24 +3,16 @@ Router para endpoints de proveedores de servicios.
 Maneja autenticación, registro y gestión de perfiles de proveedores.
 """
 
-from datetime import timedelta
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.database import get_db
-from models.Token import Token
 from models.ProviderProfile import (
     ProviderRegisterRequest,
-    ProviderLoginRequest,
     ProviderResponse,
     ProviderProfileUpdate,
 )
 from controllers.provider_controller import ProviderController
-from auth.auth_utils import (
-    authenticate_user,
-    create_access_token,
-    get_current_user,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-)
+from auth.auth_utils import get_current_user
 
 router = APIRouter(prefix="/providers")
 
@@ -58,49 +50,6 @@ async def register_provider(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error interno del servidor: {str(e)}",
         )
-
-
-@router.post(
-    "/login",
-    response_model=Token,
-    summary="Iniciar sesión como proveedor",
-    description="Autentica un proveedor y retorna token JWT",
-)
-async def login_provider(
-    login_data: ProviderLoginRequest, db: AsyncSession = Depends(get_db)
-):
-    """
-    Iniciar sesión como proveedor de servicios.
-
-    - **email**: Email del proveedor
-    - **password**: Contraseña del proveedor
-
-    Returns:
-        Token: Token JWT para autenticación en requests posteriores
-    """
-    # Autenticar usuario
-    user = await authenticate_user(login_data.email, login_data.password, db)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Verificar que sea un proveedor
-    if user.role != "provider":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso denegado: Solo para proveedores de servicios",
-        )
-
-    # Crear token de acceso
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
-
-    return Token(access_token=access_token, token_type="bearer")
 
 
 @router.get(

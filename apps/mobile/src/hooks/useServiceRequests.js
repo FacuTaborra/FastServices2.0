@@ -11,6 +11,7 @@ export const serviceRequestKeys = {
     all: ['service-requests'],
     detail: (id) => ['service-requests', id],
     active: ['service-requests', 'active'],
+    history: ['service-requests', 'history'],
 };
 
 /**
@@ -41,6 +42,28 @@ export function useActiveServiceRequests(options = {}) {
     });
 }
 
+export function useAllServiceRequests(options = {}) {
+    return useQuery({
+        queryKey: serviceRequestKeys.history,
+        queryFn: serviceRequestService.getAllServiceRequests,
+        staleTime: 1000 * 30,
+        refetchOnWindowFocus: false,
+        ...options,
+    });
+}
+
+export function useServiceRequest(requestId, options = {}) {
+    return useQuery({
+        queryKey: serviceRequestKeys.detail(requestId),
+        queryFn: () => serviceRequestService.getServiceRequest(requestId),
+        enabled: Boolean(requestId),
+        staleTime: 1000 * 15,
+        refetchOnWindowFocus: false,
+        refetchInterval: 1000 * 15,
+        ...options,
+    });
+}
+
 export function useUpdateServiceRequest() {
     const queryClient = useQueryClient();
 
@@ -49,6 +72,28 @@ export function useUpdateServiceRequest() {
             serviceRequestService.updateServiceRequest(requestId, data),
         onSuccess: (updatedRequest) => {
             queryClient.invalidateQueries({ queryKey: serviceRequestKeys.active });
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.history });
+            if (updatedRequest?.id) {
+                queryClient.invalidateQueries({
+                    queryKey: serviceRequestKeys.detail(updatedRequest.id),
+                });
+            }
+        },
+    });
+}
+
+export function useConfirmServicePayment() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ requestId, proposalId, paymentReference }) =>
+            serviceRequestService.confirmPayment(requestId, {
+                proposal_id: proposalId,
+                payment_reference: paymentReference,
+            }),
+        onSuccess: (updatedRequest) => {
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.active });
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.history });
             if (updatedRequest?.id) {
                 queryClient.invalidateQueries({
                     queryKey: serviceRequestKeys.detail(updatedRequest.id),
@@ -61,5 +106,8 @@ export function useUpdateServiceRequest() {
 export default {
     useCreateServiceRequest,
     useActiveServiceRequests,
+    useServiceRequest,
     useUpdateServiceRequest,
+    useAllServiceRequests,
+    useConfirmServicePayment,
 };

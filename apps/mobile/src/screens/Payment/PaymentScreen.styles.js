@@ -161,4 +161,7 @@ export default StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  payActionButtonDisabled: {
+    opacity: 0.7,
+  },
 });

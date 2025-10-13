@@ -18,7 +18,6 @@ from .ProviderProfile import (
     ProviderProfileUpdate,
     ProviderProfileResponse,
     ProviderRegisterRequest,
-    ProviderLoginRequest,
     ProviderResponse,
     ProviderLicense,
     LicenseType,
@@ -96,7 +95,6 @@ __all__ = [
     "ProviderProfileUpdate",
     "ProviderProfileResponse",
     "ProviderRegisterRequest",
-    "ProviderLoginRequest",
     "ProviderResponse",
     # Modelos Pydantic para Address
     "AddressCreate",

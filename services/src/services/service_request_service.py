@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Iterable, Sequence, List
+from typing import Iterable, Sequence, List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy import Select, select
@@ -14,17 +14,21 @@ from sqlalchemy.orm import selectinload
 from models.Address import Address
 from models.ProviderProfile import LicenseType, ProviderProfile
 from models.ServiceRequest import (
+    ProposalStatus,
     RequestInferredLicense,
+    Service,
     ServiceRequest,
     ServiceRequestProposal,
     ServiceRequestImage,
     ServiceRequestStatus,
     ServiceRequestType,
+    ServiceStatus,
     ValidationStatus,
 )
 from models.ServiceRequestSchemas import (
     MAX_ATTACHMENTS,
     ServiceRequestAttachment,
+    ServiceRequestConfirmPayment,
     ServiceRequestCreate,
     ServiceRequestUpdate,
 )
@@ -288,7 +292,7 @@ class ServiceRequestService:
 
     @staticmethod
     async def _fetch_request_with_relations(
-        db: AsyncSession, request_id: int
+        db: AsyncSession, request_id: int, *, client_id: Optional[int] = None
     ) -> ServiceRequest:
         stmt: Select[ServiceRequest] = (
             select(ServiceRequest)
@@ -300,12 +304,21 @@ class ServiceRequestService:
                         selectinload(ProviderProfile.user)
                     )
                 ),
+                selectinload(ServiceRequest.service),
+                selectinload(ServiceRequest.address),
             )
             .where(ServiceRequest.id == request_id)
         )
+        if client_id is not None:
+            stmt = stmt.where(ServiceRequest.client_id == client_id)
         result = await db.execute(stmt)
         service_request = result.scalar_one_or_none()
         if not service_request:
+            if client_id is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="La solicitud no existe o no pertenece al usuario",
+                )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="No se pudo recuperar la solicitud recién creada",
@@ -326,6 +339,8 @@ class ServiceRequestService:
                         selectinload(ProviderProfile.user)
                     )
                 ),
+                selectinload(ServiceRequest.service),
+                selectinload(ServiceRequest.address),
             )
             .where(
                 ServiceRequest.client_id == client_id,
@@ -337,6 +352,38 @@ class ServiceRequestService:
 
         result = await db.execute(stmt)
         return list(result.scalars().all())
+
+    @staticmethod
+    async def list_all_for_client(
+        db: AsyncSession, *, client_id: int
+    ) -> List[ServiceRequest]:
+        stmt: Select[ServiceRequest] = (
+            select(ServiceRequest)
+            .options(
+                selectinload(ServiceRequest.images),
+                selectinload(ServiceRequest.inferred_licenses),
+                selectinload(ServiceRequest.proposals).options(
+                    selectinload(ServiceRequestProposal.provider).options(
+                        selectinload(ProviderProfile.user)
+                    )
+                ),
+                selectinload(ServiceRequest.service),
+                selectinload(ServiceRequest.address),
+            )
+            .where(ServiceRequest.client_id == client_id)
+            .order_by(ServiceRequest.created_at.desc())
+        )
+
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def get_request_for_client(
+        db: AsyncSession, *, client_id: int, request_id: int
+    ) -> ServiceRequest:
+        return await ServiceRequestService._fetch_request_with_relations(
+            db, request_id, client_id=client_id
+        )
 
     @staticmethod
     async def update_service_request(
@@ -400,7 +447,108 @@ class ServiceRequestService:
             await db.commit()
 
         return await ServiceRequestService._fetch_request_with_relations(
-            db, service_request.id
+            db, service_request.id, client_id=client_id
+        )
+
+    @staticmethod
+    async def confirm_payment(
+        db: AsyncSession,
+        *,
+        client_id: int,
+        request_id: int,
+        payload: ServiceRequestConfirmPayment,
+    ) -> ServiceRequest:
+        # Recuperar solicitud con propuestas y dirección
+        service_request = await ServiceRequestService._fetch_request_with_relations(
+            db, request_id, client_id=client_id
+        )
+
+        if service_request.status not in {
+            ServiceRequestStatus.PUBLISHED,
+            ServiceRequestStatus.CLOSED,
+        }:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La solicitud debe estar publicada para confirmar el pago",
+            )
+
+        proposals = list(service_request.proposals or [])
+        if not proposals:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La solicitud no tiene propuestas para aceptar",
+            )
+
+        selected_proposal: ServiceRequestProposal | None = None
+        for proposal in proposals:
+            if proposal.id == payload.proposal_id:
+                selected_proposal = proposal
+                break
+
+        if selected_proposal is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="La propuesta indicada no pertenece a la solicitud",
+            )
+
+        if selected_proposal.status not in {
+            ProposalStatus.PENDING,
+            ProposalStatus.ACCEPTED,
+        }:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La propuesta seleccionada no se encuentra disponible",
+            )
+
+        # Actualizar estados de propuestas
+        for proposal in proposals:
+            if proposal.id == selected_proposal.id:
+                proposal.status = ProposalStatus.ACCEPTED
+            else:
+                proposal.status = ProposalStatus.REJECTED
+
+        # Marcar la solicitud como cerrada
+        service_request.status = ServiceRequestStatus.CLOSED
+
+        # Crear registro de servicio confirmado
+        service_entity = Service(
+            request_id=service_request.id,
+            proposal_id=selected_proposal.id,
+            client_id=service_request.client_id,
+            provider_profile_id=selected_proposal.provider_profile_id,
+            status=ServiceStatus.CONFIRMED,
+            total_price=selected_proposal.quoted_price,
+        )
+
+        # Adjuntar snapshot de dirección si está disponible
+        if service_request.address:
+            service_entity.address_snapshot = {
+                "street": service_request.address.street,
+                "title": service_request.address.title,
+                "city": service_request.address.city,
+                "state": service_request.address.state,
+                "postal_code": service_request.address.postal_code,
+                "country": service_request.address.country,
+                "additional_info": service_request.address.additional_info,
+                "latitude": float(service_request.address.latitude)
+                if service_request.address.latitude is not None
+                else None,
+                "longitude": float(service_request.address.longitude)
+                if service_request.address.longitude is not None
+                else None,
+            }
+
+        if selected_proposal.proposed_start_at:
+            service_entity.scheduled_start_at = selected_proposal.proposed_start_at
+        if selected_proposal.proposed_end_at:
+            service_entity.scheduled_end_at = selected_proposal.proposed_end_at
+
+        db.add(service_entity)
+
+        await db.commit()
+
+        return await ServiceRequestService._fetch_request_with_relations(
+            db, service_request.id, client_id=client_id
         )
 
 

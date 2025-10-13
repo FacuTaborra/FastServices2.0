@@ -43,6 +43,40 @@ export async function getActiveServiceRequests() {
     }
 }
 
+export async function getAllServiceRequests() {
+    try {
+        console.log('📚 Obteniendo historial de solicitudes del cliente...');
+        const response = await api.get('/service-requests');
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error listando historial de solicitudes:', { status, message });
+        throw error;
+    }
+}
+
+export async function getServiceRequest(requestId) {
+    if (!requestId) {
+        throw new Error('getServiceRequest requiere un ID de solicitud válido.');
+    }
+
+    try {
+        console.log('🔍 Obteniendo detalle de la solicitud...', { requestId });
+        const response = await api.get(`/service-requests/${requestId}`);
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error obteniendo detalle de la solicitud:', {
+            status,
+            message,
+            requestId,
+        });
+        throw error;
+    }
+}
+
 export async function updateServiceRequest(requestId, payload) {
     try {
         console.log('✏️ Actualizando solicitud de servicio...', {
@@ -60,8 +94,27 @@ export async function updateServiceRequest(requestId, payload) {
     }
 }
 
+export async function confirmPayment(requestId, payload) {
+    try {
+        console.log('💳 Confirmando pago...', { requestId, payload });
+        const response = await api.post(
+            `/service-requests/${requestId}/confirm-payment`,
+            payload,
+        );
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error confirmando pago:', { status, message });
+        throw error;
+    }
+}
+
 export default {
     createServiceRequest,
     getActiveServiceRequests,
+    getAllServiceRequests,
+    getServiceRequest,
     updateServiceRequest,
+    confirmPayment,
 };

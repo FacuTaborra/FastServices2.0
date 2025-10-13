@@ -138,6 +138,7 @@ export default function LicitacionScreen() {
     const [hasAutoClosed, setHasAutoClosed] = useState(false);
     const updateRequestMutation = useUpdateServiceRequest();
 
+    const serviceCreated = Boolean(requestData?.service);
     const requestTitle = requestData?.title ?? 'Solicitud en licitación';
     const requestDescription = requestData?.description ?? 'Descripción no disponible.';
     const requestAddress = requestData?.address ?? 'Dirección pendiente.';
@@ -416,6 +417,14 @@ export default function LicitacionScreen() {
 
     const handleGoToPay = () => {
         if (!winnerProposal) {
+            return;
+        }
+
+        if (serviceCreated) {
+            Alert.alert(
+                'Servicio confirmado',
+                'Ya registraste un pago para esta solicitud.',
+            );
             return;
         }
 
@@ -723,13 +732,38 @@ export default function LicitacionScreen() {
 
                     {payButtonVisible ? (
                         <TouchableOpacity
-                            style={styles.payButton}
-                            activeOpacity={0.9}
+                            style={[
+                                styles.payButton,
+                                serviceCreated && styles.payButtonDisabled,
+                            ]}
+                            activeOpacity={serviceCreated ? 1 : 0.9}
                             onPress={handleGoToPay}
+                            disabled={serviceCreated}
                         >
-                            <Ionicons name="card-outline" size={20} color="#ecfeff" style={styles.payButtonIcon} />
-                            <Text style={styles.payButtonText}>Ir a pagar</Text>
+                            <Ionicons
+                                name={serviceCreated ? 'shield-checkmark-outline' : 'card-outline'}
+                                size={20}
+                                color={serviceCreated ? '#0f766e' : '#ecfeff'}
+                                style={styles.payButtonIcon}
+                            />
+                            <Text
+                                style={[
+                                    styles.payButtonText,
+                                    serviceCreated && styles.payButtonTextDisabled,
+                                ]}
+                            >
+                                {serviceCreated ? 'Pago registrado' : 'Ir a pagar'}
+                            </Text>
                         </TouchableOpacity>
+                    ) : null}
+
+                    {serviceCreated ? (
+                        <View style={styles.serviceConfirmedNote}>
+                            <Ionicons name="shield-checkmark" size={16} color="#0f766e" style={styles.serviceConfirmedNoteIcon} />
+                            <Text style={styles.serviceConfirmedNoteText}>
+                                Ya confirmaste este servicio. Podés revisar los detalles desde la sección Mis solicitudes.
+                            </Text>
+                        </View>
                     ) : null}
 
                     <TouchableOpacity

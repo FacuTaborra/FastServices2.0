@@ -11,6 +11,7 @@ from auth.auth_utils import check_user_login
 from controllers.service_request_controller import ServiceRequestController
 from database.database import get_db
 from models.ServiceRequestSchemas import (
+    ServiceRequestConfirmPayment,
     ServiceRequestCreate,
     ServiceRequestResponse,
     ServiceRequestUpdate,
@@ -36,6 +37,20 @@ async def create_service_request_endpoint(
 
 
 @router.get(
+    "",
+    response_model=List[ServiceRequestResponse],
+    summary="Listar todas las solicitudes del cliente",
+)
+async def list_all_service_requests_endpoint(
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> List[ServiceRequestResponse]:
+    """Obtiene el historial completo de solicitudes del cliente autenticado."""
+
+    return await ServiceRequestController.list_all_for_client(db, current_user)
+
+
+@router.get(
     "/active",
     response_model=List[ServiceRequestResponse],
     summary="Listar solicitudes activas sin servicio asociado",
@@ -46,6 +61,25 @@ async def list_active_service_requests_endpoint(
 ) -> List[ServiceRequestResponse]:
     """Obtiene las solicitudes publicadas del cliente que aún no tienen un servicio generado."""
     return await ServiceRequestController.list_active_without_service(db, current_user)
+
+
+@router.get(
+    "/{request_id}",
+    response_model=ServiceRequestResponse,
+    summary="Obtener el detalle de una solicitud",
+)
+async def get_service_request_endpoint(
+    request_id: int,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceRequestResponse:
+    """Recupera una solicitud específica del cliente autenticado."""
+
+    return await ServiceRequestController.get_request_detail(
+        db,
+        current_user,
+        request_id,
+    )
 
 
 @router.put(
@@ -61,6 +95,27 @@ async def update_service_request_endpoint(
 ) -> ServiceRequestResponse:
     """Permite modificar estado o tipo de una solicitud existente."""
     return await ServiceRequestController.update_request(
+        db,
+        current_user,
+        request_id,
+        payload,
+    )
+
+
+@router.post(
+    "/{request_id}/confirm-payment",
+    response_model=ServiceRequestResponse,
+    summary="Confirmar el pago de una propuesta ganadora",
+)
+async def confirm_payment_endpoint(
+    request_id: int,
+    payload: ServiceRequestConfirmPayment,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceRequestResponse:
+    """Confirma el pago de la propuesta seleccionada y crea el servicio asociado."""
+
+    return await ServiceRequestController.confirm_payment(
         db,
         current_user,
         request_id,

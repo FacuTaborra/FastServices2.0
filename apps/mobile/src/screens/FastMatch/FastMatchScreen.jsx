@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Alert,
+    ActivityIndicator,
     Image,
     FlatList,
     Modal,
@@ -13,11 +14,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from './FastMatchScreen.styles';
-import { useUpdateServiceRequest } from '../../hooks/useServiceRequests';
+import { useServiceRequest, useUpdateServiceRequest } from '../../hooks/useServiceRequests';
 
 const MATCH_WINDOW_SECONDS = 5 * 60;
-
-const MOCK_OFFERS = [];
 
 const formatCountdown = (secondsRemaining) => {
     const safeSeconds = Number.isFinite(secondsRemaining)
@@ -47,6 +46,36 @@ const computeRemainingSeconds = (createdAtIso, nowMs) => {
     return Math.max(0, MATCH_WINDOW_SECONDS - elapsedSeconds);
 };
 
+const formatPriceLabel = (price, currency = 'ARS') => {
+    const numeric = Number(price);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+        return 'Precio a coordinar';
+    }
+
+    try {
+        return new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(numeric);
+    } catch (error) {
+        const formatted = numeric.toLocaleString('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+        return `$${formatted} ${currency}`.trim();
+    }
+};
+
+const formatRatingLabel = (rating) => {
+    const numeric = Number(rating);
+    if (!numeric) {
+        return null;
+    }
+    return numeric.toFixed(1).replace('.', ',');
+};
+
 export default function FastMatchScreen() {
     const navigation = useNavigation();
     const route = useRoute();
@@ -55,14 +84,27 @@ export default function FastMatchScreen() {
     const [nowMs, setNowMs] = useState(Date.now());
     const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
     const updateRequestMutation = useUpdateServiceRequest();
+    const requestSummaryParam = route.params?.requestSummary ?? null;
 
-    const requestSummary = route.params?.requestSummary ?? null;
-    const requestTitle = requestSummary?.title ?? 'Solicitud FAST';
-    const requestDescription = requestSummary?.description ?? 'Descripción no disponible.';
-    const requestAddress = requestSummary?.address ?? 'Dirección pendiente.';
-    const requestCreatedAt = requestSummary?.created_at ?? null;
+    const {
+        data: requestDetail,
+        isLoading: isDetailLoading,
+        isFetching: isDetailFetching,
+        isRefetching: isDetailRefetching,
+        isError: isDetailError,
+        refetch: refetchDetail,
+    } = useServiceRequest(requestId, {
+        enabled: Boolean(requestId),
+    });
 
-    const createdAtIso = requestSummary?.created_at ?? null;
+    const requestData = requestDetail ?? requestSummaryParam;
+    const serviceCreated = Boolean(requestData?.service);
+    const requestTitle = requestData?.title ?? 'Solicitud FAST';
+    const requestDescription = requestData?.description ?? 'Descripción no disponible.';
+    const requestAddress = requestData?.address ?? 'Dirección pendiente.';
+    const requestCreatedAt = requestData?.created_at ?? null;
+
+    const createdAtIso = requestData?.created_at ?? null;
 
     useEffect(() => {
         const intervalId = setInterval(() => {
@@ -82,30 +124,127 @@ export default function FastMatchScreen() {
         [remainingSeconds],
     );
 
-    const offers = Array.isArray(route.params?.offers) && route.params.offers.length
-        ? route.params.offers
-        : MOCK_OFFERS;
+    const offers = useMemo(() => {
+        if (!requestData) {
+            return [];
+        }
+
+        if (!Array.isArray(requestData.proposals)) {
+            return [];
+        }
+
+        return requestData.proposals;
+    }, [requestData]);
 
     const isUpdating = updateRequestMutation.isPending;
 
-    const renderOffer = ({ item }) => (
-        <View style={styles.offerCard}>
-            <Image source={{ uri: item.avatar }} style={styles.offerAvatar} />
-            <View style={styles.offerContent}>
-                <Text style={styles.offerName}>{item.name}</Text>
-                <Text style={styles.offerTagline}>{item.tagline}</Text>
-                <View style={styles.offerMetaRow}>
-                    <Text style={styles.offerPrice}>{`€${item.price.toFixed(2)}`}</Text>
-                    <View style={styles.offerRating}>
-                        <Ionicons name="star" size={16} color="#f4b331" />
-                        <Text style={styles.offerRatingText}>{item.rating.toFixed(1)}</Text>
+    const handleAcceptOffer = useCallback(
+        (proposal) => {
+            if (!proposal || !requestId) {
+                return;
+            }
+
+            if (serviceCreated) {
+                Alert.alert(
+                    'Servicio confirmado',
+                    'Ya registraste un pago para esta solicitud.',
+                );
+                return;
+            }
+
+            const priceLabel = formatPriceLabel(
+                proposal.quoted_price,
+                proposal.currency,
+            );
+
+            navigation.navigate('Payment', {
+                requestId,
+                requestTitle,
+                providerName:
+                    proposal.provider_display_name || 'Prestador seleccionado',
+                priceLabel,
+                proposal,
+                providerImageUrl: proposal.provider_image_url,
+            });
+        },
+        [navigation, requestId, requestTitle, serviceCreated],
+    );
+
+    const renderOffer = useCallback(
+        ({ item }) => {
+            if (!item) {
+                return null;
+            }
+
+            const avatarUri = item.provider_image_url;
+            const ratingLabel = formatRatingLabel(item.provider_rating_avg);
+            const reviewsCount = Number(item.provider_total_reviews ?? 0);
+            const reviewsLabel = reviewsCount
+                ? `${reviewsCount} ${reviewsCount === 1 ? 'reseña' : 'reseñas'}`
+                : null;
+            const priceLabel = formatPriceLabel(
+                item.quoted_price,
+                item.currency,
+            );
+            const notes = item.notes?.trim();
+            const isDisabled = serviceCreated;
+
+            return (
+                <View style={styles.offerCard}>
+                    {avatarUri ? (
+                        <Image
+                            source={{ uri: avatarUri }}
+                            style={styles.offerAvatar}
+                        />
+                    ) : (
+                        <View style={styles.offerAvatarFallback}>
+                            <Ionicons name="briefcase-outline" size={22} color="#1f2937" />
+                        </View>
+                    )}
+                    <View style={styles.offerContent}>
+                        <Text style={styles.offerName} numberOfLines={1}>
+                            {item.provider_display_name || 'Prestador FastServices'}
+                        </Text>
+                        <Text style={styles.offerTagline} numberOfLines={2}>
+                            {notes || 'Oferta enviada hace instantes.'}
+                        </Text>
+                        <View style={styles.offerMetaRow}>
+                            <Text style={styles.offerPrice}>{priceLabel}</Text>
+                            {ratingLabel ? (
+                                <View style={styles.offerRating}>
+                                    <Ionicons name="star" size={16} color="#f4b331" />
+                                    <Text style={styles.offerRatingText}>{ratingLabel}</Text>
+                                    {reviewsLabel ? (
+                                        <Text style={styles.offerRatingReviews}>{` · ${reviewsLabel}`}</Text>
+                                    ) : null}
+                                </View>
+                            ) : (
+                                <Text style={styles.offerNoRating}>Sin calificaciones</Text>
+                            )}
+                        </View>
                     </View>
+                    <TouchableOpacity
+                        style={[
+                            styles.acceptButton,
+                            isDisabled && styles.acceptButtonDisabled,
+                        ]}
+                        activeOpacity={isDisabled ? 1 : 0.9}
+                        onPress={() => handleAcceptOffer(item)}
+                        disabled={isDisabled}
+                    >
+                        <Text
+                            style={[
+                                styles.acceptButtonText,
+                                isDisabled && styles.acceptButtonTextDisabled,
+                            ]}
+                        >
+                            {isDisabled ? 'Pago registrado' : 'Aceptar'}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
-            </View>
-            <TouchableOpacity style={styles.acceptButton} activeOpacity={0.9}>
-                <Text style={styles.acceptButtonText}>Aceptar</Text>
-            </TouchableOpacity>
-        </View>
+            );
+        },
+        [handleAcceptOffer, serviceCreated],
     );
 
     const resolveErrorMessage = (error, fallbackMessage) => {
@@ -206,9 +345,77 @@ export default function FastMatchScreen() {
         paddingBottom: Math.max(insets.bottom, 24),
     };
 
-    const requestAttachments = Array.isArray(requestSummary?.attachments)
-        ? requestSummary.attachments.filter((item) => !!item?.public_url || !!item?.thumbnail_url)
+    const requestAttachments = Array.isArray(requestData?.attachments)
+        ? requestData.attachments.filter(
+            (item) => !!item?.public_url || !!item?.thumbnail_url,
+        )
         : [];
+
+    const listContentStyle = useMemo(
+        () => [styles.listContent, !offers.length && styles.listContentEmpty],
+        [offers.length],
+    );
+
+    const renderEmptyComponent = useMemo(() => {
+        if (serviceCreated) {
+            return (
+                <View style={styles.emptyOffersWrapper}>
+                    <Ionicons name="shield-checkmark-outline" size={28} color="#0f766e" />
+                    <Text style={styles.emptyOffersText}>
+                        Este servicio ya fue confirmado. No necesitás aceptar nuevas ofertas.
+                    </Text>
+                </View>
+            );
+        }
+
+        if (isDetailLoading || isDetailFetching) {
+            return (
+                <View style={styles.emptyOffersWrapper}>
+                    <ActivityIndicator size="small" color="#0f172a" />
+                    <Text style={styles.emptyOffersText}>Cargando ofertas...</Text>
+                </View>
+            );
+        }
+
+        if (isDetailError) {
+            return (
+                <View style={styles.emptyOffersWrapper}>
+                    <Ionicons name="warning-outline" size={26} color="#fb923c" />
+                    <Text style={styles.emptyOffersText}>
+                        No pudimos obtener las ofertas. Deslizá hacia abajo para reintentar.
+                    </Text>
+                </View>
+            );
+        }
+
+        return (
+            <View style={styles.emptyOffersWrapper}>
+                <Ionicons name="flash-outline" size={26} color="#64748b" />
+                <Text style={styles.emptyOffersText}>
+                    Todavía no llegaron ofertas. Actualizá para ver nuevas propuestas.
+                </Text>
+            </View>
+        );
+    }, [isDetailError, isDetailFetching, isDetailLoading, serviceCreated]);
+
+    const listFooter = useMemo(
+        () => (
+            <View style={styles.listFooterHint}>
+                <Text style={styles.refreshHint}>
+                    {serviceCreated
+                        ? 'El servicio quedó confirmado. Guardamos esta pantalla por si necesitás revisar las ofertas.'
+                        : 'Deslizá hacia abajo para actualizar las ofertas'}
+                </Text>
+            </View>
+        ),
+        [serviceCreated],
+    );
+
+    const handleRefresh = useCallback(() => {
+        if (typeof refetchDetail === 'function') {
+            refetchDetail();
+        }
+    }, [refetchDetail]);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -242,12 +449,25 @@ export default function FastMatchScreen() {
                 </Text>
             </View>
 
+            {serviceCreated ? (
+                <View style={styles.serviceConfirmedBanner}>
+                    <Ionicons name="shield-checkmark" size={18} color="#0f766e" style={styles.serviceConfirmedIcon} />
+                    <Text style={styles.serviceConfirmedText}>
+                        Ya confirmaste este servicio. Podés revisar las ofertas restantes si lo necesitás.
+                    </Text>
+                </View>
+            ) : null}
+
             <FlatList
                 data={offers}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item, index) => (item?.id ? String(item.id) : `fast-offer-${index}`)}
                 renderItem={renderOffer}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={listContentStyle}
                 showsVerticalScrollIndicator={false}
+                ListEmptyComponent={renderEmptyComponent}
+                ListFooterComponent={offers.length ? listFooter : null}
+                refreshing={isDetailRefetching}
+                onRefresh={handleRefresh}
             />
             <View style={styles.footerWrapper}>
                 <TouchableOpacity

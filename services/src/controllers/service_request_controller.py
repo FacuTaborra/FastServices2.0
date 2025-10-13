@@ -10,10 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.ServiceRequest import ServiceRequest
 from models.ServiceRequestSchemas import (
+    ServiceRequestConfirmPayment,
     ServiceRequestCreate,
     ServiceRequestImageResponse,
     ServiceRequestProposalResponse,
     ServiceRequestResponse,
+    ServiceSummaryResponse,
     ServiceRequestUpdate,
 )
 from models.User import User
@@ -69,6 +71,56 @@ class ServiceRequestController:
             ) from exc
 
     @staticmethod
+    async def list_all_for_client(
+        db: AsyncSession, current_user: User
+    ) -> List[ServiceRequestResponse]:
+        try:
+            requests = await ServiceRequestService.list_all_for_client(
+                db, client_id=current_user.id
+            )
+            return [
+                ServiceRequestController._build_response(request)
+                for request in requests
+            ]
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "Error listando todas las solicitudes del cliente %s: %s",
+                current_user.id,
+                exc,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error interno al obtener el historial de solicitudes",
+            ) from exc
+
+    @staticmethod
+    async def get_request_detail(
+        db: AsyncSession, current_user: User, request_id: int
+    ) -> ServiceRequestResponse:
+        try:
+            service_request = await ServiceRequestService.get_request_for_client(
+                db,
+                client_id=current_user.id,
+                request_id=request_id,
+            )
+            return ServiceRequestController._build_response(service_request)
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "Error obteniendo la solicitud %s del cliente %s: %s",
+                request_id,
+                current_user.id,
+                exc,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error interno al obtener la solicitud",
+            ) from exc
+
+    @staticmethod
     async def update_request(
         db: AsyncSession,
         current_user: User,
@@ -97,6 +149,35 @@ class ServiceRequestController:
                 detail="Error interno al actualizar la solicitud",
             ) from exc
 
+    @staticmethod
+    async def confirm_payment(
+        db: AsyncSession,
+        current_user: User,
+        request_id: int,
+        payload: ServiceRequestConfirmPayment,
+    ) -> ServiceRequestResponse:
+        try:
+            updated_request = await ServiceRequestService.confirm_payment(
+                db,
+                client_id=current_user.id,
+                request_id=request_id,
+                payload=payload,
+            )
+            return ServiceRequestController._build_response(updated_request)
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "Error confirmando pago para la solicitud %s del cliente %s: %s",
+                request_id,
+                current_user.id,
+                exc,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error interno al confirmar el pago",
+            ) from exc
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -111,6 +192,9 @@ class ServiceRequestController:
         )
 
         proposals = ServiceRequestController._serialize_proposals(service_request)
+        service_summary = ServiceRequestController._build_service_summary(
+            service_request
+        )
 
         return ServiceRequestResponse(
             id=service_request.id,
@@ -130,6 +214,7 @@ class ServiceRequestController:
             attachments=attachments,
             proposal_count=len(proposals),
             proposals=proposals,
+            service=service_summary,
             created_at=service_request.created_at,
             updated_at=service_request.updated_at,
         )
@@ -190,6 +275,15 @@ class ServiceRequestController:
             )
 
         return serialized
+
+    @staticmethod
+    def _build_service_summary(
+        service_request: ServiceRequest,
+    ) -> ServiceSummaryResponse | None:
+        service = getattr(service_request, "service", None)
+        if not service:
+            return None
+        return ServiceSummaryResponse.model_validate(service)
 
 
 __all__ = ["ServiceRequestController"]

@@ -73,6 +73,11 @@ const styles = StyleSheet.create({
     listContent: {
         paddingHorizontal: 18,
         paddingBottom: 24,
+        paddingTop: 4,
+    },
+    listContentEmpty: {
+        flexGrow: 1,
+        justifyContent: 'center',
     },
     offerCard: {
         backgroundColor: '#f0f5f2',
@@ -80,13 +85,22 @@ const styles = StyleSheet.create({
         padding: 18,
         marginBottom: 16,
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
     },
     offerAvatar: {
         width: 52,
         height: 52,
         borderRadius: 26,
         marginRight: 16,
+    },
+    offerAvatarFallback: {
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        marginRight: 16,
+        backgroundColor: '#e2e8f0',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     offerContent: {
         flex: 1,
@@ -97,9 +111,9 @@ const styles = StyleSheet.create({
         color: '#111827',
     },
     offerTagline: {
-        marginTop: 4,
-        fontSize: 14,
-        color: '#6b7280',
+        marginTop: 6,
+        fontSize: 13,
+        color: '#4b5563',
     },
     offerMetaRow: {
         marginTop: 12,
@@ -122,6 +136,16 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#0f172a',
     },
+    offerRatingReviews: {
+        marginLeft: 2,
+        fontSize: 13,
+        color: '#475569',
+    },
+    offerNoRating: {
+        fontSize: 13,
+        color: '#64748b',
+        fontStyle: 'italic',
+    },
     acceptButton: {
         marginLeft: 16,
         backgroundColor: '#e57355',
@@ -129,10 +153,16 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 18,
     },
+    acceptButtonDisabled: {
+        backgroundColor: '#cbd5f5',
+    },
     acceptButtonText: {
         color: '#fff',
         fontWeight: '700',
         fontSize: 16,
+    },
+    acceptButtonTextDisabled: {
+        color: '#1f2937',
     },
     footerWrapper: {
         paddingHorizontal: 24,
@@ -182,6 +212,46 @@ const styles = StyleSheet.create({
     },
     switchHelperTextReady: {
         color: '#f0fdfa',
+    },
+    emptyOffersWrapper: {
+        paddingHorizontal: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 180,
+    },
+    emptyOffersText: {
+        fontSize: 14,
+        lineHeight: 20,
+        textAlign: 'center',
+        color: '#475569',
+        marginTop: 12,
+    },
+    listFooterHint: {
+        alignItems: 'center',
+        paddingVertical: 12,
+    },
+    refreshHint: {
+        fontSize: 12,
+        color: '#94a3b8',
+    },
+    serviceConfirmedBanner: {
+        marginHorizontal: 20,
+        marginBottom: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderRadius: 12,
+        backgroundColor: '#d1fae5',
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    serviceConfirmedIcon: {
+        marginRight: 8,
+    },
+    serviceConfirmedText: {
+        flex: 1,
+        fontSize: 13,
+        lineHeight: 18,
+        color: '#115e59',
     },
     modalOverlay: {
         flex: 1,

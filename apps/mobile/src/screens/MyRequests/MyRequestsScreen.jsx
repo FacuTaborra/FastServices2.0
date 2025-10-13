@@ -276,71 +276,24 @@ const MyRequestsScreen = () => {
 
   const dataForTab = tabDataMap[activeTab] ?? todoRequestsFiltered;
 
-  const buildRequestSummary = useCallback((requestRaw) => {
-    if (!requestRaw) {
-      return null;
-    }
-    return {
-      id: requestRaw.id,
-      title: requestRaw.title?.trim() || 'Solicitud sin título',
-      description: requestRaw.description ?? '',
-      address: requestRaw.city_snapshot || 'Dirección pendiente.',
-      created_at: requestRaw.created_at,
-      bidding_deadline: requestRaw.bidding_deadline,
-      status: requestRaw.status,
-      proposal_count: requestRaw.proposal_count ?? 0,
-      proposals: Array.isArray(requestRaw.proposals) ? requestRaw.proposals : [],
-      attachments: Array.isArray(requestRaw.attachments)
-        ? requestRaw.attachments
-        : [],
-    };
-  }, []);
-
-  const handleNavigateToRequest = useCallback(
-    (summaryItem) => {
-      if (!summaryItem?.raw) {
-        return;
-      }
-
-      const requestRaw = summaryItem.raw;
-      const requestSummary = buildRequestSummary(requestRaw);
-
-      if (requestRaw.request_type === 'FAST') {
-        navigation.navigate('FastMatch', {
-          requestId: requestRaw.id,
-          requestSummary,
-        });
-        return;
-      }
-
-      if (requestRaw.request_type === 'LICITACION') {
-        navigation.navigate('Licitacion', {
-          requestId: requestRaw.id,
-          requestSummary,
-        });
-      }
-    },
-    [buildRequestSummary, navigation]
-  );
-
   const renderTodo = useCallback(
     ({ item }) => (
       <TodoRequestCard
         item={item}
-        onPress={() => handleNavigateToRequest(item)}
+        onPress={() => navigation.navigate('Requests', { requestId: item.id })}
       />
     ),
-    [handleNavigateToRequest]
+    [navigation]
   );
 
   const renderProgress = useCallback(
     ({ item }) => (
       <ProgressRequestCard
         item={item}
-        onPress={() => handleNavigateToRequest(item)}
+        onPress={() => navigation.navigate('Requests', { requestId: item.id })}
       />
     ),
-    [handleNavigateToRequest]
+    [navigation]
   );
 
   const openModal = useCallback((requestId) => {

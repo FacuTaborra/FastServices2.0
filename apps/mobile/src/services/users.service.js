@@ -30,7 +30,7 @@ function withImageCacheBust(user) {
 
 /**
  * Obtener información del usuario actual
- * Intenta primero con endpoint de usuarios, luego con proveedores
+ * Utiliza el endpoint unificado de usuarios
  */
 export async function getCurrentUser({ forceRefresh = false } = {}) {
     try {
@@ -39,40 +39,20 @@ export async function getCurrentUser({ forceRefresh = false } = {}) {
             return _cachedUser;
         }
 
-        // Intentar usar el user_type persistido si existe
-        let userType = null;
+        const response = await api.get('/users/me');
+        const data = response.data;
+        _cachedUser = withImageCacheBust(data);
+        _cachedUserTimestamp = Date.now();
+
+        const normalizedRole = typeof data?.role === 'string'
+            ? data.role.toLowerCase()
+            : null;
+
         try {
-            userType = await tokenStore.getUserType?.();
+            await tokenStore.setUserType?.(normalizedRole);
         } catch { }
 
-        const endpointsOrder = userType === 'provider'
-            ? ['/providers/me', '/users/me']
-            : ['/users/me', '/providers/me'];
-
-        let lastError = null;
-        for (const ep of endpointsOrder) {
-            try {
-                const response = await api.get(ep);
-                const data = response.data;
-                _cachedUser = withImageCacheBust(data);
-                _cachedUserTimestamp = Date.now();
-
-                // Si no teníamos userType guardado, inferirlo y persistirlo
-                if (!userType) {
-                    const inferred = ep.includes('/providers/') ? 'provider' : 'client';
-                    try { await tokenStore.setUserType?.(inferred); } catch { }
-                }
-                return data;
-            } catch (err) {
-                lastError = err;
-                // Solo continuar si es 401/403/404 - otros errores romper
-                const status = err?.status || err?.response?.status;
-                if (![401, 403, 404].includes(status)) {
-                    break;
-                }
-            }
-        }
-        throw lastError || new Error('No se pudo obtener el usuario actual');
+        return data;
     } catch (error) {
         console.error('❌ Error obteniendo usuario actual:', error.message);
         throw error;

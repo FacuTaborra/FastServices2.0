@@ -1,6 +1,5 @@
 from pydantic import BaseModel
-from typing import Union, Optional, List
-from datetime import datetime
+from typing import Union, Optional
 
 
 class Token(BaseModel):
@@ -8,6 +7,8 @@ class Token(BaseModel):
 
     access_token: str
     token_type: str
+    role: Optional[str] = None
+    user_id: Optional[int] = None
 
 
 class TokenData(BaseModel):

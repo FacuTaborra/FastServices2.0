@@ -151,7 +151,7 @@ class UserResponse(BaseModel):
     """Esquema para respuesta de usuario (sin información sensible)."""
 
     id: int
-    role: str
+    role: UserRole
     first_name: str
     last_name: str
     email: str

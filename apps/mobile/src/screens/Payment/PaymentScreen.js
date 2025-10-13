@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import styles from './PaymentScreen.styles';
+import { useConfirmServicePayment } from '../../hooks/useServiceRequests';
 
 export default function PaymentScreen() {
   const navigation = useNavigation();
@@ -29,6 +30,8 @@ export default function PaymentScreen() {
     || proposal?.provider_image_url
     || proposal?.provider?.profile_image_url
     || proposal?.provider?.image_url;
+
+  const confirmPaymentMutation = useConfirmServicePayment();
 
   const ratingLabel = useMemo(() => {
     const rating = Number(proposal?.provider_rating_avg ?? 0);
@@ -86,10 +89,36 @@ export default function PaymentScreen() {
   const notes = proposal?.notes?.trim();
 
   const handlePay = () => {
-    Alert.alert('Pago simulado', 'Serás redirigido al flujo de pago.', [
-      { text: 'Volver', style: 'cancel' },
-      { text: 'Continuar', onPress: () => navigation.goBack() },
-    ]);
+    if (!proposal?.id || !route.params?.requestId) {
+      Alert.alert('Pago no disponible', 'No se pudo identificar la propuesta seleccionada.');
+      return;
+    }
+
+    confirmPaymentMutation.mutate(
+      {
+        requestId: route.params.requestId,
+        proposalId: proposal.id,
+        paymentReference: null,
+      },
+      {
+        onSuccess: () => {
+          Alert.alert(
+            'Pago confirmado',
+            'El prestador fue notificado y el servicio quedó confirmado.',
+            [
+              {
+                text: 'OK',
+                onPress: () => navigation.goBack(),
+              },
+            ],
+          );
+        },
+        onError: (error) => {
+          const message = error?.response?.data?.detail || error?.message || 'No pudimos confirmar el pago. Intentá nuevamente.';
+          Alert.alert('Error al confirmar el pago', message);
+        },
+      },
+    );
   };
 
   return (
@@ -157,9 +186,19 @@ export default function PaymentScreen() {
           ) : null}
         </View>
 
-        <TouchableOpacity style={styles.payActionButton} activeOpacity={0.9} onPress={handlePay}>
+        <TouchableOpacity
+          style={[
+            styles.payActionButton,
+            confirmPaymentMutation.isPending && styles.payActionButtonDisabled,
+          ]}
+          activeOpacity={confirmPaymentMutation.isPending ? 1 : 0.9}
+          onPress={handlePay}
+          disabled={confirmPaymentMutation.isPending}
+        >
           <Ionicons name="shield-checkmark-outline" size={22} color="#ecfeff" style={styles.payActionIcon} />
-          <Text style={styles.payActionText}>{`Pagar ${priceLabel}`}</Text>
+          <Text style={styles.payActionText}>
+            {confirmPaymentMutation.isPending ? 'Procesando pago...' : `Pagar ${priceLabel}`}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

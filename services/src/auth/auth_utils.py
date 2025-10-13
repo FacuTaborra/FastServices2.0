@@ -10,7 +10,7 @@ from database.database import get_db
 from fastapi.security import OAuth2PasswordBearer
 import bcrypt
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 # Constantes para compatibilidad con routers existentes
 SECRET_KEY = JWT_SECRET_KEY

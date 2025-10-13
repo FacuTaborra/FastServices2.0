@@ -327,6 +327,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#0f766e',
         marginBottom: 12,
     },
+    payButtonDisabled: {
+        backgroundColor: '#d1fae5',
+        borderWidth: 1,
+        borderColor: '#0f766e',
+    },
     payButtonIcon: {
         marginRight: 8,
     },
@@ -334,6 +339,9 @@ const styles = StyleSheet.create({
         color: '#ecfeff',
         fontSize: 16,
         fontWeight: '700',
+    },
+    payButtonTextDisabled: {
+        color: '#047857',
     },
     closeButton: {
         borderRadius: 16,
@@ -382,6 +390,24 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#64748b',
         textAlign: 'center',
+    },
+    serviceConfirmedNote: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#ecfdf5',
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        marginBottom: 12,
+    },
+    serviceConfirmedNoteIcon: {
+        marginRight: 8,
+    },
+    serviceConfirmedNoteText: {
+        flex: 1,
+        fontSize: 13,
+        lineHeight: 18,
+        color: '#0f766e',
     },
     closedBanner: {
         flexDirection: 'row',

@@ -277,13 +277,6 @@ class ProviderRegisterRequest(BaseModel):
         return v
 
 
-class ProviderLoginRequest(BaseModel):
-    """Esquema para login de proveedor."""
-
-    email: str = Field(..., description="Email del proveedor")
-    password: str = Field(..., description="Contraseña")
-
-
 class ProviderResponse(BaseModel):
     """Esquema completo de respuesta para proveedor (usuario + perfil)."""
 
