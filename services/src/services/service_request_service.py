@@ -304,7 +304,13 @@ class ServiceRequestService:
                         selectinload(ProviderProfile.user)
                     )
                 ),
-                selectinload(ServiceRequest.service),
+                selectinload(ServiceRequest.service).options(
+                    selectinload(Service.provider).options(
+                        selectinload(ProviderProfile.user)
+                    ),
+                    selectinload(Service.proposal),
+                    selectinload(Service.status_history),
+                ),
                 selectinload(ServiceRequest.address),
             )
             .where(ServiceRequest.id == request_id)
@@ -463,6 +469,12 @@ class ServiceRequestService:
             db, request_id, client_id=client_id
         )
 
+        if service_request.service is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La solicitud ya tiene un servicio confirmado",
+            )
+
         if service_request.status not in {
             ServiceRequestStatus.PUBLISHED,
             ServiceRequestStatus.CLOSED,
@@ -544,6 +556,93 @@ class ServiceRequestService:
             service_entity.scheduled_end_at = selected_proposal.proposed_end_at
 
         db.add(service_entity)
+
+        await db.commit()
+
+        return await ServiceRequestService._fetch_request_with_relations(
+            db, service_request.id, client_id=client_id
+        )
+
+    @staticmethod
+    async def cancel_service(
+        db: AsyncSession,
+        *,
+        client_id: int,
+        request_id: int,
+    ) -> ServiceRequest:
+        service_request = await ServiceRequestService._fetch_request_with_relations(
+            db, request_id, client_id=client_id
+        )
+
+        service = service_request.service
+        if service is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="La solicitud no tiene un servicio asociado",
+            )
+
+        if service.status != ServiceStatus.CONFIRMED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Solo se pueden cancelar servicios confirmados",
+            )
+
+        now = datetime.now(timezone.utc)
+        scheduled_start = service.scheduled_start_at
+        if scheduled_start is not None:
+            if scheduled_start.tzinfo is None:
+                scheduled_start = scheduled_start.replace(tzinfo=timezone.utc)
+            if scheduled_start <= now:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No podés cancelar un servicio que ya comenzó",
+                )
+
+        service.status = ServiceStatus.CANCELED
+        service_request.status = ServiceRequestStatus.CANCELLED
+
+        await db.commit()
+
+        return await ServiceRequestService._fetch_request_with_relations(
+            db, service_request.id, client_id=client_id
+        )
+
+    @staticmethod
+    async def mark_service_in_progress(
+        db: AsyncSession,
+        *,
+        client_id: int,
+        request_id: int,
+    ) -> ServiceRequest:
+        service_request = await ServiceRequestService._fetch_request_with_relations(
+            db, request_id, client_id=client_id
+        )
+
+        service = service_request.service
+        if service is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="La solicitud no tiene un servicio asociado",
+            )
+
+        if service.status not in {ServiceStatus.CONFIRMED, ServiceStatus.IN_PROGRESS}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El servicio no puede pasar a en ejecución",
+            )
+
+        now = datetime.now(timezone.utc)
+        scheduled_start = service.scheduled_start_at
+        if scheduled_start is not None:
+            if scheduled_start.tzinfo is None:
+                scheduled_start = scheduled_start.replace(tzinfo=timezone.utc)
+            if scheduled_start > now:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El servicio aún no alcanzó la fecha de inicio",
+                )
+
+        service.status = ServiceStatus.IN_PROGRESS
 
         await db.commit()
 

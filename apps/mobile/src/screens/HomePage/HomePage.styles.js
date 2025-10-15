@@ -20,23 +20,23 @@ export const PALETTE = {
 
 export const STATUS_CARD_COLORS = {
   active: {
-    pill: PALETTE.danger,
-    background: PALETTE.dangerSoft,
-    icon: PALETTE.dangerText,
+    pill: '#F87171', // rojo más suave
+    background: '#FFF1F2',
+    icon: '#B91C1C',
   },
   inProgress: {
-    pill: PALETTE.warning,
-    background: PALETTE.warningSoft,
-    icon: '#92400E',
+    pill: '#FBBF24', // amarillo suave
+    background: '#FFFBEB',
+    icon: '#B45309',
   },
   upcoming: {
-    pill: '#2563EB',
-    background: PALETTE.infoSoft,
-    icon: '#1E3A8A',
+    pill: '#60A5FA', // azul suave
+    background: '#EFF6FF',
+    icon: '#1D4ED8',
   },
   completed: {
-    pill: PALETTE.success,
-    background: PALETTE.successSoft,
+    pill: '#34D399', // verde suave
+    background: '#ECFDF5',
     icon: '#047857',
   },
 };
@@ -357,8 +357,13 @@ export default StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: PALETTE.borderSubtle,
+    borderWidth: 0,
+    // Sombra sutil para destacar la card
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 2,
   },
   statusTextBlock: {
     flex: 1,
@@ -378,14 +383,14 @@ export default StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: PALETTE.cardLight,
+    backgroundColor: '#F3F4F6', // gris muy claro para contraste
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 1,
   },
   statusIcon: {
     color: PALETTE.primary,

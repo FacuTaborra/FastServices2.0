@@ -18,7 +18,7 @@ export default StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 1,
   },
   brandRow: {
     flexDirection: 'row',
@@ -29,7 +29,7 @@ export default StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 18,
-    marginRight: 16,
+    marginRight: 6,
   },
   brandTitle: {
     fontSize: 22,

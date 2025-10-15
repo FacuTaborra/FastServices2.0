@@ -110,6 +110,37 @@ export async function confirmPayment(requestId, payload) {
     }
 }
 
+export async function cancelService(requestId, payload) {
+    try {
+        console.log('🛑 Cancelando servicio confirmado...', { requestId, payload });
+        const response = await api.post(
+            `/service-requests/${requestId}/service/cancel`,
+            payload || {},
+        );
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error cancelando el servicio:', { status, message });
+        throw error;
+    }
+}
+
+export async function markServiceInProgress(requestId) {
+    try {
+        console.log('🚀 Marcando servicio en progreso...', { requestId });
+        const response = await api.post(
+            `/service-requests/${requestId}/service/mark-in-progress`,
+        );
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error actualizando servicio a IN_PROGRESS:', { status, message });
+        throw error;
+    }
+}
+
 export default {
     createServiceRequest,
     getActiveServiceRequests,
@@ -117,4 +148,6 @@ export default {
     getServiceRequest,
     updateServiceRequest,
     confirmPayment,
+    cancelService,
+    markServiceInProgress,
 };

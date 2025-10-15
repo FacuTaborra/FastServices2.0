@@ -103,6 +103,42 @@ export function useConfirmServicePayment() {
     });
 }
 
+export function useCancelService() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ requestId, reason }) =>
+            serviceRequestService.cancelService(requestId, reason ? { reason } : {}),
+        onSuccess: (updatedRequest) => {
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.active });
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.history });
+            if (updatedRequest?.id) {
+                queryClient.invalidateQueries({
+                    queryKey: serviceRequestKeys.detail(updatedRequest.id),
+                });
+            }
+        },
+    });
+}
+
+export function useMarkServiceInProgress() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ requestId }) =>
+            serviceRequestService.markServiceInProgress(requestId),
+        onSuccess: (updatedRequest) => {
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.active });
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.history });
+            if (updatedRequest?.id) {
+                queryClient.invalidateQueries({
+                    queryKey: serviceRequestKeys.detail(updatedRequest.id),
+                });
+            }
+        },
+    });
+}
+
 export default {
     useCreateServiceRequest,
     useActiveServiceRequests,
@@ -110,4 +146,6 @@ export default {
     useUpdateServiceRequest,
     useAllServiceRequests,
     useConfirmServicePayment,
+    useCancelService,
+    useMarkServiceInProgress,
 };

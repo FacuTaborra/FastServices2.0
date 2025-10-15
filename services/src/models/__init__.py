@@ -55,6 +55,10 @@ from .ServiceRequestSchemas import (
     ServiceRequestImageResponse,
     ServiceRequestProposalResponse,
     ServiceRequestResponse,
+    ServiceSummaryResponse,
+    ServiceRequestConfirmPayment,
+    ServiceRequestUpdate,
+    ServiceCancelRequest,
 )
 
 __all__ = [
@@ -107,6 +111,10 @@ __all__ = [
     "ServiceRequestImageResponse",
     "ServiceRequestProposalResponse",
     "ServiceRequestResponse",
+    "ServiceSummaryResponse",
+    "ServiceRequestConfirmPayment",
+    "ServiceRequestUpdate",
+    "ServiceCancelRequest",
     # Token
     "Token",
 ]

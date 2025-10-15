@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -146,9 +146,14 @@ class ServiceSummaryResponse(BaseModel):
 
     id: int
     status: ServiceStatus
+    proposal_id: Optional[int]
     scheduled_start_at: Optional[datetime]
     scheduled_end_at: Optional[datetime]
     total_price: Optional[Decimal]
+    currency: Optional[str]
+    address_snapshot: Optional[Dict[str, Any]]
+    provider_profile_id: Optional[int]
+    provider_display_name: Optional[str]
     created_at: datetime
     updated_at: datetime
 
@@ -209,4 +214,14 @@ class ServiceRequestConfirmPayment(BaseModel):
         None,
         max_length=120,
         description="Referencia opcional del comprobante de pago",
+    )
+
+
+class ServiceCancelRequest(BaseModel):
+    """Payload opcional al cancelar un servicio."""
+
+    reason: Optional[str] = Field(
+        default=None,
+        max_length=300,
+        description="Motivo del reembolso solicitado",
     )

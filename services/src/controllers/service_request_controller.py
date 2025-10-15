@@ -17,6 +17,7 @@ from models.ServiceRequestSchemas import (
     ServiceRequestResponse,
     ServiceSummaryResponse,
     ServiceRequestUpdate,
+    ServiceCancelRequest,
 )
 from models.User import User
 from services.service_request_service import ServiceRequestService
@@ -178,6 +179,62 @@ class ServiceRequestController:
                 detail="Error interno al confirmar el pago",
             ) from exc
 
+    @staticmethod
+    async def cancel_service(
+        db: AsyncSession,
+        current_user: User,
+        request_id: int,
+        payload: ServiceCancelRequest | None,
+    ) -> ServiceRequestResponse:
+        del payload  # Motivo opcional (no almacenado aún)
+        try:
+            updated_request = await ServiceRequestService.cancel_service(
+                db,
+                client_id=current_user.id,
+                request_id=request_id,
+            )
+            return ServiceRequestController._build_response(updated_request)
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "Error cancelando el servicio de la solicitud %s del cliente %s: %s",
+                request_id,
+                current_user.id,
+                exc,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error interno al cancelar el servicio",
+            ) from exc
+
+    @staticmethod
+    async def mark_service_in_progress(
+        db: AsyncSession,
+        current_user: User,
+        request_id: int,
+    ) -> ServiceRequestResponse:
+        try:
+            updated_request = await ServiceRequestService.mark_service_in_progress(
+                db,
+                client_id=current_user.id,
+                request_id=request_id,
+            )
+            return ServiceRequestController._build_response(updated_request)
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "Error marcando en progreso el servicio de la solicitud %s del cliente %s: %s",
+                request_id,
+                current_user.id,
+                exc,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error interno al actualizar el estado del servicio",
+            ) from exc
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -283,7 +340,32 @@ class ServiceRequestController:
         service = getattr(service_request, "service", None)
         if not service:
             return None
-        return ServiceSummaryResponse.model_validate(service)
+        provider_name = None
+        if service.provider and service.provider.user:
+            first = (service.provider.user.first_name or "").strip()
+            last = (service.provider.user.last_name or "").strip()
+            provider_name = (
+                " ".join(part for part in [first, last] if part).strip() or None
+            )
+
+        currency = None
+        if service.proposal is not None:
+            currency = service.proposal.currency
+
+        return ServiceSummaryResponse(
+            id=service.id,
+            status=service.status,
+            proposal_id=service.proposal_id,
+            scheduled_start_at=service.scheduled_start_at,
+            scheduled_end_at=service.scheduled_end_at,
+            total_price=service.total_price,
+            currency=currency,
+            address_snapshot=service.address_snapshot,
+            provider_profile_id=service.provider_profile_id,
+            provider_display_name=provider_name,
+            created_at=service.created_at,
+            updated_at=service.updated_at,
+        )
 
 
 __all__ = ["ServiceRequestController"]

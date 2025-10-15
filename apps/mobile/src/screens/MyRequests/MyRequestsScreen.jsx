@@ -26,7 +26,7 @@ const COMPLETED_SERVICE_STATUSES = new Set(['COMPLETED']);
 
 const SERVICE_STATUS_MAP = {
   CONFIRMED: { label: 'Servicio confirmado', variant: 'progress' },
-  IN_PROGRESS: { label: 'En ejecución', variant: 'progress' },
+  IN_PROGRESS: { label: 'En progreso', variant: 'progress' },
   COMPLETED: { label: 'Servicio completado', variant: 'completed' },
   CANCELED: { label: 'Servicio cancelado', variant: 'cancelled' },
 };
@@ -178,10 +178,21 @@ const MyRequestsScreen = () => {
     [historyData]
   );
 
-  const formattedRequests = useMemo(
-    () => rawRequests.map((request) => mapRequestToCardData(request)),
-    [rawRequests, mapRequestToCardData]
-  );
+  const formattedRequests = useMemo(() => {
+    const prioritized = [...rawRequests].sort((a, b) => {
+      const aStatus = a?.service?.status;
+      const bStatus = b?.service?.status;
+      const aPriority = aStatus === 'IN_PROGRESS' ? 0 : 1;
+      const bPriority = bStatus === 'IN_PROGRESS' ? 0 : 1;
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      const aCreated = a?.created_at ? new Date(a.created_at).getTime() : 0;
+      const bCreated = b?.created_at ? new Date(b.created_at).getTime() : 0;
+      return bCreated - aCreated;
+    });
+    return prioritized.map((request) => mapRequestToCardData(request));
+  }, [rawRequests, mapRequestToCardData]);
 
   const normalizedSearch = searchText.trim().toLowerCase();
 
@@ -276,24 +287,78 @@ const MyRequestsScreen = () => {
 
   const dataForTab = tabDataMap[activeTab] ?? todoRequestsFiltered;
 
+  const buildRequestSummary = useCallback((requestRaw) => {
+    if (!requestRaw) {
+      return null;
+    }
+    return {
+      id: requestRaw.id,
+      title: requestRaw.title?.trim() || 'Solicitud sin título',
+      description: requestRaw.description ?? '',
+      address: requestRaw.city_snapshot || 'Dirección pendiente.',
+      created_at: requestRaw.created_at,
+      bidding_deadline: requestRaw.bidding_deadline,
+      status: requestRaw.status,
+      proposal_count: requestRaw.proposal_count ?? 0,
+      proposals: Array.isArray(requestRaw.proposals) ? requestRaw.proposals : [],
+      attachments: Array.isArray(requestRaw.attachments)
+        ? requestRaw.attachments
+        : [],
+    };
+  }, []);
+
+  const handleNavigateToRequest = useCallback(
+    (summaryItem) => {
+      if (!summaryItem?.raw) {
+        return;
+      }
+
+      const requestRaw = summaryItem.raw;
+
+      if (requestRaw.service) {
+        navigation.navigate('ServiceDetail', {
+          requestId: requestRaw.id,
+        });
+        return;
+      }
+      const requestSummary = buildRequestSummary(requestRaw);
+
+      if (requestRaw.request_type === 'FAST') {
+        navigation.navigate('FastMatch', {
+          requestId: requestRaw.id,
+          requestSummary,
+        });
+        return;
+      }
+
+      if (requestRaw.request_type === 'LICITACION') {
+        navigation.navigate('Licitacion', {
+          requestId: requestRaw.id,
+          requestSummary,
+        });
+      }
+    },
+    [buildRequestSummary, navigation]
+  );
+
   const renderTodo = useCallback(
     ({ item }) => (
       <TodoRequestCard
         item={item}
-        onPress={() => navigation.navigate('Requests', { requestId: item.id })}
+        onPress={() => handleNavigateToRequest(item)}
       />
     ),
-    [navigation]
+    [handleNavigateToRequest]
   );
 
   const renderProgress = useCallback(
     ({ item }) => (
       <ProgressRequestCard
         item={item}
-        onPress={() => navigation.navigate('Requests', { requestId: item.id })}
+        onPress={() => handleNavigateToRequest(item)}
       />
     ),
-    [navigation]
+    [handleNavigateToRequest]
   );
 
   const openModal = useCallback((requestId) => {
@@ -333,9 +398,6 @@ const MyRequestsScreen = () => {
     setSelectedRequestId(null);
   }, []);
 
-  const totalCount = formattedRequests.length;
-  const progressCount = progressRequestsAll.length;
-  const completedCount = completedRequestsAll.length;
   const isRefreshing = isFetching && !isLoading;
   const searchActive = normalizedSearch.length > 0;
 
@@ -407,23 +469,6 @@ const MyRequestsScreen = () => {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.heroCard}>
-            <Text style={styles.heroTitle}>Tu historial</Text>
-            <View style={styles.statsRow}>
-              <View style={styles.statPill}>
-                <Text style={styles.statValue}>{totalCount}</Text>
-                <Text style={styles.statLabel}>Total</Text>
-              </View>
-              <View style={styles.statPill}>
-                <Text style={styles.statValue}>{progressCount}</Text>
-                <Text style={styles.statLabel}>Activas</Text>
-              </View>
-              <View style={[styles.statPill, styles.statPillLast]}>
-                <Text style={styles.statValue}>{completedCount}</Text>
-                <Text style={styles.statLabel}>Finalizadas</Text>
-              </View>
-            </View>
-          </View>
         </View>
 
         <View style={styles.content}>

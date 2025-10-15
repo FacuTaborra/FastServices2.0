@@ -11,6 +11,7 @@ from auth.auth_utils import check_user_login
 from controllers.service_request_controller import ServiceRequestController
 from database.database import get_db
 from models.ServiceRequestSchemas import (
+    ServiceCancelRequest,
     ServiceRequestConfirmPayment,
     ServiceRequestCreate,
     ServiceRequestResponse,
@@ -120,4 +121,44 @@ async def confirm_payment_endpoint(
         current_user,
         request_id,
         payload,
+    )
+
+
+@router.post(
+    "/{request_id}/service/cancel",
+    response_model=ServiceRequestResponse,
+    summary="Cancelar un servicio confirmado y solicitar reembolso",
+)
+async def cancel_service_endpoint(
+    request_id: int,
+    payload: ServiceCancelRequest | None = None,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceRequestResponse:
+    """Cancela el servicio asociado a la solicitud si aún no comenzó."""
+
+    return await ServiceRequestController.cancel_service(
+        db,
+        current_user,
+        request_id,
+        payload,
+    )
+
+
+@router.post(
+    "/{request_id}/service/mark-in-progress",
+    response_model=ServiceRequestResponse,
+    summary="Marcar un servicio como en ejecución",
+)
+async def mark_service_in_progress_endpoint(
+    request_id: int,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceRequestResponse:
+    """Actualiza el servicio a estado IN_PROGRESS cuando alcanza la fecha de inicio."""
+
+    return await ServiceRequestController.mark_service_in_progress(
+        db,
+        current_user,
+        request_id,
     )

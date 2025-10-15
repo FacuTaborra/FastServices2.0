@@ -3,21 +3,23 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from './ProgressRequestCard.styles';
 
+
+// Mapeo explícito de statusVariant a estilos visuales por estado real
 const VARIANT_STYLES = {
   progress: {
-    container: styles.statusProgress,
+    container: styles.statusProgress, // En progreso (IN_PROGRESS)
     text: styles.statusTextProgress,
   },
-  active: {
-    container: styles.statusActive,
+  confirmed: {
+    container: styles.statusActive, // Confirmado (CONFIRMED)
     text: styles.statusTextActive,
   },
   completed: {
-    container: styles.statusCompleted,
+    container: styles.statusCompleted, // Completado
     text: styles.statusTextCompleted,
   },
   cancelled: {
-    container: styles.statusCancelled,
+    container: styles.statusCancelled, // Cancelado
     text: styles.statusTextCancelled,
   },
 };
@@ -29,7 +31,17 @@ const ProgressRequestCard = ({ item, onPress }) => {
   const priceLabel = item?.priceLabel ?? item?.precio ?? '';
   const description = item?.description ?? item?.descriptionSnippet ?? item?.descripcion ?? '';
   const locationLabel = item?.locationLabel ?? item?.direccion ?? null;
-  const variant = item?.statusVariant ?? 'progress';
+
+  // Determinar el color del tag según el estado real del servicio
+  let variant = item?.statusVariant ?? 'progress';
+  // Si hay un estado de servicio explícito, usarlo para el color
+  const serviceStatus = item?.serviceStatus || item?.raw?.serviceStatus || item?.raw?.service?.status;
+  if (serviceStatus) {
+    if (serviceStatus === 'CONFIRMED') variant = 'confirmed';
+    else if (serviceStatus === 'IN_PROGRESS') variant = 'progress';
+    else if (serviceStatus === 'COMPLETED') variant = 'completed';
+    else if (serviceStatus === 'CANCELED' || serviceStatus === 'CANCELLED') variant = 'cancelled';
+  }
 
   const statusContainerStyles = [styles.status];
   const statusTextStyles = [styles.statusText];

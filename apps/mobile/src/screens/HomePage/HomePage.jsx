@@ -13,8 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import styles, { STATUS_CARD_COLORS, PALETTE } from './HomePage.styles';
-import myRequestsData from '../../data/myRequests';
-import { useActiveServiceRequests } from '../../hooks/useServiceRequests';
+import { useActiveServiceRequests, useAllServiceRequests } from '../../hooks/useServiceRequests';
 
 const heroIcon = require('../../../assets/icon.png');
 const FAST_WINDOW_SECONDS = 5 * 60;
@@ -141,65 +140,99 @@ const buildActiveDescriptionSnippet = (description) => {
     : trimmed;
 };
 
-const buildSecondaryCards = () => {
-  const progreso = myRequestsData.progreso ?? [];
-  const todos = myRequestsData.todos ?? [];
-  const completados = myRequestsData.completados ?? [];
 
-  const inProgress = pickFirst(
-    progreso,
-    (item) => (item.estado || '').toLowerCase() === 'progreso',
-  ) || pickFirst(progreso);
+// Helpers para filtrar servicios
+const isWithinNextDay = (dateString) => {
+  if (!dateString) return false;
+  const now = Date.now();
+  const date = new Date(dateString).getTime();
+  return date > now && date - now <= 24 * 60 * 60 * 1000;
+};
+const isWithinLastDay = (dateString) => {
+  if (!dateString) return false;
+  const now = Date.now();
+  const date = new Date(dateString).getTime();
+  return now - date <= 24 * 60 * 60 * 1000 && date <= now;
+};
 
-  const upcoming = pickFirst(todos);
-  const completed = pickFirst(
-    completados,
-    (item) => (item.estado || '').toLowerCase() === 'completado',
-  );
+const buildSecondaryCards = (allRequests, navigation) => {
+  // allRequests: array de requests con .service
+  let inProgress = null;
+  let upcoming = null;
+  let completed = null;
+
+  if (Array.isArray(allRequests)) {
+    // En Proceso: status IN_PROGRESS
+    inProgress = allRequests.find(
+      (req) => req?.service?.status === 'IN_PROGRESS'
+    );
+    // Próximo: status CONFIRMED y scheduled_start_at en menos de 1 día
+    upcoming = allRequests.find(
+      (req) => req?.service?.status === 'CONFIRMED' && isWithinNextDay(req?.service?.scheduled_start_at)
+    );
+    // Completado: status COMPLETED y scheduled_end_at hace menos de 1 día
+    completed = allRequests.find(
+      (req) => req?.service?.status === 'COMPLETED' && isWithinLastDay(req?.service?.scheduled_end_at)
+    );
+  }
 
   return [
     {
-      id: 'in-progress',
+      id: inProgress?.id || 'in-progress',
       category: 'En Proceso',
       palette: STATUS_CARD_COLORS.inProgress,
-      icon: ICON_BY_STATUS[inProgress?.estado] ?? 'time-outline',
-      ...(inProgress
-        ? {
-          title: inProgress.titulo,
-          description: `${inProgress.fecha} · ${inProgress.estado}`,
-        }
-        : DEFAULT_STATUS_CARD),
+      icon: 'time-outline',
+      title: inProgress?.title || 'Sin información disponible',
+      description: inProgress?.service?.scheduled_start_at
+        ? `Inició: ${formatPublishedDate(inProgress.service.scheduled_start_at)}`
+        : 'Sin fecha de inicio',
+      onPress: inProgress?.id
+        ? () => navigation.navigate('ServiceDetail', { requestId: inProgress.id })
+        : null,
     },
     {
-      id: 'upcoming',
+      id: upcoming?.id || 'upcoming',
       category: 'Próximo',
       palette: STATUS_CARD_COLORS.upcoming,
       icon: 'calendar-outline',
-      ...(upcoming
-        ? {
-          title: upcoming.titulo,
-          description: `${upcoming.fecha} · ${upcoming.direccion}`,
-        }
-        : DEFAULT_STATUS_CARD),
+      title: upcoming?.title || 'Sin información disponible',
+      description: upcoming?.service?.scheduled_start_at
+        ? `Empieza: ${formatPublishedDate(upcoming.service.scheduled_start_at)}`
+        : 'Sin fecha programada',
+      onPress: upcoming?.id
+        ? () => navigation.navigate('ServiceDetail', { requestId: upcoming.id })
+        : null,
     },
     {
-      id: 'completed',
+      id: completed?.id || 'completed',
       category: 'Completado',
       palette: STATUS_CARD_COLORS.completed,
       icon: 'construct-outline',
-      ...(completed
-        ? {
-          title: completed.titulo,
-          description: `${completed.fecha} · ${completed.estado}`,
-        }
-        : DEFAULT_STATUS_CARD),
+      title: completed?.title || 'Sin información disponible',
+      description: completed?.service?.scheduled_end_at
+        ? `Finalizó: ${formatPublishedDate(completed.service.scheduled_end_at)}`
+        : 'Sin fecha de finalización',
+      onPress: completed?.id
+        ? () => navigation.navigate('ServiceDetail', { requestId: completed.id })
+        : null,
     },
   ];
 };
 
 const HomePage = () => {
   const navigation = useNavigation();
-  const secondaryCards = React.useMemo(() => buildSecondaryCards(), []);
+  const {
+    data: allRequests,
+    isLoading: allLoading,
+    isError: allError,
+    refetch: refetchAll,
+    isRefetching: isRefetchingAll,
+  } = useAllServiceRequests();
+
+  const secondaryCards = React.useMemo(
+    () => buildSecondaryCards(allRequests, navigation),
+    [allRequests, navigation]
+  );
   const [nowMs, setNowMs] = React.useState(Date.now());
   const {
     data: activeRequests,
@@ -232,10 +265,8 @@ const HomePage = () => {
     return () => clearInterval(intervalId);
   }, [hasFastRequests]);
 
-  const statusCards = React.useMemo(
-    () => secondaryCards,
-    [secondaryCards],
-  );
+
+  const statusCards = secondaryCards;
 
   const handleCreateRequest = () => {
     navigation.navigate('RequestDetail', { showButton: true });
@@ -292,7 +323,7 @@ const HomePage = () => {
         <View style={styles.headerRow}>
           <View style={styles.brandRow}>
             <Image source={heroIcon} style={styles.brandIcon} />
-            <Text style={styles.brandText}>FastServices</Text>
+            <Text style={styles.brandText}>Fast Services</Text>
           </View>
           <TouchableOpacity style={styles.notificationButton}>
             <Ionicons
@@ -425,7 +456,13 @@ const HomePage = () => {
 
         <View style={styles.statusList}>
           {statusCards.map((card) => (
-            <View key={card.id} style={styles.statusCard}>
+            <TouchableOpacity
+              key={card.id}
+              style={styles.statusCard}
+              onPress={card.onPress}
+              activeOpacity={card.onPress ? 0.92 : 1}
+              disabled={!card.onPress}
+            >
               <View style={[styles.statusPill, { backgroundColor: card.palette.pill }]}>
                 <Text style={styles.statusPillText}>{card.category}</Text>
               </View>
@@ -442,7 +479,7 @@ const HomePage = () => {
                   />
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
