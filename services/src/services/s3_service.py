@@ -6,7 +6,6 @@ from io import BytesIO
 import logging
 
 from minio import Minio
-from minio.error import S3Error
 from PIL import Image
 from fastapi import HTTPException, UploadFile
 from utils.error_hendler import error_handler
