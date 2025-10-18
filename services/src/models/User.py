@@ -22,21 +22,12 @@ import enum
 
 
 class UserRole(enum.Enum):
-    """Enum para los roles de usuario disponibles."""
-
     CLIENT = "client"
     PROVIDER = "provider"
     ADMIN = "admin"
 
 
 class User(Base):
-    """
-    Modelo SQLAlchemy para la tabla users.
-
-    Representa un usuario del sistema con información básica
-    y roles para diferenciar entre clientes, proveedores y administradores.
-    """
-
     __tablename__ = "users"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -51,7 +42,6 @@ class User(Base):
     password_hash = Column(String(60), nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
 
-    # Campos para imagen de perfil (integración con S3)
     profile_image_s3_key = Column(
         String(255), nullable=True, comment="Clave S3 de la imagen de perfil"
     )
@@ -67,7 +57,6 @@ class User(Base):
         DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp()
     )
 
-    # Relaciones
     provider_profile = relationship(
         "ProviderProfile",
         back_populates="user",
@@ -115,19 +104,12 @@ class User(Base):
         return f"<User(id={self.id}, email='{self.email}', role='{self.role}')>"
 
 
-# Esquemas Pydantic para validación y serialización
-
-
 class LoginRequest(BaseModel):
-    """Esquema para request de login."""
-
     email: EmailStr
     password: str = Field(..., min_length=6)
 
 
 class UserCreate(BaseModel):
-    """Esquema para creación de usuario."""
-
     role: UserRole = UserRole.CLIENT
     first_name: str = Field(..., min_length=2, max_length=60)
     last_name: str = Field(..., min_length=2, max_length=60)
@@ -158,12 +140,9 @@ class UserResponse(BaseModel):
     phone: str
     date_of_birth: Optional[date]
     is_active: bool
-
-    # Campos de imagen de perfil
     profile_image_s3_key: Optional[str]
     profile_image_url: Optional[str]
     profile_image_uploaded_at: Optional[datetime]
-
     created_at: datetime
     updated_at: datetime
 
@@ -185,8 +164,6 @@ class UserInDB(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    """Esquema para actualización de datos de usuario."""
-
     first_name: Optional[str] = Field(
         None, min_length=2, max_length=60, description="Nombre del usuario"
     )
@@ -221,8 +198,6 @@ class UserUpdate(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    """Esquema para cambio de contraseña."""
-
     current_password: str = Field(..., min_length=6, description="Contraseña actual")
     new_password: str = Field(..., min_length=6, description="Nueva contraseña")
     confirm_password: str = Field(

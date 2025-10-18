@@ -18,10 +18,6 @@ AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Función generadora para obtener una sesión de base de datos.
-    Se usa como dependencia en FastAPI para inyectar la sesión en los endpoints.
-    """
     async with AsyncSessionLocal() as session:
         try:
             yield session

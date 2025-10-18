@@ -6,6 +6,7 @@ Maneja la lógica de negocio para upload, delete y listado de imágenes en S3.
 import logging
 
 from fastapi import HTTPException, UploadFile
+from utils.error_hendler import error_handler
 
 from services.s3_service import s3_service
 from models.Image import (
@@ -22,7 +23,6 @@ logger = logging.getLogger(__name__)
 class ImageController:
     """Controlador para operaciones con imágenes."""
 
-    # Carpetas permitidas para organización
     ALLOWED_FOLDERS = {
         "profiles": "Imágenes de perfil de usuarios",
         "providers": "Imágenes de perfiles de proveedores",
@@ -32,56 +32,28 @@ class ImageController:
         "temp": "Imágenes temporales",
     }
 
-    @classmethod
+    @error_handler()
     async def upload_image(
-        cls,
+        self,
         file: UploadFile,
         folder: str = "general",
         optimize: bool = True,
         max_width: int = 1200,
     ) -> ImageUploadResponse:
-        """
-        Subir una imagen a S3.
-
-        Args:
-            file: Archivo de imagen
-            folder: Carpeta de destino
-            optimize: Si optimizar la imagen
-            max_width: Ancho máximo para optimización
-
-        Returns:
-            ImageUploadResponse: Datos del archivo subido
-        """
-        try:
-            # Validar carpeta
-            if folder not in cls.ALLOWED_FOLDERS:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Carpeta no válida. Carpetas permitidas: {', '.join(cls.ALLOWED_FOLDERS.keys())}",
-                )
-
-            # Validar que el archivo tiene contenido
-            if not file.filename:
-                raise HTTPException(
-                    status_code=400, detail="No se proporcionó un archivo"
-                )
-
-            logger.info(f"📤 Subiendo imagen: {file.filename} a carpeta: {folder}")
-
-            # Usar el servicio S3 para subir
-            result = await s3_service.upload_image(
-                file=file, folder=folder, optimize=optimize, max_width=max_width
-            )
-
-            return ImageUploadResponse(**result)
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"❌ Error en upload de imagen: {e}")
+        if folder not in self.ALLOWED_FOLDERS:
             raise HTTPException(
-                status_code=500, detail="Error interno del servidor al subir imagen"
+                status_code=400,
+                detail=f"Carpeta no válida. Carpetas permitidas: {', '.join(self.ALLOWED_FOLDERS.keys())}",
             )
+
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No se proporcionó un archivo")
+
+        result = await s3_service.upload_image(
+            file=file, folder=folder, optimize=optimize, max_width=max_width
+        )
+
+        return ImageUploadResponse(**result)
 
     @classmethod
     def delete_image(cls, s3_key: str) -> DeleteImageResponse:

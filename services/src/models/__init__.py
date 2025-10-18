@@ -117,4 +117,5 @@ __all__ = [
     "ServiceCancelRequest",
     # Token
     "Token",
+    "GeneralResponse",
 ]

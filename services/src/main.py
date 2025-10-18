@@ -7,9 +7,9 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import router
+from utils import global_exception_handler, log
 from settings import LOG_LEVEL
 
-# Configurar logging
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL.upper()),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -27,13 +27,14 @@ def create_app() -> FastAPI:
     """
     app = FastAPI(
         title="FastServices API",
-        description="API para gestión de servicios con autenticación JWT",
+        description="API para gestión de servicios",
         version="1.0.0",
         docs_url="/docs",
         redoc_url="/redoc",
     )
 
-    # Configurar CORS para permitir requests desde el frontend móvil
+    app.add_exception_handler(Exception, global_exception_handler)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],  # En producción, especificar dominios exactos
@@ -42,17 +43,16 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Incluir routers
+    app.middleware("http")(log.log_requests)
+
     app.include_router(router.router)
 
     @app.get("/health", tags=["health"])
     async def health_check():
-        """Endpoint de verificación de salud del servicio."""
         return {"status": "ok", "service": "FastServices API", "version": "1.0.0"}
 
     @app.get("/", tags=["root"])
     async def root():
-        """Endpoint raíz con información básica."""
         return {
             "message": "Bienvenido a FastServices API",
             "docs": "/docs",
@@ -63,5 +63,4 @@ def create_app() -> FastAPI:
     return app
 
 
-# Crear instancia de la aplicación
 app = create_app()

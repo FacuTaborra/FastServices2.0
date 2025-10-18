@@ -90,7 +90,6 @@ export default function ProfileScreen() {
       onProfileUpdate: (profileData, formattedDateOfBirth) => {
         setProfile(profileData);
         setDateOfBirth(formattedDateOfBirth);
-        // Actualizar la imagen de perfil desde el backend
         setProfileImage(profileData.profile_image_url);
       }
     });

@@ -23,28 +23,11 @@ async def upload_profile_image(
     max_width: int = Query(default=800, description="Ancho máximo para optimización"),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Subir imagen de perfil de usuario a S3.
+    result = await image_controller.upload_image(
+        file=file, folder="profiles", optimize=optimize, max_width=max_width
+    )
 
-    - **file**: Archivo de imagen (JPEG, PNG, WebP, GIF)
-    - **optimize**: Si optimizar la imagen (redimensionar y comprimir)
-    - **max_width**: Ancho máximo en píxeles para optimización
-
-    Sube automáticamente a la carpeta 'profiles'.
-    """
-    try:
-        logger.info(f"👤 Usuario {current_user.email} subiendo imagen de perfil")
-
-        # Forzar carpeta 'profiles' para imágenes de perfil
-        result = await image_controller.upload_image(
-            file=file, folder="profiles", optimize=optimize, max_width=max_width
-        )
-
-        return result
-
-    except Exception as e:
-        logger.error(f"❌ Error subiendo imagen de perfil: {e}")
-        raise
+    return result
 
 
 @router.post("/upload-service-request", response_model=ImageUploadResponse)
