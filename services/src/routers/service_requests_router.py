@@ -33,7 +33,6 @@ async def create_service_request_endpoint(
     current_user: User = Depends(check_user_login),
     db: AsyncSession = Depends(get_db),
 ) -> ServiceRequestResponse:
-    """Crea una nueva solicitud de servicio para el cliente autenticado."""
     return await ServiceRequestController.create_request(db, current_user, payload)
 
 
@@ -46,8 +45,6 @@ async def list_all_service_requests_endpoint(
     current_user: User = Depends(check_user_login),
     db: AsyncSession = Depends(get_db),
 ) -> List[ServiceRequestResponse]:
-    """Obtiene el historial completo de solicitudes del cliente autenticado."""
-
     return await ServiceRequestController.list_all_for_client(db, current_user)
 
 
@@ -60,7 +57,6 @@ async def list_active_service_requests_endpoint(
     current_user: User = Depends(check_user_login),
     db: AsyncSession = Depends(get_db),
 ) -> List[ServiceRequestResponse]:
-    """Obtiene las solicitudes publicadas del cliente que aún no tienen un servicio generado."""
     return await ServiceRequestController.list_active_without_service(db, current_user)
 
 
@@ -74,8 +70,6 @@ async def get_service_request_endpoint(
     current_user: User = Depends(check_user_login),
     db: AsyncSession = Depends(get_db),
 ) -> ServiceRequestResponse:
-    """Recupera una solicitud específica del cliente autenticado."""
-
     return await ServiceRequestController.get_request_detail(
         db,
         current_user,
@@ -94,7 +88,6 @@ async def update_service_request_endpoint(
     current_user: User = Depends(check_user_login),
     db: AsyncSession = Depends(get_db),
 ) -> ServiceRequestResponse:
-    """Permite modificar estado o tipo de una solicitud existente."""
     return await ServiceRequestController.update_request(
         db,
         current_user,
@@ -114,8 +107,6 @@ async def confirm_payment_endpoint(
     current_user: User = Depends(check_user_login),
     db: AsyncSession = Depends(get_db),
 ) -> ServiceRequestResponse:
-    """Confirma el pago de la propuesta seleccionada y crea el servicio asociado."""
-
     return await ServiceRequestController.confirm_payment(
         db,
         current_user,
@@ -135,8 +126,6 @@ async def cancel_service_endpoint(
     current_user: User = Depends(check_user_login),
     db: AsyncSession = Depends(get_db),
 ) -> ServiceRequestResponse:
-    """Cancela el servicio asociado a la solicitud si aún no comenzó."""
-
     return await ServiceRequestController.cancel_service(
         db,
         current_user,
@@ -155,8 +144,6 @@ async def mark_service_in_progress_endpoint(
     current_user: User = Depends(check_user_login),
     db: AsyncSession = Depends(get_db),
 ) -> ServiceRequestResponse:
-    """Actualiza el servicio a estado IN_PROGRESS cuando alcanza la fecha de inicio."""
-
     return await ServiceRequestController.mark_service_in_progress(
         db,
         current_user,

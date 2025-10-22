@@ -6,7 +6,7 @@ Maneja la lógica de negocio para upload, delete y listado de imágenes en S3.
 import logging
 
 from fastapi import HTTPException, UploadFile
-from utils.error_hendler import error_handler
+from services.src.utils.error_handler import error_handler
 
 from services.s3_service import s3_service
 from models.Image import (

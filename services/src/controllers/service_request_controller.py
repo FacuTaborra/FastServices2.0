@@ -1,11 +1,8 @@
-"""Controlador para operaciones sobre solicitudes de servicio."""
-
 from __future__ import annotations
 
 import logging
 from typing import List
 
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.ServiceRequest import ServiceRequest
@@ -21,163 +18,89 @@ from models.ServiceRequestSchemas import (
 )
 from models.User import User
 from services.service_request_service import ServiceRequestService
+from utils.error_handler import error_handler
 
 logger = logging.getLogger(__name__)
 
 
 class ServiceRequestController:
-    """Controlador de alto nivel para solicitudes de servicio."""
-
     @staticmethod
+    @error_handler(logger)
     async def create_request(
         db: AsyncSession, current_user: User, payload: ServiceRequestCreate
     ) -> ServiceRequestResponse:
-        try:
-            service_request = await ServiceRequestService.create_service_request(
-                db, current_user=current_user, payload=payload
-            )
-            return ServiceRequestController._build_response(service_request)
-        except HTTPException:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("Error creando solicitud de servicio: %s", exc)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error interno al crear la solicitud",
-            ) from exc
+        service_request = await ServiceRequestService.create_service_request(
+            db, current_user=current_user, payload=payload
+        )
+        return ServiceRequestController._build_response(service_request)
 
     @staticmethod
+    @error_handler(logger)
     async def list_active_without_service(
         db: AsyncSession, current_user: User
     ) -> List[ServiceRequestResponse]:
-        try:
-            requests = await ServiceRequestService.list_active_without_service(
-                db, client_id=current_user.id
-            )
-            return [
-                ServiceRequestController._build_response(request)
-                for request in requests
-            ]
-        except HTTPException:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            logger.exception(
-                "Error listando solicitudes activas del cliente %s: %s",
-                current_user.id,
-                exc,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error interno al obtener las solicitudes activas",
-            ) from exc
+        requests = await ServiceRequestService.list_active_without_service(
+            db, client_id=current_user.id
+        )
+        return [
+            ServiceRequestController._build_response(request) for request in requests
+        ]
 
     @staticmethod
+    @error_handler(logger)
     async def list_all_for_client(
         db: AsyncSession, current_user: User
     ) -> List[ServiceRequestResponse]:
-        try:
-            requests = await ServiceRequestService.list_all_for_client(
-                db, client_id=current_user.id
-            )
-            return [
-                ServiceRequestController._build_response(request)
-                for request in requests
-            ]
-        except HTTPException:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            logger.exception(
-                "Error listando todas las solicitudes del cliente %s: %s",
-                current_user.id,
-                exc,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error interno al obtener el historial de solicitudes",
-            ) from exc
+        requests = await ServiceRequestService.list_all_for_client(
+            db, client_id=current_user.id
+        )
+        return [
+            ServiceRequestController._build_response(request) for request in requests
+        ]
 
     @staticmethod
+    @error_handler(logger)
     async def get_request_detail(
         db: AsyncSession, current_user: User, request_id: int
     ) -> ServiceRequestResponse:
-        try:
-            service_request = await ServiceRequestService.get_request_for_client(
-                db,
-                client_id=current_user.id,
-                request_id=request_id,
-            )
-            return ServiceRequestController._build_response(service_request)
-        except HTTPException:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            logger.exception(
-                "Error obteniendo la solicitud %s del cliente %s: %s",
-                request_id,
-                current_user.id,
-                exc,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error interno al obtener la solicitud",
-            ) from exc
+        service_request = await ServiceRequestService.get_request_for_client(
+            db,
+            client_id=current_user.id,
+            request_id=request_id,
+        )
+        return ServiceRequestController._build_response(service_request)
 
     @staticmethod
+    @error_handler(logger)
     async def update_request(
         db: AsyncSession,
         current_user: User,
         request_id: int,
         payload: ServiceRequestUpdate,
     ) -> ServiceRequestResponse:
-        try:
-            updated_request = await ServiceRequestService.update_service_request(
-                db,
-                client_id=current_user.id,
-                request_id=request_id,
-                payload=payload,
-            )
-            return ServiceRequestController._build_response(updated_request)
-        except HTTPException:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            logger.exception(
-                "Error actualizando la solicitud %s del cliente %s: %s",
-                request_id,
-                current_user.id,
-                exc,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error interno al actualizar la solicitud",
-            ) from exc
+        updated_request = await ServiceRequestService.update_service_request(
+            db,
+            client_id=current_user.id,
+            request_id=request_id,
+            payload=payload,
+        )
+        return ServiceRequestController._build_response(updated_request)
 
     @staticmethod
+    @error_handler(logger)
     async def confirm_payment(
         db: AsyncSession,
         current_user: User,
         request_id: int,
         payload: ServiceRequestConfirmPayment,
     ) -> ServiceRequestResponse:
-        try:
-            updated_request = await ServiceRequestService.confirm_payment(
-                db,
-                client_id=current_user.id,
-                request_id=request_id,
-                payload=payload,
-            )
-            return ServiceRequestController._build_response(updated_request)
-        except HTTPException:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            logger.exception(
-                "Error confirmando pago para la solicitud %s del cliente %s: %s",
-                request_id,
-                current_user.id,
-                exc,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error interno al confirmar el pago",
-            ) from exc
+        updated_request = await ServiceRequestService.confirm_payment(
+            db,
+            client_id=current_user.id,
+            request_id=request_id,
+            payload=payload,
+        )
+        return ServiceRequestController._build_response(updated_request)
 
     @staticmethod
     async def cancel_service(
@@ -187,26 +110,12 @@ class ServiceRequestController:
         payload: ServiceCancelRequest | None,
     ) -> ServiceRequestResponse:
         del payload  # Motivo opcional (no almacenado aún)
-        try:
-            updated_request = await ServiceRequestService.cancel_service(
-                db,
-                client_id=current_user.id,
-                request_id=request_id,
-            )
-            return ServiceRequestController._build_response(updated_request)
-        except HTTPException:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            logger.exception(
-                "Error cancelando el servicio de la solicitud %s del cliente %s: %s",
-                request_id,
-                current_user.id,
-                exc,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error interno al cancelar el servicio",
-            ) from exc
+        updated_request = await ServiceRequestService.cancel_service(
+            db,
+            client_id=current_user.id,
+            request_id=request_id,
+        )
+        return ServiceRequestController._build_response(updated_request)
 
     @staticmethod
     async def mark_service_in_progress(
@@ -214,30 +123,13 @@ class ServiceRequestController:
         current_user: User,
         request_id: int,
     ) -> ServiceRequestResponse:
-        try:
-            updated_request = await ServiceRequestService.mark_service_in_progress(
-                db,
-                client_id=current_user.id,
-                request_id=request_id,
-            )
-            return ServiceRequestController._build_response(updated_request)
-        except HTTPException:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            logger.exception(
-                "Error marcando en progreso el servicio de la solicitud %s del cliente %s: %s",
-                request_id,
-                current_user.id,
-                exc,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error interno al actualizar el estado del servicio",
-            ) from exc
+        updated_request = await ServiceRequestService.mark_service_in_progress(
+            db,
+            client_id=current_user.id,
+            request_id=request_id,
+        )
+        return ServiceRequestController._build_response(updated_request)
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
     @staticmethod
     def _build_response(service_request: ServiceRequest) -> ServiceRequestResponse:
         attachments = ServiceRequestController._serialize_attachments(service_request)
@@ -368,4 +260,4 @@ class ServiceRequestController:
         )
 
 
-__all__ = ["ServiceRequestController"]
+service_request_controller = ServiceRequestController()

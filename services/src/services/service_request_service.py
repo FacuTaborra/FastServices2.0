@@ -33,6 +33,7 @@ from models.ServiceRequestSchemas import (
     ServiceRequestUpdate,
 )
 from models.User import User, UserRole
+from services.src.utils import error_handler
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class ServiceRequestService:
     """Lógica central para el manejo de solicitudes de servicio."""
 
     @staticmethod
+    @error_handler(logger)
     async def create_service_request(
         db: AsyncSession, *, current_user: User, payload: ServiceRequestCreate
     ) -> ServiceRequest:
@@ -118,9 +120,6 @@ class ServiceRequestService:
 
         return request_with_relations
 
-    # ------------------------------------------------------------------
-    # Validaciones
-    # ------------------------------------------------------------------
     @staticmethod
     def _ensure_client_role(user: User) -> None:
         if user.role not in {UserRole.CLIENT, "client"}:
@@ -136,6 +135,7 @@ class ServiceRequestService:
             )
 
     @staticmethod
+    @error_handler(logger)
     async def _validate_license_types(
         db: AsyncSession, license_type_ids: Sequence[int]
     ) -> None:

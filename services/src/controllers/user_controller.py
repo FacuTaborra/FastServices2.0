@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -13,13 +14,21 @@ from auth.auth_utils import (
     verify_password,
 )
 from settings import JWT_EXPIRE_MINUTES
-from utils.error_hendler import error_handler
+from services.src.utils.error_handler import error_handler
+
+logger = logging.getLogger(__name__)
 
 
 class UserController:
     def __init__(self):
         self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
+    @error_handler(
+        {
+            "invalid_credentials": "Email o contraseña incorrectos",
+            "internal": "Error autenticando usuario",
+        }
+    )
     async def authenticate_and_create_token(
         self, db: AsyncSession, email: str, password: str
     ) -> Token:

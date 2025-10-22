@@ -8,7 +8,7 @@ import logging
 from minio import Minio
 from PIL import Image
 from fastapi import HTTPException, UploadFile
-from utils.error_hendler import error_handler
+from services.src.utils.error_handler import error_handler
 
 import settings
 
