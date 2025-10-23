@@ -20,8 +20,6 @@ from .ProviderProfile import (
     ProviderRegisterRequest,
     ProviderResponse,
     ProviderLicense,
-    LicenseType,
-    ProviderServiceArea,
 )
 from .Address import (
     Address,
@@ -31,21 +29,24 @@ from .Address import (
     AddressListResponse,
 )
 from .Token import Token
+from .Tag import (
+    Tag,
+    ServiceRequestTag,
+    ProviderLicenseTag,
+    TagResponse,
+    ServiceRequestTagResponse,
+    ProviderLicenseTagResponse,
+)
 from .ServiceRequest import (
     ServiceRequestType,
     ServiceRequestStatus,
     ProposalStatus,
-    ValidationStatus,
-    MatchStatus,
     ServiceStatus,
     ServiceRequest,
     ServiceRequestImage,
-    ServiceRequestMatch,
     ServiceRequestProposal,
     Service,
     Currency,
-    AIModel,
-    RequestInferredLicense,
     ServiceReview,
     ServiceStatusHistory,
 )
@@ -60,23 +61,22 @@ from .ServiceRequestSchemas import (
     ServiceRequestUpdate,
     ServiceCancelRequest,
 )
+from .GeneralResponse import GeneralResponse
 
 __all__ = [
     # Modelos SQLAlchemy
     "User",
     "ProviderProfile",
     "ProviderLicense",
-    "ProviderServiceArea",
-    "LicenseType",
+    "Tag",
+    "ServiceRequestTag",
+    "ProviderLicenseTag",
     "Address",
     "ServiceRequest",
     "ServiceRequestImage",
-    "ServiceRequestMatch",
     "ServiceRequestProposal",
     "Service",
     "Currency",
-    "AIModel",
-    "RequestInferredLicense",
     "ServiceReview",
     "ServiceStatusHistory",
     # Enums
@@ -84,8 +84,6 @@ __all__ = [
     "ServiceRequestType",
     "ServiceRequestStatus",
     "ProposalStatus",
-    "ValidationStatus",
-    "MatchStatus",
     "ServiceStatus",
     # Modelos Pydantic para User
     "UserCreate",
@@ -100,6 +98,9 @@ __all__ = [
     "ProviderProfileResponse",
     "ProviderRegisterRequest",
     "ProviderResponse",
+    "TagResponse",
+    "ServiceRequestTagResponse",
+    "ProviderLicenseTagResponse",
     # Modelos Pydantic para Address
     "AddressCreate",
     "AddressUpdate",

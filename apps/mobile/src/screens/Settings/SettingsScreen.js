@@ -27,14 +27,6 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.statusBar}>
-          <Text style={styles.timeText}>9:41</Text>
-          <View style={styles.statusIcons}>
-            <Ionicons name="cellular" size={20} color="#000" style={styles.statusIcon} />
-            <Ionicons name="wifi" size={20} color="#000" style={styles.statusIcon} />
-            <Ionicons name="battery-full" size={20} color="#000" style={styles.statusIcon} />
-          </View>
-        </View>
 
         <Text style={styles.header}>Configuración</Text>
 

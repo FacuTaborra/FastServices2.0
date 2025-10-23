@@ -1,7 +1,4 @@
-"""
-Modelo de perfil de proveedor de servicios.
-Contiene información adicional para usuarios con rol 'provider'.
-"""
+"""Modelos vinculados a la información de prestadores."""
 
 from typing import Optional, List
 from decimal import Decimal
@@ -16,38 +13,14 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
-    func,
     UniqueConstraint,
-    Index,
-    Numeric,
+    func,
 )
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel, Field, ConfigDict, field_validator
+
 from database.database import Base
-
-
-class LicenseType(Base):
-    """Catálogo normalizado de licencias profesionales."""
-
-    __tablename__ = "license_types"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    code = Column(String(64), unique=True, nullable=False)
-    name = Column(String(120), nullable=False)
-    description = Column(String(255), nullable=True)
-    created_at = Column(
-        DateTime, nullable=False, server_default=func.current_timestamp()
-    )
-
-    provider_licenses = relationship(
-        "ProviderLicense", back_populates="license_type", cascade="all, delete-orphan"
-    )
-    inferred_request_links = relationship(
-        "RequestInferredLicense", back_populates="license_type", cascade="all"
-    )
-    match_links = relationship(
-        "ServiceRequestMatch", back_populates="license_type", cascade="all"
-    )
+from .Tag import ProviderLicenseTagResponse
 
 
 class ProviderProfile(Base):
@@ -86,14 +59,8 @@ class ProviderProfile(Base):
         back_populates="provider_profile",
         cascade="all, delete-orphan",
     )
-    matches = relationship("ServiceRequestMatch", back_populates="provider")
     proposals = relationship("ServiceRequestProposal", back_populates="provider")
     services = relationship("Service", back_populates="provider")
-    service_areas = relationship(
-        "ProviderServiceArea",
-        back_populates="provider_profile",
-        cascade="all, delete-orphan",
-    )
     reviews_received = relationship(
         "ServiceReview", back_populates="provider_profile", cascade="all"
     )
@@ -108,7 +75,6 @@ class ProviderLicense(Base):
     __table_args__ = (
         UniqueConstraint(
             "provider_profile_id",
-            "license_type_id",
             "license_number",
             name="uq_provider_license_unique",
         ),
@@ -120,13 +86,14 @@ class ProviderLicense(Base):
         ForeignKey("provider_profiles.id", ondelete="CASCADE"),
         nullable=False,
     )
-    license_type_id = Column(
-        Integer, ForeignKey("license_types.id", ondelete="RESTRICT"), nullable=False
-    )
+    title = Column(String(150), nullable=False)
+    description = Column(Text, nullable=True)
     license_number = Column(String(120), nullable=False)
     issued_by = Column(String(120), nullable=True)
     issued_at = Column(Date, nullable=True)
     expires_at = Column(Date, nullable=True)
+    document_s3_key = Column(String(255), nullable=True)
+    document_url = Column(String(500), nullable=True)
     created_at = Column(
         DateTime, nullable=False, server_default=func.current_timestamp()
     )
@@ -138,38 +105,11 @@ class ProviderLicense(Base):
     )
 
     provider_profile = relationship("ProviderProfile", back_populates="licenses")
-    license_type = relationship("LicenseType", back_populates="provider_licenses")
-
-
-# === Areas de cobertura del proveedor ===
-
-
-class ProviderServiceArea(Base):
-    """Zonas de cobertura en las que el proveedor ofrece servicios."""
-
-    __tablename__ = "provider_service_areas"
-    __table_args__ = (
-        Index("ix_provider_service_areas_city", "city"),
-        Index("ix_provider_service_areas_point", "center_lat", "center_lon"),
+    tag_links = relationship(
+        "ProviderLicenseTag",
+        back_populates="license",
+        cascade="all, delete-orphan",
     )
-
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    provider_profile_id = Column(
-        BigInteger,
-        ForeignKey("provider_profiles.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    city = Column(String(100), nullable=True)
-    state = Column(String(100), nullable=True)
-    country = Column(String(100), nullable=False, default="Argentina")
-    center_lat = Column(Numeric(9, 6), nullable=True)
-    center_lon = Column(Numeric(9, 6), nullable=True)
-    radius_km = Column(Numeric(5, 2), nullable=True)
-    created_at = Column(
-        DateTime, nullable=False, server_default=func.current_timestamp()
-    )
-
-    provider_profile = relationship("ProviderProfile", back_populates="service_areas")
 
 
 # === Esquemas Pydantic para validación ===
@@ -184,11 +124,10 @@ class ProviderProfileBase(BaseModel):
 
 
 class ProviderLicenseBase(BaseModel):
-    """Esquema base para licencias de proveedor."""
+    """Esquema de respuesta para licencias de proveedor."""
 
-    license_type_id: int = Field(
-        ..., description="Identificador del tipo de licencia normalizado"
-    )
+    title: str = Field(..., max_length=150)
+    description: Optional[str] = Field(None, description="Descripción de la licencia")
     license_number: str = Field(
         ..., max_length=120, description="Numero identificatorio de la licencia"
     )
@@ -201,6 +140,12 @@ class ProviderLicenseBase(BaseModel):
     expires_at: Optional[date] = Field(
         None, description="Fecha de expiracion de la licencia"
     )
+    document_s3_key: Optional[str] = Field(
+        None, description="Clave S3 del archivo adjunto"
+    )
+    document_url: Optional[str] = Field(
+        None, description="URL pública del archivo adjunto"
+    )
 
 
 class ProviderLicenseResponse(ProviderLicenseBase):
@@ -210,6 +155,9 @@ class ProviderLicenseResponse(ProviderLicenseBase):
     provider_profile_id: int
     created_at: datetime
     updated_at: datetime
+    tags: List[ProviderLicenseTagResponse] = Field(
+        default_factory=list, description="Tags asociados a la licencia"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 

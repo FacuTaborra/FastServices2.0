@@ -14,7 +14,7 @@ from auth.auth_utils import (
     verify_password,
 )
 from settings import JWT_EXPIRE_MINUTES
-from services.src.utils.error_handler import error_handler
+from utils.error_handler import error_handler
 
 logger = logging.getLogger(__name__)
 
@@ -198,7 +198,11 @@ class UserController:
     ) -> User:
         from services.s3_service import s3_service
 
-        s3_service.delete_image(user.profile_image_s3_key)
+        if (
+            getattr(user, "profile_image_s3_key", None)
+            and user.profile_image_s3_key != s3_key
+        ):
+            s3_service.delete_image(user.profile_image_s3_key)
 
         update_data = UserUpdate(
             profile_image_s3_key=s3_key,
@@ -217,7 +221,7 @@ class UserController:
 
     @error_handler()
     async def delete_profile_image(
-        self, profile_image_s3_key: str, current_user: User
+        self, db: AsyncSession, profile_image_s3_key: str, current_user: User
     ) -> User:
         from services.s3_service import s3_service
 
@@ -235,11 +239,13 @@ class UserController:
             )
 
         updated_user = await self.update_user_profile(
+            db,
+            current_user.id,
             UserUpdate(
                 profile_image_s3_key=None,
                 profile_image_url=None,
                 profile_image_uploaded_at=None,
-            )
+            ),
         )
 
         return updated_user

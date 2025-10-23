@@ -81,12 +81,6 @@ class User(Base):
         cascade="all, delete-orphan",
         foreign_keys="Service.client_id",
     )
-    validated_inferences = relationship(
-        "RequestInferredLicense",
-        back_populates="validated_by_user",
-        foreign_keys="RequestInferredLicense.validated_by",
-        passive_deletes=True,
-    )
     service_reviews_authored = relationship(
         "ServiceReview",
         back_populates="rater",

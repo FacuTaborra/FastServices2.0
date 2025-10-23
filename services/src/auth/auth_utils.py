@@ -4,18 +4,13 @@ from jose import jwt, JWTError
 from fastapi import HTTPException, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from settings import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRE_MINUTES
+from settings import JWT_SECRET_KEY, JWT_ALGORITHM
 from models.User import User
 from database.database import get_db
 from fastapi.security import OAuth2PasswordBearer
 import bcrypt
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-
-# Constantes para compatibilidad con routers existentes
-SECRET_KEY = JWT_SECRET_KEY
-ALGORITHM = JWT_ALGORITHM
-ACCESS_TOKEN_EXPIRE_MINUTES = JWT_EXPIRE_MINUTES
 
 
 def is_password_valid(plain_password: str, hashed_password: str) -> bool:
@@ -107,5 +102,4 @@ async def check_user_login(
     return current_user
 
 
-# Alias para compatibilidad con los routers
 get_current_user = check_user_login

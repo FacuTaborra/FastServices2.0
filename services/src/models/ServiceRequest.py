@@ -7,7 +7,6 @@ from enum import Enum
 from sqlalchemy import (
     JSON,
     BigInteger,
-    Integer,
     Column,
     DateTime,
     Enum as SAEnum,
@@ -20,7 +19,6 @@ from sqlalchemy import (
     func,
     Index,
     CheckConstraint,
-    Boolean,
 )
 from sqlalchemy.orm import relationship
 
@@ -51,24 +49,6 @@ class ProposalStatus(str, Enum):
     REJECTED = "rejected"
     WITHDRAWN = "withdrawn"
     EXPIRED = "expired"
-
-
-class ValidationStatus(str, Enum):
-    """Estados de validación para inferencias automáticas."""
-
-    AUTO = "auto"
-    APPROVED = "approved"
-    OVERRIDDEN = "overridden"
-    REJECTED = "rejected"
-
-
-class MatchStatus(str, Enum):
-    """Estado del emparejamiento entre solicitud y proveedor."""
-
-    NOTIFIED = "notified"
-    DECLINED = "declined"
-    PROPOSAL_SENT = "proposal_sent"
-    BLOCKED = "blocked"
 
 
 class ServiceStatus(str, Enum):
@@ -139,15 +119,12 @@ class ServiceRequest(Base):
     images = relationship(
         "ServiceRequestImage", back_populates="request", cascade="all, delete-orphan"
     )
-    matches = relationship(
-        "ServiceRequestMatch", back_populates="request", cascade="all, delete-orphan"
-    )
     proposals = relationship(
         "ServiceRequestProposal", back_populates="request", cascade="all, delete-orphan"
     )
     service = relationship("Service", back_populates="request", uselist=False)
-    inferred_licenses = relationship(
-        "RequestInferredLicense",
+    tag_links = relationship(
+        "ServiceRequestTag",
         back_populates="request",
         cascade="all, delete-orphan",
     )
@@ -171,58 +148,6 @@ class ServiceRequestImage(Base):
     uploaded_at = Column(DateTime, server_default=func.current_timestamp())
 
     request = relationship("ServiceRequest", back_populates="images")
-
-
-class ServiceRequestMatch(Base):
-    """Registro de emparejamientos y notificaciones a proveedores."""
-
-    __tablename__ = "service_request_matches"
-    __table_args__ = (
-        UniqueConstraint(
-            "request_id", "provider_profile_id", name="uq_request_provider_match"
-        ),
-        Index("ix_matches_request_score", "request_id", "score"),
-        Index("ix_matches_provider_status", "provider_profile_id", "status"),
-    )
-
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    request_id = Column(
-        BigInteger,
-        ForeignKey("service_requests.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    provider_profile_id = Column(
-        BigInteger,
-        ForeignKey("provider_profiles.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    license_type_id = Column(
-        Integer, ForeignKey("license_types.id", ondelete="SET NULL"), nullable=True
-    )
-    score = Column(Numeric(7, 4), nullable=False, default=0.0)
-    distance_km = Column(Numeric(6, 2), nullable=True)
-    features = Column(JSON, nullable=True)
-    model_id = Column(
-        BigInteger, ForeignKey("ai_models.id", ondelete="SET NULL"), nullable=True
-    )
-    match_reason = Column(String(200), nullable=True)
-    status = Column(
-        SAEnum(MatchStatus, name="service_request_match_status"),
-        nullable=False,
-        default=MatchStatus.NOTIFIED,
-    )
-    notified_at = Column(
-        DateTime, nullable=False, server_default=func.current_timestamp()
-    )
-    responded_at = Column(DateTime, nullable=True)
-    created_at = Column(
-        DateTime, nullable=False, server_default=func.current_timestamp()
-    )
-
-    request = relationship("ServiceRequest", back_populates="matches")
-    provider = relationship("ProviderProfile", back_populates="matches")
-    license_type = relationship("LicenseType", back_populates="match_links")
-    model = relationship("AIModel", back_populates="matches")
 
 
 class ServiceRequestProposal(Base):
@@ -352,73 +277,6 @@ class Currency(Base):
     name = Column(String(64), nullable=False)
 
     proposals = relationship("ServiceRequestProposal", back_populates="currency_ref")
-
-
-class AIModel(Base):
-    """Modelos de IA utilizados para inferencias y ranking."""
-
-    __tablename__ = "ai_models"
-    __table_args__ = (
-        UniqueConstraint("name", "version", name="uq_ai_models_name_version"),
-    )
-
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    name = Column(String(120), nullable=False)
-    version = Column(String(40), nullable=False)
-    provider = Column(String(60), nullable=True)
-    params = Column(JSON, nullable=True)
-    is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(
-        DateTime, nullable=False, server_default=func.current_timestamp()
-    )
-
-    inferred_licenses = relationship(
-        "RequestInferredLicense", back_populates="model", cascade="all"
-    )
-    matches = relationship("ServiceRequestMatch", back_populates="model")
-
-
-class RequestInferredLicense(Base):
-    """Licencias inferidas automáticamente para una solicitud."""
-
-    __tablename__ = "request_inferred_licenses"
-    __table_args__ = (
-        UniqueConstraint(
-            "request_id", "license_type_id", name="uq_request_license_inference"
-        ),
-        Index("ix_inferred_licenses_request", "request_id"),
-    )
-
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    request_id = Column(
-        BigInteger,
-        ForeignKey("service_requests.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    license_type_id = Column(
-        Integer, ForeignKey("license_types.id", ondelete="CASCADE"), nullable=False
-    )
-    confidence = Column(Numeric(5, 4), nullable=True)
-    model_id = Column(
-        BigInteger, ForeignKey("ai_models.id", ondelete="SET NULL"), nullable=True
-    )
-    predicted_at = Column(
-        DateTime, nullable=False, server_default=func.current_timestamp()
-    )
-    validation_status = Column(
-        SAEnum(ValidationStatus, name="request_inferred_license_status"),
-        nullable=False,
-        default=ValidationStatus.AUTO,
-    )
-    validated_by = Column(
-        BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
-    )
-    notes = Column(Text, nullable=True)
-
-    request = relationship("ServiceRequest", back_populates="inferred_licenses")
-    license_type = relationship("LicenseType", back_populates="inferred_request_links")
-    model = relationship("AIModel", back_populates="inferred_licenses")
-    validated_by_user = relationship("User", back_populates="validated_inferences")
 
 
 class ServiceReview(Base):

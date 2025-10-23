@@ -18,11 +18,22 @@ sys.path.append(parent_path)
 import settings
 from database.database import Base
 
-# ¡IMPORTANTE! Importar TODOS los modelos aquí para que Alembic los detecte
-from models.User import User
-from models.Address import Address
-from models.ProviderProfile import ProviderProfile
+
 # 🚨 Cuando crees nuevos modelos, agrégalos aquí
+from models.User import User  # noqa
+from models.Address import Address  # noqa
+from models.ProviderProfile import ProviderProfile, ProviderLicense  # noqa
+from models.ServiceRequest import (
+    ServiceRequest,
+    ServiceRequestImage,
+    ServiceRequestProposal,
+    Service,
+    Currency,
+    ServiceReview,
+    ServiceStatusHistory,
+)  # noqa
+from models.Tag import Tag, ServiceRequestTag, ProviderLicenseTag
+# Agregá aquí cualquier modelo nuevo que crees en el futuro
 
 # this is the Alembic Config object
 config = context.config
@@ -36,11 +47,6 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here for 'autogenerate' support
 target_metadata = Base.metadata
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
 
 
 def run_migrations_offline() -> None:

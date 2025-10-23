@@ -8,7 +8,7 @@ import logging
 from minio import Minio
 from PIL import Image
 from fastapi import HTTPException, UploadFile
-from services.src.utils.error_handler import error_handler
+from utils.error_handler import error_handler
 
 import settings
 
@@ -160,6 +160,20 @@ class S3Service:
 
     @error_handler({"default": "No se pudo eliminar la imagen del almacenamiento."})
     def delete_image(self, s3_key: str) -> bool:
+        if not s3_key:
+            return True
+
+        exists = False
+        for obj in self.client.list_objects(
+            bucket_name=self.bucket_name, prefix=s3_key, recursive=False
+        ):
+            if obj.object_name == s3_key:
+                exists = True
+                break
+
+        if not exists:
+            return True
+
         self.client.remove_object(self.bucket_name, s3_key)
         logger.info(
             f"✅ Object {s3_key} successfully deleted from bucket {self.bucket_name}"

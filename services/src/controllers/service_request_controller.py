@@ -11,6 +11,7 @@ from models.ServiceRequestSchemas import (
     ServiceRequestCreate,
     ServiceRequestImageResponse,
     ServiceRequestProposalResponse,
+    ServiceRequestTagResponse,
     ServiceRequestResponse,
     ServiceSummaryResponse,
     ServiceRequestUpdate,
@@ -133,12 +134,14 @@ class ServiceRequestController:
     @staticmethod
     def _build_response(service_request: ServiceRequest) -> ServiceRequestResponse:
         attachments = ServiceRequestController._serialize_attachments(service_request)
-        license_type_ids = sorted(
-            {
-                inference.license_type_id
-                for inference in service_request.inferred_licenses
-            }
+        tag_links = sorted(
+            list(service_request.tag_links or []),
+            key=lambda link: (
+                (link.tag.slug if getattr(link, "tag", None) else ""),
+                link.id,
+            ),
         )
+        tags = [ServiceRequestTagResponse.model_validate(link) for link in tag_links]
 
         proposals = ServiceRequestController._serialize_proposals(service_request)
         service_summary = ServiceRequestController._build_service_summary(
@@ -159,7 +162,7 @@ class ServiceRequestController:
             city_snapshot=service_request.city_snapshot,
             lat_snapshot=service_request.lat_snapshot,
             lon_snapshot=service_request.lon_snapshot,
-            license_type_ids=license_type_ids,
+            tags=tags,
             attachments=attachments,
             proposal_count=len(proposals),
             proposals=proposals,

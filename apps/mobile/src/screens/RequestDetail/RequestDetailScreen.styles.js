@@ -32,11 +32,31 @@ export default StyleSheet.create({
   formGroup: {
     marginTop: 24,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   label: {
     fontSize: 15,
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 8,
+  },
+  labelNoSpacing: {
+    marginBottom: 0,
+  },
+  rewriteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#EEF2FF',
+  },
+  rewriteIcon: {
+    marginLeft: 4,
   },
   toggleGroup: {
     flexDirection: 'row',

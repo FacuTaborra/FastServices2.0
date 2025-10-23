@@ -1,5 +1,3 @@
-"""Servicios de negocio para solicitudes de servicio."""
-
 from __future__ import annotations
 
 import logging
@@ -12,10 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from models.Address import Address
-from models.ProviderProfile import LicenseType, ProviderProfile
+from models.ProviderProfile import ProviderProfile
 from models.ServiceRequest import (
     ProposalStatus,
-    RequestInferredLicense,
     Service,
     ServiceRequest,
     ServiceRequestProposal,
@@ -23,8 +20,8 @@ from models.ServiceRequest import (
     ServiceRequestStatus,
     ServiceRequestType,
     ServiceStatus,
-    ValidationStatus,
 )
+from models.Tag import Tag, ServiceRequestTag
 from models.ServiceRequestSchemas import (
     MAX_ATTACHMENTS,
     ServiceRequestAttachment,
@@ -33,7 +30,7 @@ from models.ServiceRequestSchemas import (
     ServiceRequestUpdate,
 )
 from models.User import User, UserRole
-from services.src.utils import error_handler
+from utils.error_handler import error_handler
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +48,7 @@ class ServiceRequestService:
         """Crea una nueva solicitud en base a los datos recibidos."""
 
         ServiceRequestService._ensure_client_role(current_user)
-        await ServiceRequestService._validate_license_types(
-            db, payload.license_type_ids
-        )
+        await ServiceRequestService._validate_tags(db, payload.tag_ids)
 
         if (
             payload.request_type == ServiceRequestType.LICITACION
@@ -104,10 +99,10 @@ class ServiceRequestService:
             db, request_id=new_request.id, attachments=payload.attachments
         )
 
-        await ServiceRequestService._create_inferred_licenses(
+        await ServiceRequestService._attach_tags(
             db,
             request_id=new_request.id,
-            license_type_ids=payload.license_type_ids,
+            tag_ids=payload.tag_ids,
         )
 
         await db.commit()
@@ -136,16 +131,12 @@ class ServiceRequestService:
 
     @staticmethod
     @error_handler(logger)
-    async def _validate_license_types(
-        db: AsyncSession, license_type_ids: Sequence[int]
-    ) -> None:
-        unique_ids = {lt_id for lt_id in license_type_ids if lt_id is not None}
+    async def _validate_tags(db: AsyncSession, tag_ids: Sequence[int]) -> None:
+        unique_ids = {tag_id for tag_id in tag_ids if tag_id is not None}
         if not unique_ids:
             return
 
-        stmt: Select[tuple[int]] = select(LicenseType.id).where(
-            LicenseType.id.in_(unique_ids)
-        )
+        stmt: Select[tuple[int]] = select(Tag.id).where(Tag.id.in_(unique_ids))
         result = await db.execute(stmt)
         existing_ids = {row[0] for row in result.all()}
 
@@ -153,7 +144,7 @@ class ServiceRequestService:
         if missing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Los siguientes tipos de licencia no existen: {sorted(missing)}",
+                detail=f"Los siguientes tags no existen: {sorted(missing)}",
             )
 
     @staticmethod
@@ -277,18 +268,18 @@ class ServiceRequestService:
         return f"{SERVICE_REQUESTS_FOLDER}/{request_id}/{key}"
 
     @staticmethod
-    async def _create_inferred_licenses(
-        db: AsyncSession, *, request_id: int, license_type_ids: Iterable[int]
+    async def _attach_tags(
+        db: AsyncSession, *, request_id: int, tag_ids: Iterable[int]
     ) -> None:
-        unique_ids = {lt_id for lt_id in license_type_ids if lt_id is not None}
-        for license_type_id in unique_ids:
-            inference = RequestInferredLicense(
-                request_id=request_id,
-                license_type_id=license_type_id,
-                confidence=None,
-                validation_status=ValidationStatus.AUTO,
+        unique_ids = {tag_id for tag_id in tag_ids if tag_id is not None}
+        for tag_id in unique_ids:
+            db.add(
+                ServiceRequestTag(
+                    request_id=request_id,
+                    tag_id=tag_id,
+                    source="llm",
+                )
             )
-            db.add(inference)
 
     @staticmethod
     async def _fetch_request_with_relations(
@@ -298,7 +289,9 @@ class ServiceRequestService:
             select(ServiceRequest)
             .options(
                 selectinload(ServiceRequest.images),
-                selectinload(ServiceRequest.inferred_licenses),
+                selectinload(ServiceRequest.tag_links).selectinload(
+                    ServiceRequestTag.tag
+                ),
                 selectinload(ServiceRequest.proposals).options(
                     selectinload(ServiceRequestProposal.provider).options(
                         selectinload(ProviderProfile.user)
@@ -339,7 +332,9 @@ class ServiceRequestService:
             select(ServiceRequest)
             .options(
                 selectinload(ServiceRequest.images),
-                selectinload(ServiceRequest.inferred_licenses),
+                selectinload(ServiceRequest.tag_links).selectinload(
+                    ServiceRequestTag.tag
+                ),
                 selectinload(ServiceRequest.proposals).options(
                     selectinload(ServiceRequestProposal.provider).options(
                         selectinload(ProviderProfile.user)
@@ -367,7 +362,9 @@ class ServiceRequestService:
             select(ServiceRequest)
             .options(
                 selectinload(ServiceRequest.images),
-                selectinload(ServiceRequest.inferred_licenses),
+                selectinload(ServiceRequest.tag_links).selectinload(
+                    ServiceRequestTag.tag
+                ),
                 selectinload(ServiceRequest.proposals).options(
                     selectinload(ServiceRequestProposal.provider).options(
                         selectinload(ProviderProfile.user)

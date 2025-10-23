@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,17 +7,31 @@ import {
   TextInput,
   RefreshControl,
   Modal,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import NewRequestCard from '../../components/ProviderRequestCards/NewRequestCard';
 import ChatRequestCard from '../../components/ProviderRequestCards/ChatRequestCard';
-import ReviewModal from '../../components/ReviewModal/ReviewModal';
-import ProjectRequestCard from '../../components/ProviderRequestCards/ProjectRequestCard';
 import Spinner from '../../components/Spinner/Spinner';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import styles from './ProviderRequestsScreen.styles';
 import data from '../../data/providerRequests';
 
+const brandIcon = require('../../../assets/icon.png');
+
+const TAB_CONFIG = {
+  nuevas: {
+    label: 'Nuevas',
+    dataKey: 'nuevas',
+    emptyMessage: 'Sin solicitudes nuevas por ahora',
+  },
+  presupuestos: {
+    label: 'Presupuestos',
+    dataKey: 'chats',
+    emptyMessage: 'Aún no tenés presupuestos activos',
+  },
+};
 
 export default function ProviderRequestsScreen() {
   const navigation = useNavigation();
@@ -27,8 +41,6 @@ export default function ProviderRequestsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [filterModal, setFilterModal] = useState(false);
-  const [reviewVisible, setReviewVisible] = useState(false);
-  const [selectedReview, setSelectedReview] = useState(null);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -39,14 +51,22 @@ export default function ProviderRequestsScreen() {
     }, 1000);
   };
 
-  const filtered = () => {
-    const current = data[activeTab];
-    return current.filter(
-      (i) =>
-        i.title.toLowerCase().includes(search.toLowerCase()) ||
-        (i.address && i.address.toLowerCase().includes(search.toLowerCase())),
-    );
-  };
+  const filteredRequests = useMemo(() => {
+    const tabSettings = TAB_CONFIG[activeTab] ?? TAB_CONFIG.nuevas;
+    const source = data[tabSettings.dataKey] ?? [];
+    const query = search.trim().toLowerCase();
+
+    if (!query) {
+      return source;
+    }
+
+    return source.filter((item) => {
+      const fields = [item.title, item.address, item.client];
+      return fields.some(
+        (field) => typeof field === 'string' && field.toLowerCase().includes(query),
+      );
+    });
+  }, [activeTab, search]);
 
   const renderItem = ({ item }) => {
     if (activeTab === 'nuevas') {
@@ -59,126 +79,131 @@ export default function ProviderRequestsScreen() {
               showButton: false,
             })
           }
-          onAccept={() => {}}
-          onReject={() => {}}
+          onAccept={() => { }}
+          onReject={() => { }}
         />
       );
     }
-    if (activeTab === 'chats') {
-      return (
-        <ChatRequestCard
-          item={item}
-          onPress={() => navigation.navigate('Chat', { isProvider: true, request: item })}
-          detail={() => navigation.navigate('RequestDetail', { requestId: item.id, showButton: false })}
-        />
-      );
-    }
-    if (activeTab === 'proyectos') {
-      return (
-        <ProjectRequestCard
-          item={item}
-          onPress={() => openReview(item)}
-          onPressChat={() => navigation.navigate('Chat')}
-          detail={() => navigation.navigate('RequestDetail', { requestId: item.id, showButton: false })}
-        />
-      );
-    }
+    return (
+      <ChatRequestCard
+        item={item}
+        onPress={() => navigation.navigate('Chat', { isProvider: true, request: item })}
+        detail={() => navigation.navigate('RequestDetail', { requestId: item.id, showButton: false })}
+      />
+    );
   };
 
-  const openReview = (item) => {
-    if (item.status === 'calificada') {
-      setSelectedReview(item);
-      setReviewVisible(true);
-    }
-  };
 
   if (loading) {
     return <Spinner />;
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>Solicitudes</Text>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity onPress={() => setShowSearch((v) => !v)}>
-            <Ionicons name="search" size={24} color="#111" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setFilterModal(true)} style={styles.iconMargin}>
-            <Ionicons name="filter" size={24} color="#111" />
-          </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.headerContainer}>
+          <View style={styles.headerRow}>
+            <View style={styles.brandRow}>
+              <Image source={brandIcon} style={styles.brandIcon} />
+              <View>
+                <Text style={styles.brandTitle}>Fast Services</Text>
+                <Text style={styles.brandSubtitle}>Solicitudes</Text>
+              </View>
+            </View>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => setShowSearch((value) => !value)}
+              >
+                <Ionicons
+                  name={showSearch ? 'close' : 'search'}
+                  size={20}
+                  style={styles.actionIcon}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.actionButtonSpacing]}
+                onPress={() => setFilterModal(true)}
+              >
+                <Ionicons name="options-outline" size={20} style={styles.actionIcon} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          {showSearch ? (
+            <View style={styles.searchContainer}>
+              <Ionicons name="search-outline" size={18} style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar solicitudes"
+                placeholderTextColor={styles.placeholderColor.color}
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
+          ) : null}
         </View>
-      </View>
-      {showSearch && (
-        <View style={styles.searchContainer}>
-          <Ionicons name="search-outline" size={20} color="#4776a6" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar"
-            placeholderTextColor="#9CA3AF"
-            value={search}
-            onChangeText={setSearch}
-          />
+
+        <View style={styles.tabContainer}>
+          {Object.entries(TAB_CONFIG).map(([tabKey, config]) => (
+            <TouchableOpacity
+              key={tabKey}
+              style={[styles.tabButton, activeTab === tabKey && styles.tabButtonActive]}
+              onPress={() => setActiveTab(tabKey)}
+            >
+              <Text
+                style={[styles.tabText, activeTab === tabKey && styles.tabTextActive]}
+              >
+                {config.label}
+              </Text>
+              {tabKey === 'nuevas' ? (
+                <View style={[styles.badge, activeTab === tabKey && styles.badgeActive]}>
+                  <Text style={styles.badgeText}>{data.nuevas.length}</Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+          ))}
         </View>
-      )}
-      <View style={styles.tabRow}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'nuevas' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('nuevas')}
-        >
-          <Text style={[styles.tabText, activeTab === 'nuevas' && styles.tabTextActive]}>Nuevas</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{data.nuevas.length}</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'chats' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('chats')}
-        >
-          <Text style={[styles.tabText, activeTab === 'chats' && styles.tabTextActive]}>Presupuestos</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'proyectos' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('proyectos')}
-        >
-          <Text style={[styles.tabText, activeTab === 'proyectos' && styles.tabTextActive]}>Proyectos</Text>
-        </TouchableOpacity>
+
+        <FlatList
+          data={filteredRequests}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          refreshControl={(
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[styles.refreshColor.color]}
+              tintColor={styles.refreshColor.color}
+            />
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="leaf-outline" size={20} style={styles.emptyIcon} />
+              <Text style={styles.emptyText}>
+                {(TAB_CONFIG[activeTab] ?? TAB_CONFIG.nuevas).emptyMessage}
+              </Text>
+            </View>
+          }
+          showsVerticalScrollIndicator={false}
+        />
+
+        <Modal transparent visible={filterModal} animationType="fade">
+          <TouchableOpacity style={styles.modalOverlay} onPress={() => setFilterModal(false)}>
+            <View style={styles.modalContent}>
+              <TouchableOpacity style={styles.modalOption} onPress={() => setFilterModal(false)}>
+                <Text style={styles.modalOptionText}>Ordenar por fecha</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalOption, styles.modalOptionLast]}
+                onPress={() => setFilterModal(false)}
+              >
+                <Text style={styles.modalOptionText}>Ordenar por presupuesto</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </View>
-      <FlatList
-        data={filtered()}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Sin solicitudes nuevas por ahora</Text>
-          </View>
-        }
-        showsVerticalScrollIndicator={false}
-      />
-
-      <Modal transparent visible={filterModal} animationType="fade">
-        <TouchableOpacity style={styles.modalOverlay} onPress={() => setFilterModal(false)}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity style={styles.modalOption} onPress={() => setFilterModal(false)}>
-              <Text>Ordenar por fecha</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalOption} onPress={() => setFilterModal(false)}>
-              <Text>Ordenar por precio</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      <ReviewModal
-        visible={reviewVisible}
-        onClose={() => {
-          setReviewVisible(false);
-          setSelectedReview(null);
-        }}
-        item={selectedReview}
-      />
-    </View>
+    </SafeAreaView>
   );
 }

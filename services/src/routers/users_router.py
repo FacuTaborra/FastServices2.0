@@ -166,6 +166,7 @@ async def delete_profile_image(
     current_user: User = Depends(check_user_login),
 ) -> UserResponse:
     updated_user = await user_controller.delete_profile_image(
+        db=db,
         profile_image_s3_key=current_user.profile_image_s3_key,
         current_user=current_user,
     )

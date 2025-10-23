@@ -23,17 +23,12 @@ import { useActiveServiceRequests, useUpdateServiceRequest } from '../../hooks/u
 const TIMER_TICK_INTERVAL_MS = 60 * 1000;
 
 const computeRemainingMs = (deadlineIso, nowMs) => {
-    if (!deadlineIso) {
+    const deadlineDate = parseIsoDate(deadlineIso);
+    if (!deadlineDate) {
         return 0;
     }
 
-    const deadlineDate = new Date(deadlineIso);
-    const deadlineMs = deadlineDate.getTime();
-    if (Number.isNaN(deadlineMs)) {
-        return 0;
-    }
-
-    return Math.max(0, deadlineMs - nowMs);
+    return Math.max(0, deadlineDate.getTime() - nowMs);
 };
 
 const formatRemainingTime = (remainingMs, isClosed) => {
@@ -70,12 +65,29 @@ const parseIsoDate = (isoDate) => {
         return null;
     }
 
-    const parsed = new Date(isoDate);
-    if (Number.isNaN(parsed.getTime())) {
+    if (isoDate instanceof Date) {
+        return Number.isNaN(isoDate.getTime()) ? null : isoDate;
+    }
+
+    if (typeof isoDate !== 'string') {
         return null;
     }
 
-    return parsed;
+    const trimmed = isoDate.trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    const hasExplicitTimezone = /[zZ]|[+-]\d{2}:\d{2}$/.test(trimmed);
+    const normalized = hasExplicitTimezone ? trimmed : `${trimmed}Z`;
+    const parsed = new Date(normalized);
+
+    if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+    }
+
+    const fallbackParsed = new Date(trimmed);
+    return Number.isNaN(fallbackParsed.getTime()) ? null : fallbackParsed;
 };
 
 const formatLongDate = (date) => {

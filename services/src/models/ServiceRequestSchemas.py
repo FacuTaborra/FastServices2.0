@@ -14,6 +14,7 @@ from models.ServiceRequest import (
     ServiceRequestType,
     ServiceStatus,
 )
+from models.Tag import ServiceRequestTagResponse
 
 MAX_ATTACHMENTS = 6
 
@@ -63,9 +64,9 @@ class ServiceRequestCreate(BaseModel):
         None,
         description="Fecha límite para recibir propuestas (solo LICITACION)",
     )
-    license_type_ids: List[int] = Field(
+    tag_ids: List[int] = Field(
         default_factory=list,
-        description="Licencias sugeridas para la solicitud",
+        description="Tags sugeridos para la solicitud",
     )
     attachments: List[ServiceRequestAttachment] = Field(
         default_factory=list, description="Hasta 6 imágenes para la solicitud"
@@ -176,7 +177,7 @@ class ServiceRequestResponse(BaseModel):
     city_snapshot: Optional[str]
     lat_snapshot: Optional[Decimal]
     lon_snapshot: Optional[Decimal]
-    license_type_ids: List[int] = Field(default_factory=list)
+    tags: List[ServiceRequestTagResponse] = Field(default_factory=list)
     attachments: List[ServiceRequestImageResponse] = Field(default_factory=list)
     proposal_count: int = Field(0, ge=0)
     proposals: List[ServiceRequestProposalResponse] = Field(default_factory=list)

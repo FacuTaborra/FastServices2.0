@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import Spinner from '../../components/Spinner/Spinner';
@@ -197,6 +199,8 @@ const RequestDetailScreen = () => {
       ),
     );
   };
+
+  const handleRewriteDescription = () => { };
 
   const buildPayload = () => {
     const trimmedTitle = title.trim();
@@ -443,7 +447,18 @@ const RequestDetailScreen = () => {
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Descripción*</Text>
+          <View style={styles.labelRow}>
+            <Text style={[styles.label, styles.labelNoSpacing]}>Descripción*</Text>
+            <TouchableOpacity
+              style={styles.rewriteButton}
+              activeOpacity={0.85}
+              onPress={handleRewriteDescription}
+              accessibilityRole="button"
+              accessibilityLabel="Reescribir descripción"
+            >
+              <FontAwesome6 name="pen" size={16} color="black" />
+            </TouchableOpacity>
+          </View>
           <TextInput
             style={[styles.textInput, styles.multilineInput]}
             placeholder="Contanos qué necesitás. Incluí detalles, urgencia, materiales, etc."
