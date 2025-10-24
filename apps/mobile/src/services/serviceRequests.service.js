@@ -94,6 +94,19 @@ export async function updateServiceRequest(requestId, payload) {
     }
 }
 
+export async function cancelRequest(requestId) {
+    try {
+        console.log('🛑 Cancelando licitación...', { requestId });
+        const response = await api.post(`/service-requests/${requestId}/cancel`);
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error cancelando la licitación:', { status, message });
+        throw error;
+    }
+}
+
 export async function confirmPayment(requestId, payload) {
     try {
         console.log('💳 Confirmando pago...', { requestId, payload });
@@ -147,6 +160,7 @@ export default {
     getAllServiceRequests,
     getServiceRequest,
     updateServiceRequest,
+    cancelRequest,
     confirmPayment,
     cancelService,
     markServiceInProgress,

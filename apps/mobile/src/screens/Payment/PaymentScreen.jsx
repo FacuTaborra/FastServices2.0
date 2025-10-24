@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   Alert,
   Image,
@@ -32,6 +32,50 @@ export default function PaymentScreen() {
     || proposal?.provider?.image_url;
 
   const confirmPaymentMutation = useConfirmServicePayment();
+
+  const formatCurrencyLabel = useCallback((amount, currencyCode) => {
+    const numericValue = Number(amount ?? 0) || 0;
+    const normalizedCurrency = (currencyCode || 'ARS').toUpperCase();
+    try {
+      const formatted = new Intl.NumberFormat('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(numericValue);
+      return `$${formatted} ${normalizedCurrency}`;
+    } catch (error) {
+      return `$${numericValue.toFixed(2)} ${normalizedCurrency}`;
+    }
+  }, []);
+
+  const currencyCode = (proposal?.currency || 'ARS').toUpperCase();
+  const baseAmount = useMemo(() => {
+    const numericValue = Number(proposal?.quoted_price ?? 0);
+    return Number.isFinite(numericValue) ? numericValue : 0;
+  }, [proposal?.quoted_price]);
+  const managementFeeRate = 0.02;
+  const managementFeeAmount = useMemo(
+    () => baseAmount * managementFeeRate,
+    [baseAmount],
+  );
+  const totalAmount = useMemo(
+    () => baseAmount + managementFeeAmount,
+    [baseAmount, managementFeeAmount],
+  );
+
+  const baseAmountLabel = useMemo(() => {
+    if (priceLabel) {
+      return priceLabel;
+    }
+    return formatCurrencyLabel(baseAmount, currencyCode);
+  }, [priceLabel, formatCurrencyLabel, baseAmount, currencyCode]);
+  const managementFeeLabel = useMemo(
+    () => formatCurrencyLabel(managementFeeAmount, currencyCode),
+    [formatCurrencyLabel, managementFeeAmount, currencyCode],
+  );
+  const totalAmountLabel = useMemo(
+    () => formatCurrencyLabel(totalAmount, currencyCode),
+    [formatCurrencyLabel, totalAmount, currencyCode],
+  );
 
   const ratingLabel = useMemo(() => {
     const rating = Number(proposal?.provider_rating_avg ?? 0);
@@ -161,9 +205,26 @@ export default function PaymentScreen() {
             </View>
           </View>
 
-          <View style={styles.priceRow}>
-            <Ionicons name="cash-outline" size={20} color="#0f172a" />
-            <Text style={styles.priceText}>{priceLabel}</Text>
+          <View style={styles.paymentSummary}>
+            <View style={styles.paymentSummaryHeader}>
+              <Ionicons name="cash-outline" size={20} color="#0f172a" />
+              <Text style={styles.paymentSummaryTitle}>Detalle del pago</Text>
+            </View>
+            <View style={styles.paymentBreakdown}>
+              <View style={styles.paymentBreakdownRow}>
+                <Text style={styles.paymentLabel}>Subtotal del servicio</Text>
+                <Text style={styles.paymentValue}>{baseAmountLabel}</Text>
+              </View>
+              <View style={styles.paymentBreakdownRow}>
+                <Text style={styles.paymentLabel}>{`Gestión (${Math.round(managementFeeRate * 100)}%)`}</Text>
+                <Text style={styles.paymentValue}>{managementFeeLabel}</Text>
+              </View>
+              <View style={styles.paymentDivider} />
+              <View style={[styles.paymentBreakdownRow, styles.paymentBreakdownTotal]}>
+                <Text style={styles.paymentTotalLabel}>Total a pagar</Text>
+                <Text style={styles.paymentTotalValue}>{totalAmountLabel}</Text>
+              </View>
+            </View>
           </View>
 
           <View style={styles.scheduleRow}>
@@ -197,7 +258,7 @@ export default function PaymentScreen() {
         >
           <Ionicons name="shield-checkmark-outline" size={22} color="#ecfeff" style={styles.payActionIcon} />
           <Text style={styles.payActionText}>
-            {confirmPaymentMutation.isPending ? 'Procesando pago...' : `Pagar ${priceLabel}`}
+            {confirmPaymentMutation.isPending ? 'Procesando pago...' : `Pagar ${totalAmountLabel}`}
           </Text>
         </TouchableOpacity>
       </ScrollView>

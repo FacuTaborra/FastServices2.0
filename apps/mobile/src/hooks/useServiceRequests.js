@@ -82,6 +82,24 @@ export function useUpdateServiceRequest() {
     });
 }
 
+export function useCancelServiceRequest() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ requestId }) =>
+            serviceRequestService.cancelRequest(requestId),
+        onSuccess: (updatedRequest) => {
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.active });
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.history });
+            if (updatedRequest?.id) {
+                queryClient.invalidateQueries({
+                    queryKey: serviceRequestKeys.detail(updatedRequest.id),
+                });
+            }
+        },
+    });
+}
+
 export function useConfirmServicePayment() {
     const queryClient = useQueryClient();
 
@@ -144,6 +162,7 @@ export default {
     useActiveServiceRequests,
     useServiceRequest,
     useUpdateServiceRequest,
+    useCancelServiceRequest,
     useAllServiceRequests,
     useConfirmServicePayment,
     useCancelService,

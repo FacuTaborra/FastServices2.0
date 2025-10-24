@@ -18,7 +18,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from './LicitacionScreen.styles';
-import { useActiveServiceRequests, useUpdateServiceRequest } from '../../hooks/useServiceRequests';
+import {
+    useActiveServiceRequests,
+    useUpdateServiceRequest,
+    useCancelServiceRequest,
+} from '../../hooks/useServiceRequests';
 
 const TIMER_TICK_INTERVAL_MS = 60 * 1000;
 
@@ -58,6 +62,19 @@ const formatCurrencyLabel = (amount, currency) => {
     } catch (error) {
         return `$${numericValue.toFixed(2)} ${currency || 'ARS'}`;
     }
+};
+
+const getProposalIdentifier = (proposal) => {
+    if (!proposal) {
+        return null;
+    }
+
+    return (
+        proposal.id
+        ?? proposal.proposal_id
+        ?? proposal.provider_id
+        ?? null
+    );
 };
 
 const parseIsoDate = (isoDate) => {
@@ -121,19 +138,125 @@ const describeDaysUntil = (targetDate, nowMs) => {
     return `Faltan ${diffDays} días`;
 };
 
-const sortProposals = (proposals) => {
+const sortProposals = (proposals, criterion = 'price') => {
     if (!Array.isArray(proposals)) {
         return [];
     }
 
     return [...proposals].sort((a, b) => {
+        if (criterion === 'rating') {
+            const ratingA = Number(a?.provider_rating_avg ?? 0);
+            const ratingB = Number(b?.provider_rating_avg ?? 0);
+            if (ratingA !== ratingB) {
+                return ratingB - ratingA;
+            }
+
+            const reviewsA = Number(a?.provider_total_reviews ?? 0);
+            const reviewsB = Number(b?.provider_total_reviews ?? 0);
+            if (reviewsA !== reviewsB) {
+                return reviewsB - reviewsA;
+            }
+
+            const priceA = Number(a?.quoted_price ?? 0);
+            const priceB = Number(b?.quoted_price ?? 0);
+            if (priceA !== priceB) {
+                return priceA - priceB;
+            }
+
+            return Number(a?.id ?? 0) - Number(b?.id ?? 0);
+        }
+
         const priceA = Number(a?.quoted_price ?? 0);
         const priceB = Number(b?.quoted_price ?? 0);
         if (priceA === priceB) {
+            const ratingA = Number(a?.provider_rating_avg ?? 0);
+            const ratingB = Number(b?.provider_rating_avg ?? 0);
+            if (ratingA !== ratingB) {
+                return ratingB - ratingA;
+            }
+
             return Number(a?.id ?? 0) - Number(b?.id ?? 0);
         }
         return priceA - priceB;
     });
+};
+
+const ProposalCard = ({
+    proposal,
+    isWinner,
+    isSelected,
+    isClosed,
+    onShowDetails,
+    onSelectForPayment,
+    scheduleLabel,
+    reputationLabel,
+}) => {
+    const providerName = proposal?.provider_display_name || 'Proveedor';
+    const priceLabel = formatCurrencyLabel(
+        proposal?.quoted_price,
+        proposal?.currency,
+    );
+    const notesPreview = (proposal?.notes || '').trim();
+
+    return (
+        <View
+            style={[
+                styles.proposalCard,
+                isWinner && styles.proposalCardWinner,
+                isSelected && styles.proposalCardSelected,
+            ]}
+        >
+            <TouchableOpacity
+                activeOpacity={0.88}
+                onPress={() => onShowDetails(proposal)}
+            >
+                <View style={styles.proposalHeader}>
+                    <Text style={styles.proposalProvider}>{providerName}</Text>
+                    <Text style={styles.proposalPrice}>{priceLabel}</Text>
+                </View>
+                <View style={styles.proposalMetaRow}>
+                    <Ionicons name="star" size={16} color="#f59e0b" />
+                    <Text style={styles.proposalMetaText}>{reputationLabel}</Text>
+                </View>
+                {notesPreview ? (
+                    <Text style={styles.proposalNotes} numberOfLines={2}>
+                        {notesPreview}
+                    </Text>
+                ) : null}
+                <View style={styles.proposalMetaRow}>
+                    <Ionicons name="calendar-outline" size={16} color="#0369a1" />
+                    <Text style={styles.proposalMetaText}>{scheduleLabel}</Text>
+                </View>
+            </TouchableOpacity>
+
+            {isClosed ? (
+                <View style={styles.proposalFooterRow}>
+                    <TouchableOpacity
+                        style={[
+                            styles.proposalSelectButton,
+                            isSelected && styles.proposalSelectButtonActive,
+                        ]}
+                        onPress={() => onSelectForPayment(proposal)}
+                        activeOpacity={0.85}
+                    >
+                        <Ionicons
+                            name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                            size={18}
+                            color={isSelected ? '#0f766e' : '#64748b'}
+                        />
+                        <Text
+                            style={[
+                                styles.proposalSelectButtonLabel,
+                                isSelected && styles.proposalSelectButtonLabelActive,
+                            ]}
+                        >
+                            {isSelected ? 'Seleccionado para pagar' : 'Elegir para pagar'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            ) : null}
+        </View>
+    );
 };
 
 export default function LicitacionScreen() {
@@ -141,14 +264,17 @@ export default function LicitacionScreen() {
     const route = useRoute();
     const insets = useSafeAreaInsets();
     const requestId = route.params?.requestId;
-    const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
-    const [isOffersModalVisible, setIsOffersModalVisible] = useState(false);
+    const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+    const [selectedProposal, setSelectedProposal] = useState(null);
+    const [selectedPayProposalId, setSelectedPayProposalId] = useState(null);
+    const [sortCriterion, setSortCriterion] = useState('price');
     const [requestData, setRequestData] = useState(
         route.params?.requestSummary ?? {},
     );
     const [nowMs, setNowMs] = useState(Date.now());
     const [hasAutoClosed, setHasAutoClosed] = useState(false);
     const updateRequestMutation = useUpdateServiceRequest();
+    const cancelRequestMutation = useCancelServiceRequest();
 
     const serviceCreated = Boolean(requestData?.service);
     const requestTitle = requestData?.title ?? 'Solicitud en licitación';
@@ -163,9 +289,19 @@ export default function LicitacionScreen() {
         refetch: refetchActiveRequests,
         isRefetching: isActiveRefetching,
     } = useActiveServiceRequests({ enabled: shouldSyncActive });
-    const proposals = useMemo(() => sortProposals(requestData?.proposals), [requestData?.proposals]);
-    const proposalCount = requestData?.proposal_count ?? proposals.length;
-    const isUpdating = updateRequestMutation.isPending;
+    const baseProposals = useMemo(
+        () => (Array.isArray(requestData?.proposals) ? [...requestData.proposals] : []),
+        [requestData?.proposals],
+    );
+    const sortedProposals = useMemo(
+        () => sortProposals(baseProposals, sortCriterion),
+        [baseProposals, sortCriterion],
+    );
+    const handleSortChange = useCallback((criterion) => {
+        setSortCriterion((prev) => (prev === criterion ? prev : criterion));
+    }, []);
+    const proposalCount = requestData?.proposal_count ?? baseProposals.length;
+    const isUpdating = updateRequestMutation.isPending || cancelRequestMutation.isPending;
 
     useEffect(() => {
         const intervalId = setInterval(() => {
@@ -200,9 +336,47 @@ export default function LicitacionScreen() {
     }, [remainingMs, isClosed, isCancelled]);
 
     const winnerProposal = useMemo(
-        () => (proposals.length > 0 ? proposals[0] : null),
-        [proposals],
+        () => (baseProposals.length > 0 ? sortProposals(baseProposals, 'price')[0] : null),
+        [baseProposals],
     );
+
+    const winnerProposalId = useMemo(
+        () => getProposalIdentifier(winnerProposal),
+        [winnerProposal],
+    );
+
+    useEffect(() => {
+        if (!isClosed) {
+            setSelectedPayProposalId(null);
+            return;
+        }
+
+        if (!sortedProposals.length) {
+            setSelectedPayProposalId(null);
+            return;
+        }
+
+        setSelectedPayProposalId((prev) => {
+            if (prev && sortedProposals.some((proposal) => getProposalIdentifier(proposal) === prev)) {
+                return prev;
+            }
+
+            const firstSortable = sortedProposals[0];
+            return getProposalIdentifier(firstSortable) ?? null;
+        });
+    }, [isClosed, sortedProposals]);
+
+    const selectedPayProposal = useMemo(() => {
+        if (!isClosed || !selectedPayProposalId) {
+            return null;
+        }
+
+        return (
+            sortedProposals.find((proposal) => getProposalIdentifier(proposal) === selectedPayProposalId)
+            || baseProposals.find((proposal) => getProposalIdentifier(proposal) === selectedPayProposalId)
+            || null
+        );
+    }, [isClosed, selectedPayProposalId, sortedProposals, baseProposals]);
 
     const winnerPriceLabel = useMemo(() => {
         if (!winnerProposal) {
@@ -276,18 +450,206 @@ export default function LicitacionScreen() {
 
     const winnerNotes = winnerProposal?.notes?.trim();
 
-    useEffect(() => {
-        if (isClosed || isCancelled || remainingMs > 0 || hasAutoClosed) {
-            return;
+    const requestCreatedDate = useMemo(
+        () => parseIsoDate(requestCreatedAt),
+        [requestCreatedAt],
+    );
+    const biddingDeadlineDate = useMemo(
+        () => parseIsoDate(biddingDeadlineIso),
+        [biddingDeadlineIso],
+    );
+
+    const statusLabel = useMemo(() => {
+        if (isCancelled) {
+            return 'Cancelada';
+        }
+        if (isClosed) {
+            return 'Finalizada';
+        }
+        return 'Activa';
+    }, [isCancelled, isClosed]);
+
+    const statusMessage = useMemo(() => {
+        if (isCancelled) {
+            return 'Cancelaste la licitación. No se recibirán nuevas ofertas.';
+        }
+        if (isClosed) {
+            return 'Cerraste la licitación. Revisá las propuestas y confirmá al prestador.';
+        }
+        return 'Los prestadores están enviando propuestas. Podés cerrar cuando tengas suficientes opciones.';
+    }, [isCancelled, isClosed]);
+
+    const statusHint = useMemo(() => {
+        if (isCancelled) {
+            return 'Recordá crear una nueva solicitud si cambiaron tus necesidades.';
+        }
+        if (isClosed) {
+            return 'La licitación ya no acepta nuevas ofertas.';
+        }
+        return 'Cuando recibas al menos 3 propuestas vas a poder cerrar la licitación.';
+    }, [isCancelled, isClosed]);
+
+    const getProposalScheduleLabel = useCallback(
+        (proposal) => {
+            const startDate = parseIsoDate(proposal?.proposed_start_at);
+            if (!startDate) {
+                return 'Fecha a coordinar';
+            }
+
+            const calendarLabel = formatLongDate(startDate);
+            const relativeLabel = describeDaysUntil(startDate, nowMs);
+
+            if (calendarLabel && relativeLabel) {
+                return `${calendarLabel} · ${relativeLabel}`;
+            }
+
+            return calendarLabel || relativeLabel || 'Fecha a coordinar';
+        },
+        [nowMs],
+    );
+
+    const getProposalReputation = useCallback((proposal) => {
+        const rating = Number(proposal?.provider_rating_avg ?? 0);
+        const reviews = Number(proposal?.provider_total_reviews ?? 0);
+
+        if (rating > 0) {
+            const formattedRating = rating.toFixed(1).replace('.', ',');
+            const reviewsLabel = reviews === 1 ? '1 reseña' : `${reviews} reseñas`;
+            return `${formattedRating} · ${reviewsLabel}`;
         }
 
-        if (!requestId) {
-            return;
+        if (reviews > 0) {
+            return reviews === 1 ? '1 reseña' : `${reviews} reseñas`;
         }
 
-        setHasAutoClosed(true);
-        performCloseLicitacion({ isAuto: true });
-    }, [isClosed, isCancelled, remainingMs, hasAutoClosed, requestId, performCloseLicitacion]);
+        return 'Sin calificaciones';
+    }, []);
+
+    const closeDetailModal = useCallback(() => {
+        setIsDetailModalVisible(false);
+        setSelectedProposal(null);
+    }, []);
+
+    const handleProposalPress = useCallback((proposal) => {
+        if (!proposal) {
+            return;
+        }
+        setSelectedProposal(proposal);
+        setIsDetailModalVisible(true);
+    }, []);
+    const handleSelectProposalForPayment = useCallback(
+        (proposal) => {
+            if (!proposal || !isClosed) {
+                return;
+            }
+
+            const proposalId = getProposalIdentifier(proposal);
+            if (!proposalId || proposalId === selectedPayProposalId) {
+                return;
+            }
+
+            setSelectedPayProposalId(proposalId);
+        },
+        [isClosed, selectedPayProposalId],
+    );
+
+    const { proposalsContent, hasScrollableProposals } = useMemo(() => {
+        if (isCancelled) {
+            return {
+                proposalsContent: (
+                    <View style={styles.emptyOffersBox}>
+                        <Ionicons name="pause-outline" size={28} color="#ef4444" />
+                        <Text style={styles.emptyOffersText}>
+                            La licitación fue cancelada. No se mostrarán propuestas.
+                        </Text>
+                    </View>
+                ),
+                hasScrollableProposals: false,
+            };
+        }
+
+        if (!sortedProposals.length) {
+            return {
+                proposalsContent: (
+                    <View style={styles.emptyOffersBox}>
+                        <Ionicons name="mail-open-outline" size={28} color="#64748b" />
+                        <Text style={styles.emptyOffersText}>
+                            Aún no recibiste propuestas. Te avisaremos cuando lleguen nuevas ofertas.
+                        </Text>
+                    </View>
+                ),
+                hasScrollableProposals: false,
+            };
+        }
+
+        const cards = sortedProposals.map((proposal) => {
+            const proposalIdentifier = getProposalIdentifier(proposal);
+            const proposalKey = proposalIdentifier
+                ?? `${proposal?.provider_display_name || 'proveedor'}-${proposal?.quoted_price ?? 0}`;
+            const scheduleLabel = getProposalScheduleLabel(proposal);
+            const reputationLabel = getProposalReputation(proposal);
+            const isWinner = Boolean(
+                isClosed && winnerProposalId && proposalIdentifier === winnerProposalId,
+            );
+            const isSelected = Boolean(
+                isClosed && selectedPayProposalId && proposalIdentifier === selectedPayProposalId,
+            );
+
+            return (
+                <ProposalCard
+                    key={proposalKey}
+                    proposal={proposal}
+                    isWinner={isWinner}
+                    isClosed={isClosed}
+                    isSelected={isSelected}
+                    onShowDetails={handleProposalPress}
+                    onSelectForPayment={handleSelectProposalForPayment}
+                    scheduleLabel={scheduleLabel}
+                    reputationLabel={reputationLabel}
+                />
+            );
+        });
+
+        return {
+            proposalsContent: (
+                <View style={styles.proposalsCardsWrapper}>
+                    {cards}
+                </View>
+            ),
+            hasScrollableProposals: sortedProposals.length > 4,
+        };
+    }, [
+        isCancelled,
+        sortedProposals,
+        isClosed,
+        winnerProposalId,
+        selectedPayProposalId,
+        getProposalScheduleLabel,
+        getProposalReputation,
+        handleProposalPress,
+        handleSelectProposalForPayment,
+    ]);
+
+    const selectedProposalMeta = useMemo(() => {
+        if (!selectedProposal) {
+            return null;
+        }
+
+        const endDate = parseIsoDate(selectedProposal?.proposed_end_at);
+        const validUntilDate = parseIsoDate(selectedProposal?.valid_until);
+
+        return {
+            priceLabel: formatCurrencyLabel(
+                selectedProposal?.quoted_price,
+                selectedProposal?.currency,
+            ),
+            reputationLabel: getProposalReputation(selectedProposal),
+            scheduleLabel: getProposalScheduleLabel(selectedProposal),
+            endLabel: endDate ? formatLongDate(endDate) : null,
+            validUntilLabel: validUntilDate ? formatLongDate(validUntilDate) : null,
+            notes: (selectedProposal?.notes || '').trim(),
+        };
+    }, [selectedProposal, getProposalReputation, getProposalScheduleLabel]);
 
     const resolveErrorMessage = (error, fallbackMessage) => {
         const detail =
@@ -316,7 +678,7 @@ export default function LicitacionScreen() {
                 { requestId, data: { status: 'CLOSED' } },
                 {
                     onSuccess: (updatedRequest) => {
-                        setIsInfoModalVisible(false);
+                        closeDetailModal();
                         updateLocalRequest({
                             ...updatedRequest,
                             status: updatedRequest?.status ?? 'CLOSED',
@@ -354,8 +716,21 @@ export default function LicitacionScreen() {
                 },
             );
         },
-        [requestId, updateLocalRequest, updateRequestMutation],
+        [requestId, updateLocalRequest, updateRequestMutation, closeDetailModal],
     );
+
+    useEffect(() => {
+        if (isClosed || isCancelled || remainingMs > 0 || hasAutoClosed) {
+            return;
+        }
+
+        if (!requestId) {
+            return;
+        }
+
+        setHasAutoClosed(true);
+        performCloseLicitacion({ isAuto: true });
+    }, [isClosed, isCancelled, remainingMs, hasAutoClosed, requestId, performCloseLicitacion]);
 
     const handleCloseRequestPress = () => {
         if (!canCloseManually || isUpdating) {
@@ -390,12 +765,16 @@ export default function LicitacionScreen() {
                     text: 'Sí, cancelar',
                     style: 'destructive',
                     onPress: () => {
-                        updateRequestMutation.mutate(
-                            { requestId, data: { status: 'CANCELLED' } },
+                        cancelRequestMutation.mutate(
+                            { requestId },
                             {
-                                onSuccess: () => {
-                                    setIsInfoModalVisible(false);
-                                    updateLocalRequest({ status: 'CANCELLED' });
+                                onSuccess: (updatedRequest) => {
+                                    closeDetailModal();
+                                    if (updatedRequest) {
+                                        updateLocalRequest(updatedRequest);
+                                    } else {
+                                        updateLocalRequest({ status: 'CANCELLED' });
+                                    }
                                     Alert.alert(
                                         'Solicitud cancelada',
                                         'La licitación se canceló correctamente.',
@@ -403,8 +782,11 @@ export default function LicitacionScreen() {
                                             {
                                                 text: 'OK',
                                                 onPress: () =>
-                                                    navigation.navigate('Requests', {
-                                                        animation: 'slide_from_left',
+                                                    navigation.navigate('Main', {
+                                                        screen: 'HomePage',
+                                                        params: {
+                                                            animation: 'slide_from_left',
+                                                        },
                                                     }),
                                             },
                                         ],
@@ -428,7 +810,11 @@ export default function LicitacionScreen() {
     };
 
     const handleGoToPay = () => {
-        if (!winnerProposal) {
+        if (!selectedPayProposal) {
+            Alert.alert(
+                'Seleccioná una propuesta',
+                'Elegí cuál oferta querés pagar antes de continuar.',
+            );
             return;
         }
 
@@ -443,10 +829,13 @@ export default function LicitacionScreen() {
         navigation.navigate('Payment', {
             requestId,
             requestTitle,
-            providerName: winnerProposal.provider_display_name,
-            priceLabel: winnerPriceLabel,
-            proposal: winnerProposal,
-            providerImageUrl: winnerProposal.provider_image_url,
+            providerName: selectedPayProposal.provider_display_name,
+            priceLabel: formatCurrencyLabel(
+                selectedPayProposal.quoted_price,
+                selectedPayProposal.currency,
+            ),
+            proposal: selectedPayProposal,
+            providerImageUrl: selectedPayProposal.provider_image_url,
         });
     };
 
@@ -455,15 +844,16 @@ export default function LicitacionScreen() {
         paddingBottom: Math.max(insets.bottom, 24),
     };
 
-    const footerWrapperStyle = useMemo(
+    const actionsContainerStyle = useMemo(
         () => [
-            styles.footerWrapper,
+            styles.actionsContainer,
             { paddingBottom: Math.max(insets.bottom + 24, 48) },
         ],
         [insets.bottom],
     );
 
-    const payButtonVisible = !isCancelled && isClosed && !!winnerProposal;
+    const payButtonVisible = !isCancelled && isClosed && sortedProposals.length > 0;
+    const isPayButtonDisabled = serviceCreated || !selectedPayProposal;
     const showCloseButton = !isClosed && !isCancelled;
 
     const requestAttachments = Array.isArray(requestData?.attachments)
@@ -490,72 +880,15 @@ export default function LicitacionScreen() {
         }
     }, [refetchActiveRequests]);
 
-    const offersContent = useMemo(() => {
-        if (isCancelled) {
-            return (
-                <View style={styles.emptyOffersBox}>
-                    <Ionicons name="pause-outline" size={28} color="#ef4444" />
-                    <Text style={styles.emptyOffersText}>
-                        La licitación fue cancelada. No se mostrarán propuestas.
-                    </Text>
-                </View>
-            );
-        }
+    const deadlineLabel = useMemo(
+        () => (biddingDeadlineDate ? formatLongDate(biddingDeadlineDate) : null),
+        [biddingDeadlineDate],
+    );
 
-        if (!proposals.length) {
-            return (
-                <View style={styles.emptyOffersBox}>
-                    <Ionicons name="mail-open-outline" size={28} color="#64748b" />
-                    <Text style={styles.emptyOffersText}>
-                        Aún no recibiste propuestas. Te avisaremos cuando lleguen nuevas ofertas.
-                    </Text>
-                </View>
-            );
-        }
-
-        return proposals.map((proposal, index) => {
-            const providerName = proposal.provider_display_name || 'Proveedor';
-            const priceNumber = Number(proposal.quoted_price ?? 0) || 0;
-            const priceLabel = `$${priceNumber.toLocaleString('es-AR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            })} ${proposal.currency ?? 'ARS'}`;
-            const isWinner = isClosed && index === 0;
-
-            return (
-                <View
-                    key={proposal.id}
-                    style={[styles.offerCard, isWinner && styles.winnerOfferCard]}
-                >
-                    <View style={styles.offerAvatarPlaceholder}>
-                        <Ionicons name="briefcase-outline" size={24} color="#2563eb" />
-                    </View>
-                    <View style={styles.offerContent}>
-                        <View style={styles.offerHeaderRow}>
-                            <Text style={styles.offerName}>{providerName}</Text>
-                            {isClosed ? (
-                                <View style={styles.offerRankPill}>
-                                    <Text style={styles.offerRankText}>
-                                        {index === 0 ? 'Ganadora' : `#${index + 1}`}
-                                    </Text>
-                                </View>
-                            ) : null}
-                        </View>
-                        <Text style={styles.offerTagline}>
-                            {isClosed
-                                ? 'Presupuesto enviado'
-                                : 'Oferta recibida · precio oculto hasta cerrar'}
-                        </Text>
-                        {isClosed ? (
-                            <Text style={styles.offerPrice}>{priceLabel}</Text>
-                        ) : (
-                            <Text style={styles.offerPriceHidden}>Precio disponible tras cierre</Text>
-                        )}
-                    </View>
-                </View>
-            );
-        });
-    }, [proposals, isClosed, isCancelled]);
+    const createdLabel = useMemo(
+        () => (requestCreatedDate ? formatLongDate(requestCreatedDate) : null),
+        [requestCreatedDate],
+    );
 
     return (
         <SafeAreaView style={styles.container}>
@@ -566,18 +899,13 @@ export default function LicitacionScreen() {
                 >
                     <Ionicons name="arrow-back" size={24} color="#111" />
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.infoButton}
-                    onPress={() => setIsInfoModalVisible(true)}
-                    activeOpacity={0.8}
-                >
-                    <Ionicons name="information-circle-outline" size={24} color="#1f2937" />
-                    <Text style={styles.infoButtonText}>Ver solicitud</Text>
-                </TouchableOpacity>
+                <Text style={styles.headerTitle} numberOfLines={2}>
+                    {requestTitle}
+                </Text>
             </View>
 
             <ScrollView
-                contentContainerStyle={styles.bodyContent}
+                contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 refreshControl={(
                     <RefreshControl
@@ -587,75 +915,174 @@ export default function LicitacionScreen() {
                     />
                 )}
             >
-                <View style={styles.statusWrapper}>
-                    <Image
-                        source={require('../../../assets/icon.png')}
-                        style={styles.brandLogo}
-                        resizeMode="contain"
-                    />
-                    <Text style={styles.statusTitle}>
-                        {isCancelled
-                            ? 'Licitación cancelada'
-                            : isClosed
-                                ? 'Licitación finalizada'
-                                : 'Licitación activa'}
-                    </Text>
-                    <Text style={styles.timerLabel}>
-                        {isClosed || isCancelled ? 'Estado' : 'Tiempo restante'}
-                    </Text>
-                    <Text
-                        style={[
-                            styles.timerValue,
-                            (isClosed || isCancelled) && styles.timerValueClosed,
-                        ]}
-                    >
-                        {formattedRemaining}
-                    </Text>
-                    <Text style={styles.statusSubtitle}>
-                        {isCancelled
-                            ? 'Cancelaste la licitación. No se recibirán nuevas ofertas.'
-                            : isClosed
-                                ? 'Revisá las ofertas recibidas y elegí a la ganadora.'
-                                : 'Los prestadores están enviando propuestas. Revisalas con calma antes de elegir.'}
-                    </Text>
-                    <View style={styles.infoPill}>
-                        <Text style={styles.infoPillText}>
-                            {isCancelled
-                                ? 'La licitación terminó de forma anticipada.'
-                                : isClosed
-                                    ? 'La licitación ya no acepta nuevas ofertas.'
-                                    : 'Podés cerrar la licitación cuando tengas suficientes propuestas.'}
+                <View style={styles.statusCard}>
+                    <View style={styles.statusHeader}>
+                        <View
+                            style={[
+                                styles.statusBadge,
+                                isCancelled
+                                    ? styles.statusBadgeCancelled
+                                    : isClosed
+                                        ? styles.statusBadgeClosed
+                                        : styles.statusBadgeActive,
+                            ]}
+                        >
+                            <Text style={styles.statusBadgeText}>{statusLabel}</Text>
+                        </View>
+                        <Text
+                            style={[
+                                styles.statusCountdown,
+                                (isClosed || isCancelled) && styles.statusCountdownMuted,
+                            ]}
+                        >
+                            {formattedRemaining}
                         </Text>
                     </View>
-                    <TouchableOpacity
-                        style={styles.offerBadge}
-                        activeOpacity={0.85}
-                        onPress={() => setIsOffersModalVisible(true)}
-                    >
-                        <Ionicons name="people-outline" size={16} color="#0369a1" />
-                        <Text style={styles.offerBadgeText}>
-                            {proposalCount === 1
-                                ? '1 oferta recibida'
-                                : `${proposalCount} ofertas recibidas`}
-                        </Text>
-                        <Ionicons
-                            name="chevron-forward"
-                            size={16}
-                            color="#0369a1"
-                            style={styles.offerBadgeArrow}
-                        />
-                    </TouchableOpacity>
+                    <Text style={styles.statusDescription}>{statusMessage}</Text>
+                    <Text style={styles.statusHint}>{statusHint}</Text>
+                    {deadlineLabel ? (
+                        <View style={styles.statusFooterRow}>
+                            <Ionicons name="calendar-outline" size={16} color="#0f172a" />
+                            <Text style={styles.statusFooterText}>
+                                {isClosed || isCancelled
+                                    ? `Cerró ${deadlineLabel}`
+                                    : `Cierra ${deadlineLabel}`}
+                            </Text>
+                        </View>
+                    ) : null}
+                    {createdLabel ? (
+                        <View style={styles.statusFooterRow}>
+                            <Ionicons name="time-outline" size={16} color="#0f172a" />
+                            <Text style={styles.statusFooterText}>{`Creada ${createdLabel}`}</Text>
+                        </View>
+                    ) : null}
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Detalle de la solicitud</Text>
+                    <Text style={styles.requestDescription}>{requestDescription}</Text>
+                    {requestAddress ? (
+                        <View style={styles.requestMetaRow}>
+                            <Ionicons
+                                name="location-outline"
+                                size={16}
+                                color="#0369a1"
+                                style={styles.requestMetaIcon}
+                            />
+                            <Text style={styles.requestMetaText}>{requestAddress}</Text>
+                        </View>
+                    ) : null}
+                    {requestAttachments.length ? (
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.attachmentsScroll}
+                        >
+                            {requestAttachments.map((attachment, index) => {
+                                const imageUri = attachment.thumbnail_url || attachment.public_url;
+                                if (!imageUri) {
+                                    return null;
+                                }
+
+                                return (
+                                    <Image
+                                        key={`${attachment.s3_key || imageUri || index}`}
+                                        source={{ uri: imageUri }}
+                                        style={styles.attachmentImage}
+                                    />
+                                );
+                            })}
+                        </ScrollView>
+                    ) : null}
+                </View>
+
+                <View style={styles.section}>
+                    <View style={styles.sectionHeaderRow}>
+                        <Text style={styles.sectionTitle}>Ofertas recibidas</Text>
+                        <View style={styles.sectionBadge}>
+                            <Text style={styles.sectionBadgeText}>{proposalCount}</Text>
+                        </View>
+                    </View>
+                    <Text style={styles.sectionSubtitle}>
+                        {isClosed
+                            ? 'Estas fueron las propuestas que recibiste.'
+                            : 'Se muestran las propuestas a medida que llegan.'}
+                    </Text>
+                    {!isCancelled && sortedProposals.length > 1 ? (
+                        <View style={styles.proposalsControlsRow}>
+                            <Text style={styles.proposalsControlsLabel}>Ordenar por</Text>
+                            <View style={styles.proposalsFiltersRow}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.proposalsFilterChip,
+                                        sortCriterion === 'price' && styles.proposalsFilterChipActive,
+                                    ]}
+                                    onPress={() => handleSortChange('price')}
+                                    activeOpacity={0.85}
+                                >
+                                    <Ionicons
+                                        name="pricetag-outline"
+                                        size={16}
+                                        color={sortCriterion === 'price' ? '#0f172a' : '#475569'}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.proposalsFilterChipText,
+                                            sortCriterion === 'price' && styles.proposalsFilterChipTextActive,
+                                        ]}
+                                    >
+                                        Precio
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.proposalsFilterChip,
+                                        sortCriterion === 'rating' && styles.proposalsFilterChipActive,
+                                    ]}
+                                    onPress={() => handleSortChange('rating')}
+                                    activeOpacity={0.85}
+                                >
+                                    <Ionicons
+                                        name="star-outline"
+                                        size={16}
+                                        color={sortCriterion === 'rating' ? '#0f172a' : '#475569'}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.proposalsFilterChipText,
+                                            sortCriterion === 'rating' && styles.proposalsFilterChipTextActive,
+                                        ]}
+                                    >
+                                        Reputación
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    ) : null}
+                    <View style={styles.proposalsList}>
+                        {hasScrollableProposals ? (
+                            <ScrollView
+                                style={styles.proposalScrollContainer}
+                                contentContainerStyle={styles.proposalScrollContent}
+                                showsVerticalScrollIndicator={false}
+                                nestedScrollEnabled
+                            >
+                                {proposalsContent}
+                            </ScrollView>
+                        ) : (
+                            proposalsContent
+                        )}
+                    </View>
                 </View>
 
                 {isClosed && winnerProposal ? (
-                    <View style={styles.summaryWrapper}>
-                        <View style={styles.closedBanner}>
-                            <Ionicons name="trophy" size={22} color="#facc15" />
-                            <Text style={styles.closedBannerText}>
+                    <View style={styles.section}>
+                        <View style={styles.winnerHeader}>
+                            <Ionicons name="trophy" size={22} color="#f59e0b" />
+                            <Text style={styles.winnerHeaderText}>
                                 {`Oferta ganadora: ${winnerProposal.provider_display_name}`}
                             </Text>
                         </View>
-
                         <View style={styles.winnerCard}>
                             {winnerProposal.provider_image_url ? (
                                 <Image
@@ -678,43 +1105,38 @@ export default function LicitacionScreen() {
                                 </View>
                             </View>
                         </View>
-
-                        <View style={styles.winnerOfferCard}>
-                            <View style={styles.winnerOfferHeader}>
-                                <Text style={styles.winnerOfferTitle}>Propuesta seleccionada</Text>
-                                <Text style={styles.winnerOfferPrice}>{winnerPriceLabel}</Text>
+                        <View style={styles.winnerDetailCard}>
+                            <View style={styles.detailRow}>
+                                <Ionicons name="pricetag-outline" size={18} color="#0f172a" />
+                                <Text style={styles.detailValue}>{winnerPriceLabel}</Text>
                             </View>
-
-                            <View style={styles.winnerOfferMetaRow}>
+                            <View style={styles.detailRow}>
                                 <Ionicons name="calendar-outline" size={18} color="#0f172a" />
-                                <Text style={styles.winnerOfferMetaText}>{winnerScheduleLabel}</Text>
+                                <Text style={styles.detailValue}>{winnerScheduleLabel}</Text>
                             </View>
-
                             {winnerEndLabel ? (
-                                <View style={styles.winnerOfferMetaRow}>
+                                <View style={styles.detailRow}>
                                     <Ionicons name="time-outline" size={18} color="#0f172a" />
-                                    <Text style={styles.winnerOfferMetaText}>{winnerEndLabel}</Text>
+                                    <Text style={styles.detailValue}>{winnerEndLabel}</Text>
                                 </View>
                             ) : null}
-
                             {winnerValidUntilLabel ? (
-                                <View style={styles.winnerOfferMetaRow}>
-                                    <Ionicons name="alert-circle-outline" size={18} color="#0f172a" />
-                                    <Text style={styles.winnerOfferMetaText}>{winnerValidUntilLabel}</Text>
+                                <View style={styles.detailRow}>
+                                    <Ionicons name="alert-circle-outline" size={18} color="#b45309" />
+                                    <Text style={styles.detailValue}>{winnerValidUntilLabel}</Text>
                                 </View>
                             ) : null}
-
                             {winnerNotes ? (
-                                <View style={styles.winnerNotesBox}>
-                                    <Text style={styles.winnerNotesLabel}>Detalle del prestador</Text>
-                                    <Text style={styles.winnerNotesText}>{winnerNotes}</Text>
+                                <View style={styles.detailNotesBox}>
+                                    <Text style={styles.detailNotesTitle}>Detalle del prestador</Text>
+                                    <Text style={styles.detailNotesText}>{winnerNotes}</Text>
                                 </View>
                             ) : null}
                         </View>
                     </View>
                 ) : null}
 
-                <View style={footerWrapperStyle}>
+                <View style={actionsContainerStyle}>
                     {showCloseButton ? (
                         <TouchableOpacity
                             style={[
@@ -746,27 +1168,55 @@ export default function LicitacionScreen() {
                         <TouchableOpacity
                             style={[
                                 styles.payButton,
-                                serviceCreated && styles.payButtonDisabled,
+                                isPayButtonDisabled && styles.payButtonDisabled,
                             ]}
-                            activeOpacity={serviceCreated ? 1 : 0.9}
+                            activeOpacity={isPayButtonDisabled ? 1 : 0.9}
                             onPress={handleGoToPay}
-                            disabled={serviceCreated}
+                            disabled={isPayButtonDisabled}
                         >
                             <Ionicons
-                                name={serviceCreated ? 'shield-checkmark-outline' : 'card-outline'}
+                                name={
+                                    serviceCreated
+                                        ? 'shield-checkmark-outline'
+                                        : isPayButtonDisabled
+                                            ? 'ellipse-outline'
+                                            : 'card-outline'
+                                }
                                 size={20}
-                                color={serviceCreated ? '#0f766e' : '#ecfeff'}
+                                color={
+                                    serviceCreated
+                                        ? '#0f766e'
+                                        : isPayButtonDisabled
+                                            ? '#94a3b8'
+                                            : '#ecfeff'
+                                }
                                 style={styles.payButtonIcon}
                             />
                             <Text
                                 style={[
                                     styles.payButtonText,
-                                    serviceCreated && styles.payButtonTextDisabled,
+                                    isPayButtonDisabled && styles.payButtonTextDisabled,
                                 ]}
                             >
-                                {serviceCreated ? 'Pago registrado' : 'Ir a pagar'}
+                                {serviceCreated
+                                    ? 'Pago registrado'
+                                    : isPayButtonDisabled
+                                        ? 'Elegí una propuesta'
+                                        : 'Ir a pagar'}
                             </Text>
                         </TouchableOpacity>
+                    ) : null}
+
+                    {payButtonVisible && !serviceCreated ? (
+                        selectedPayProposal ? (
+                            <Text style={styles.selectedProposalCaption}>
+                                {`Vas a pagar a ${selectedPayProposal.provider_display_name || 'el prestador elegido'}.`}
+                            </Text>
+                        ) : (
+                            <Text style={styles.selectedProposalHelper}>
+                                Seleccioná una propuesta de la lista para continuar con el pago.
+                            </Text>
+                        )
                     ) : null}
 
                     {serviceCreated ? (
@@ -804,89 +1254,87 @@ export default function LicitacionScreen() {
             </ScrollView>
 
             <Modal
-                visible={isInfoModalVisible}
+                visible={isDetailModalVisible}
                 animationType="slide"
                 transparent
-                onRequestClose={() => setIsInfoModalVisible(false)}
+                onRequestClose={closeDetailModal}
             >
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalContainer, modalContainerStyle]}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Detalle de la solicitud</Text>
+                            <Text style={styles.modalTitle}>Detalle de la propuesta</Text>
                             <TouchableOpacity
-                                onPress={() => setIsInfoModalVisible(false)}
+                                onPress={closeDetailModal}
                                 style={styles.modalCloseButton}
                             >
                                 <Ionicons name="close" size={20} color="#111" />
                             </TouchableOpacity>
                         </View>
-                        <ScrollView contentContainerStyle={styles.modalContent}>
-                            <View style={styles.modalSection}>
-                                <Text style={styles.modalLabel}>Título</Text>
-                                <Text style={styles.modalValue}>{requestTitle}</Text>
-                            </View>
-                            <View style={styles.modalSection}>
-                                <Text style={styles.modalLabel}>Descripción</Text>
-                                <Text style={styles.modalValue}>{requestDescription}</Text>
-                            </View>
-                            <View style={styles.modalSection}>
-                                <Text style={styles.modalLabel}>Dirección</Text>
-                                <Text style={styles.modalValue}>{requestAddress}</Text>
-                            </View>
-                            {requestCreatedAt && (
-                                <View style={styles.modalSection}>
-                                    <Text style={styles.modalLabel}>Creada</Text>
-                                    <Text style={styles.modalValue}>{requestCreatedAt}</Text>
+                        {selectedProposal && selectedProposalMeta ? (
+                            <ScrollView contentContainerStyle={styles.modalContent}>
+                                <View style={styles.modalProviderRow}>
+                                    {selectedProposal.provider_image_url ? (
+                                        <Image
+                                            source={{ uri: selectedProposal.provider_image_url }}
+                                            style={styles.modalProviderAvatar}
+                                        />
+                                    ) : (
+                                        <View style={styles.modalProviderAvatarFallback}>
+                                            <Ionicons name="person-circle-outline" size={42} color="#0f172a" />
+                                        </View>
+                                    )}
+                                    <View style={styles.modalProviderInfo}>
+                                        <Text style={styles.modalProviderName}>
+                                            {selectedProposal.provider_display_name || 'Prestador'}
+                                        </Text>
+                                        <View style={styles.modalProviderMetaRow}>
+                                            <Ionicons name="star" size={16} color="#f59e0b" />
+                                            <Text style={styles.modalProviderMetaText}>
+                                                {selectedProposalMeta.reputationLabel}
+                                            </Text>
+                                        </View>
+                                    </View>
                                 </View>
-                            )}
-                            <View style={styles.modalSection}>
-                                <Text style={styles.modalLabel}>Adjuntos</Text>
-                                {requestAttachments.length > 0 ? (
-                                    <ScrollView
-                                        horizontal
-                                        showsHorizontalScrollIndicator={false}
-                                        contentContainerStyle={styles.attachmentScroller}
-                                    >
-                                        {requestAttachments.map((attachment, index) => {
-                                            const imageUri = attachment.thumbnail_url || attachment.public_url;
-                                            return (
-                                                <Image
-                                                    key={`${attachment.s3_key || imageUri || index}`}
-                                                    source={{ uri: imageUri }}
-                                                    style={styles.modalAttachment}
-                                                />
-                                            );
-                                        })}
-                                    </ScrollView>
-                                ) : (
-                                    <Text style={styles.modalEmptyValue}>Sin imágenes adjuntas</Text>
-                                )}
-                            </View>
-                        </ScrollView>
-                    </View>
-                </View>
-            </Modal>
 
-            <Modal
-                visible={isOffersModalVisible}
-                animationType="slide"
-                transparent
-                onRequestClose={() => setIsOffersModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContainer, modalContainerStyle]}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Ofertas recibidas</Text>
-                            <TouchableOpacity
-                                onPress={() => setIsOffersModalVisible(false)}
-                                style={styles.modalCloseButton}
-                            >
-                                <Ionicons name="close" size={20} color="#111" />
-                            </TouchableOpacity>
-                        </View>
-                        <ScrollView contentContainerStyle={styles.listContent}>
-                            {offersContent}
-                        </ScrollView>
+                                <View style={styles.modalSection}>
+                                    <Text style={styles.modalLabel}>Precio cotizado</Text>
+                                    <Text style={styles.modalValue}>{selectedProposalMeta.priceLabel}</Text>
+                                </View>
+
+                                <View style={styles.modalSection}>
+                                    <Text style={styles.modalLabel}>Inicio estimado</Text>
+                                    <Text style={styles.modalValue}>{selectedProposalMeta.scheduleLabel}</Text>
+                                </View>
+
+                                {selectedProposalMeta.endLabel ? (
+                                    <View style={styles.modalSection}>
+                                        <Text style={styles.modalLabel}>Finalización</Text>
+                                        <Text style={styles.modalValue}>{selectedProposalMeta.endLabel}</Text>
+                                    </View>
+                                ) : null}
+
+                                {selectedProposalMeta.validUntilLabel ? (
+                                    <View style={styles.modalSection}>
+                                        <Text style={styles.modalLabel}>Vigencia</Text>
+                                        <Text style={styles.modalValue}>{selectedProposalMeta.validUntilLabel}</Text>
+                                    </View>
+                                ) : null}
+
+                                {selectedProposalMeta.notes ? (
+                                    <View style={styles.modalNotesBox}>
+                                        <Text style={styles.modalNotesLabel}>Detalle adicional</Text>
+                                        <Text style={styles.modalNotesText}>{selectedProposalMeta.notes}</Text>
+                                    </View>
+                                ) : null}
+                            </ScrollView>
+                        ) : (
+                            <View style={styles.modalEmptyState}>
+                                <Ionicons name="information-circle-outline" size={32} color="#64748b" />
+                                <Text style={styles.modalEmptyStateText}>
+                                    Seleccioná una propuesta para ver los detalles.
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 </View>
             </Modal>

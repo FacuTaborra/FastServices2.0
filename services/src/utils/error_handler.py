@@ -1,11 +1,28 @@
 import functools
 import inspect
+import logging
+from collections.abc import Mapping
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
 
 def error_handler(custom_messages=None):
-    custom_messages = custom_messages or {}
+    logger = None
+
+    if isinstance(custom_messages, logging.Logger):
+        logger = custom_messages
+        custom_messages = {}
+    elif custom_messages is None:
+        custom_messages = {}
+    elif isinstance(custom_messages, Mapping):
+        custom_messages = dict(custom_messages)
+    elif hasattr(custom_messages, "error") and callable(custom_messages.error):
+        logger = custom_messages
+        custom_messages = {}
+    else:
+        raise TypeError(
+            "error_handler expects a dict of custom messages or a logger instance",
+        )
 
     def decorator(func):
         if inspect.iscoroutinefunction(func):
@@ -24,6 +41,11 @@ def error_handler(custom_messages=None):
                 except IntegrityError as e:
                     if db:
                         await db.rollback()
+                    if logger:
+                        logger.exception(
+                            "Integrity error in %s",
+                            func.__name__,
+                        )
                     error_message = str(e.orig).lower()
                     for key, msg in custom_messages.items():
                         if key != "default" and key in error_message:
@@ -39,6 +61,11 @@ def error_handler(custom_messages=None):
                 except Exception as e:
                     if db:
                         await db.rollback()
+                    if logger:
+                        logger.exception(
+                            "Unhandled exception in %s",
+                            func.__name__,
+                        )
                     error_text = str(e).lower()
                     for key, msg in custom_messages.items():
                         if key != "default" and key in error_text:
@@ -70,6 +97,11 @@ def error_handler(custom_messages=None):
                 except IntegrityError as e:
                     if db:
                         db.rollback()
+                    if logger:
+                        logger.exception(
+                            "Integrity error in %s",
+                            func.__name__,
+                        )
                     error_message = str(e.orig).lower()
                     for key, msg in custom_messages.items():
                         if key != "default" and key in error_message:
@@ -85,6 +117,11 @@ def error_handler(custom_messages=None):
                 except Exception as e:
                     if db:
                         db.rollback()
+                    if logger:
+                        logger.exception(
+                            "Unhandled exception in %s",
+                            func.__name__,
+                        )
                     error_text = str(e).lower()
                     for key, msg in custom_messages.items():
                         if key != "default" and key in error_text:

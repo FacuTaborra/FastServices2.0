@@ -94,13 +94,59 @@ export default StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
   },
-  priceRow: {
+  paymentSummary: {
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 16,
+  },
+  paymentSummaryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
-  priceText: {
-    marginLeft: 10,
+  paymentSummaryTitle: {
+    marginLeft: 8,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  paymentBreakdown: {
+    marginTop: 4,
+  },
+  paymentBreakdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  paymentBreakdownTotal: {
+    marginTop: 4,
+  },
+  paymentLabel: {
+    fontSize: 13,
+    color: '#475569',
+    flexShrink: 1,
+    paddingRight: 8,
+  },
+  paymentValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  paymentDivider: {
+    height: 1,
+    backgroundColor: '#e2e8f0',
+    marginVertical: 12,
+  },
+  paymentTotalLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  paymentTotalValue: {
     fontSize: 16,
     fontWeight: '700',
     color: '#0f172a',

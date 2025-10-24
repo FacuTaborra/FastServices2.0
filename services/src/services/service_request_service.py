@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Iterable, Sequence, List, Optional
 
 from fastapi import HTTPException, status
@@ -35,6 +36,8 @@ from utils.error_handler import error_handler
 logger = logging.getLogger(__name__)
 
 SERVICE_REQUESTS_FOLDER = "service-requests"
+MANAGEMENT_FEE_RATE = Decimal("0.02")
+TWO_DECIMALS = Decimal("0.01")
 
 
 class ServiceRequestService:
@@ -488,6 +491,17 @@ class ServiceRequestService:
                 detail="La solicitud no tiene propuestas para aceptar",
             )
 
+        orphan_proposals = {
+            proposal
+            for proposal in proposals
+            if not proposal.provider_profile_id or proposal.provider is None
+        }
+        if orphan_proposals:
+            logger.warning(
+                "Skip %d orphan proposals without provider profile when confirming payment",
+                len(orphan_proposals),
+            )
+
         selected_proposal: ServiceRequestProposal | None = None
         for proposal in proposals:
             if proposal.id == payload.proposal_id:
@@ -498,6 +512,15 @@ class ServiceRequestService:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="La propuesta indicada no pertenece a la solicitud",
+            )
+
+        if selected_proposal in orphan_proposals:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "El prestador seleccionado ya no está disponible. Elegí otra oferta"
+                    " o solicitá nuevas propuestas antes de pagar."
+                ),
             )
 
         if selected_proposal.status not in {
@@ -511,6 +534,8 @@ class ServiceRequestService:
 
         # Actualizar estados de propuestas
         for proposal in proposals:
+            if proposal in orphan_proposals:
+                continue
             if proposal.id == selected_proposal.id:
                 proposal.status = ProposalStatus.ACCEPTED
             else:
@@ -520,13 +545,17 @@ class ServiceRequestService:
         service_request.status = ServiceRequestStatus.CLOSED
 
         # Crear registro de servicio confirmado
+        base_price = selected_proposal.quoted_price or Decimal("0")
+        total_with_fee = (base_price * (Decimal("1") + MANAGEMENT_FEE_RATE)).quantize(
+            TWO_DECIMALS, rounding=ROUND_HALF_UP
+        )
         service_entity = Service(
             request_id=service_request.id,
             proposal_id=selected_proposal.id,
             client_id=service_request.client_id,
             provider_profile_id=selected_proposal.provider_profile_id,
             status=ServiceStatus.CONFIRMED,
-            total_price=selected_proposal.quoted_price,
+            total_price=total_with_fee,
         )
 
         # Adjuntar snapshot de dirección si está disponible
@@ -553,6 +582,44 @@ class ServiceRequestService:
             service_entity.scheduled_end_at = selected_proposal.proposed_end_at
 
         db.add(service_entity)
+
+        await db.commit()
+
+        return await ServiceRequestService._fetch_request_with_relations(
+            db, service_request.id, client_id=client_id
+        )
+
+    @staticmethod
+    @error_handler(logger)
+    async def cancel_request(
+        db: AsyncSession,
+        *,
+        client_id: int,
+        request_id: int,
+    ) -> ServiceRequest:
+        service_request = await ServiceRequestService._fetch_request_with_relations(
+            db, request_id, client_id=client_id
+        )
+
+        if service_request.service is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No podés cancelar una solicitud que ya generó un servicio",
+            )
+
+        if service_request.status == ServiceRequestStatus.CANCELLED:
+            return service_request
+
+        proposals = list(service_request.proposals or [])
+        for proposal in proposals:
+            if proposal.status not in {
+                ProposalStatus.REJECTED,
+                ProposalStatus.WITHDRAWN,
+                ProposalStatus.EXPIRED,
+            }:
+                proposal.status = ProposalStatus.REJECTED
+
+        service_request.status = ServiceRequestStatus.CANCELLED
 
         await db.commit()
 

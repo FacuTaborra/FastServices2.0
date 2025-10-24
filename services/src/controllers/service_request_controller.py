@@ -89,6 +89,20 @@ class ServiceRequestController:
 
     @staticmethod
     @error_handler(logger)
+    async def cancel_request(
+        db: AsyncSession,
+        current_user: User,
+        request_id: int,
+    ) -> ServiceRequestResponse:
+        updated_request = await ServiceRequestService.cancel_request(
+            db,
+            client_id=current_user.id,
+            request_id=request_id,
+        )
+        return ServiceRequestController._build_response(updated_request)
+
+    @staticmethod
+    @error_handler(logger)
     async def confirm_payment(
         db: AsyncSession,
         current_user: User,

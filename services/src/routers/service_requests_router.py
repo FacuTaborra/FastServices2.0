@@ -97,6 +97,23 @@ async def update_service_request_endpoint(
 
 
 @router.post(
+    "/{request_id}/cancel",
+    response_model=ServiceRequestResponse,
+    summary="Cancelar una licitación antes de confirmar un servicio",
+)
+async def cancel_service_request_endpoint(
+    request_id: int,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceRequestResponse:
+    return await ServiceRequestController.cancel_request(
+        db,
+        current_user,
+        request_id,
+    )
+
+
+@router.post(
     "/{request_id}/confirm-payment",
     response_model=ServiceRequestResponse,
     summary="Confirmar el pago de una propuesta ganadora",
