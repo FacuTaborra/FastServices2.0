@@ -17,6 +17,7 @@ import * as Auth from '../services/auth.service';
 import * as Users from '../services/users.service';
 import * as Addresses from '../services/addresses.service';
 import * as Images from '../services/images.service';
+import * as Providers from '../services/providers.service';
 import { tokenStore } from '../auth/tokenStore';
 import { api } from '../api/http';
 
@@ -137,6 +138,14 @@ class ApiService {
         return await Users.getCurrentUser();
     }
 
+    async getProviderProfile() {
+        return await Providers.getMyProviderProfile();
+    }
+
+    async createProviderLicenses(licenses) {
+        return await Providers.createProviderLicenses(licenses);
+    }
+
     /** @deprecated Use Auth.isAuthenticated() o useIsAuthenticated() hook */
     async isAuthenticated() {
         return await Auth.isAuthenticated();
@@ -255,6 +264,7 @@ export {
     Users,
     Addresses,
     Images,
+    Providers,
 
     // Token store
     tokenStore,

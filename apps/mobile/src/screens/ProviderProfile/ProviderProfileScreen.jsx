@@ -27,6 +27,19 @@ export default function ProviderProfileScreen() {
   const [profileImage, setProfileImage] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
+  const createEmptyLicenseForm = () => ({
+    title: '',
+    license_number: '',
+    description: '',
+    issued_by: '',
+    issued_at: '',
+    expires_at: ''
+  });
+
+  const [licenseModalVisible, setLicenseModalVisible] = useState(false);
+  const [savingLicense, setSavingLicense] = useState(false);
+  const [licenseForm, setLicenseForm] = useState(createEmptyLicenseForm());
+
   const [profile, setProfile] = useState({
     first_name: '',
     last_name: '',
@@ -183,6 +196,72 @@ export default function ProviderProfileScreen() {
       setEditingAddress(null);
       setAddressForm(addressHandler.createEmptyForm());
       setShowAddressList(false);
+    }
+  };
+
+  const openLicenseModal = () => {
+    setLicenseForm(createEmptyLicenseForm());
+    setLicenseModalVisible(true);
+  };
+
+  const closeLicenseModal = () => {
+    setLicenseModalVisible(false);
+    setLicenseForm(createEmptyLicenseForm());
+  };
+
+  const handleLicenseFormChange = (field, value) => {
+    setLicenseForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveLicenseEntry = async () => {
+    const normalize = (value) => {
+      const trimmed = value?.trim?.();
+      return trimmed && trimmed.length > 0 ? trimmed : null;
+    };
+
+    const payload = {
+      title: normalize(licenseForm.title),
+      license_number: normalize(licenseForm.license_number),
+      description: normalize(licenseForm.description),
+      issued_by: normalize(licenseForm.issued_by),
+      issued_at: normalize(licenseForm.issued_at),
+      expires_at: normalize(licenseForm.expires_at)
+    };
+
+    if (!payload.title) {
+      Alert.alert('Datos incompletos', 'Ingresa el título de la licencia o certificado.');
+      return;
+    }
+
+    if (!payload.license_number && !payload.description) {
+      Alert.alert(
+        'Información requerida',
+        'Ingresa un número de licencia o describe el certificado de idoneidad.'
+      );
+      return;
+    }
+
+    const isValidDate = (value) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value);
+    if (!isValidDate(payload.issued_at) || !isValidDate(payload.expires_at)) {
+      Alert.alert('Fecha inválida', 'Usá el formato YYYY-MM-DD para las fechas.');
+      return;
+    }
+
+    try {
+      setSavingLicense(true);
+      await apiService.createProviderLicenses([payload]);
+      await loadProviderProfile({ manageLoading: false });
+      Alert.alert('Listo', 'Guardamos tu licencia/certificado.');
+      closeLicenseModal();
+    } catch (error) {
+      console.error('❌ Error guardando licencia:', error.message || error);
+      const message =
+        error?.data?.detail ||
+        error?.message ||
+        'No pudimos guardar la licencia. Verificá los datos e intentá nuevamente.';
+      Alert.alert('Error', message);
+    } finally {
+      setSavingLicense(false);
     }
   };
 
@@ -419,35 +498,6 @@ export default function ProviderProfileScreen() {
           )}
         </View>
 
-        <Text style={styles.sectionTitle}>Licencias Profesionales</Text>
-        {!profile.licenses || profile.licenses.length === 0 ? (
-          <View style={styles.infoContainer}>
-            <Text style={styles.infoText}>Aun no hay licencias registradas.</Text>
-          </View>
-        ) : (
-          profile.licenses.map((license) => (
-            <View key={license.id} style={styles.licenseItem}>
-              <Text style={styles.licenseNumber}>{license.license_number}</Text>
-              {license.license_type ? (
-                <Text style={styles.licenseMeta}>{license.license_type}</Text>
-              ) : null}
-              {license.issued_by ? (
-                <Text style={styles.licenseMetaSecondary}>Emitida por {license.issued_by}</Text>
-              ) : null}
-              {(license.issued_at || license.expires_at) ? (
-                <View style={styles.licenseDatesRow}>
-                  {license.issued_at ? (
-                    <Text style={styles.licenseMetaSecondary}>Desde {formatDate(license.issued_at)}</Text>
-                  ) : null}
-                  {license.expires_at ? (
-                    <Text style={styles.licenseMetaSecondary}>Vence {formatDate(license.expires_at)}</Text>
-                  ) : null}
-                </View>
-              ) : null}
-            </View>
-          ))
-        )}
-
         <Text style={styles.label}>Nombre</Text>
         <TextInput
           style={styles.input}
@@ -498,10 +548,84 @@ export default function ProviderProfileScreen() {
           textAlignVertical="top"
         />
 
+        <View style={styles.licenseSection}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Licencias y Certificados de Idoneidad</Text>
+            <TouchableOpacity style={styles.sectionActionButton} onPress={openLicenseModal}>
+              <Ionicons name="add" size={18} color="#2563EB" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.sectionDescription}>
+            Registrá licencias habilitantes o describí el certificado que respalda tu experiencia profesional.
+          </Text>
+
+          {!profile.licenses || profile.licenses.length === 0 ? (
+            <View style={styles.licenseEmptyBox}>
+              <Ionicons name="document-text-outline" size={32} color="#9CA3AF" style={{ marginBottom: 12 }} />
+              <Text style={styles.licenseEmptyText}>
+                Aún no cargaste licencias ni certificados. Sumá el primero para generar confianza en tus clientes.
+              </Text>
+              <TouchableOpacity style={styles.quickAddButton} onPress={openLicenseModal}>
+                <Ionicons name="add" size={20} color="#2563EB" style={{ marginBottom: 4 }} />
+                <Text style={styles.quickAddButtonText}>Agregar licencia o certificado</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.licenseList}>
+              {profile.licenses.map((license, index) => {
+                const issuedLabel = license.license_number
+                  ? `Licencia #${license.license_number}`
+                  : 'Certificado de idoneidad';
+
+                return (
+                  <View
+                    key={license.id || `${license.title}-${issuedLabel}`}
+                    style={[
+                      styles.licenseCard,
+                      index === profile.licenses.length - 1 && styles.lastLicenseCard,
+                    ]}
+                  >
+                    <View style={styles.licenseHeader}>
+                      <Text style={styles.licenseTitle}>{license.title}</Text>
+                      <View style={styles.licenseBadge}>
+                        <Text style={styles.licenseBadgeText}>{issuedLabel}</Text>
+                      </View>
+                    </View>
+
+                    {license.description ? (
+                      <Text style={styles.licenseDescription}>{license.description}</Text>
+                    ) : null}
+
+                    {license.issued_by ? (
+                      <Text style={styles.licenseMetaSecondary}>Emitida por {license.issued_by}</Text>
+                    ) : null}
+
+                    {(license.issued_at || license.expires_at) ? (
+                      <View style={styles.licenseDatesRow}>
+                        {license.issued_at ? (
+                          <Text style={styles.licenseMetaSecondary}>
+                            Desde {formatDate(license.issued_at)}
+                          </Text>
+                        ) : null}
+                        {license.expires_at ? (
+                          <Text style={styles.licenseMetaSecondary}>
+                            Vence {formatDate(license.expires_at)}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
         <Text style={styles.label}>Miembro desde</Text>
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>{formatDate(profile.created_at)}</Text>
         </View>
+
 
         <TouchableOpacity
           style={[styles.buttonPrimary, updating && styles.buttonDisabled]}
@@ -632,6 +756,98 @@ export default function ProviderProfileScreen() {
                 <Text style={styles.buttonDangerText}>Eliminar dirección</Text>
               </TouchableOpacity>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={licenseModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeLicenseModal}
+      >
+        <View style={styles.modalBackground}>
+          <View style={styles.licenseModalBox}>
+            <View style={styles.modalHeaderRow}>
+              <Ionicons name="document-text" size={22} color="#2563EB" style={{ marginRight: 8 }} />
+              <Text style={styles.modalTitle}>Agregar licencia o certificado</Text>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Título de la licencia o certificado *"
+                placeholderTextColor="#9CA3AF"
+                value={licenseForm.title}
+                onChangeText={(text) => handleLicenseFormChange('title', text)}
+                autoCapitalize="sentences"
+              />
+
+              <TextInput
+                style={[styles.modalInput, styles.modalTextArea]}
+                placeholder="Describe el alcance del certificado o la licencia *"
+                placeholderTextColor="#9CA3AF"
+                value={licenseForm.description}
+                onChangeText={(text) => handleLicenseFormChange('description', text)}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Número de licencia (opcional)"
+                placeholderTextColor="#9CA3AF"
+                value={licenseForm.license_number}
+                onChangeText={(text) => handleLicenseFormChange('license_number', text)}
+                autoCapitalize="characters"
+              />
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Entidad emisora (opcional)"
+                placeholderTextColor="#9CA3AF"
+                value={licenseForm.issued_by}
+                onChangeText={(text) => handleLicenseFormChange('issued_by', text)}
+              />
+
+              <View style={styles.modalRow}>
+                <TextInput
+                  style={[styles.modalInput, { flex: 1 }]}
+                  placeholder="Emitida (YYYY-MM-DD)"
+                  placeholderTextColor="#9CA3AF"
+                  value={licenseForm.issued_at}
+                  onChangeText={(text) => handleLicenseFormChange('issued_at', text)}
+                />
+                <TextInput
+                  style={[styles.modalInput, { flex: 1, marginLeft: 8 }]}
+                  placeholder="Vence (YYYY-MM-DD)"
+                  placeholderTextColor="#9CA3AF"
+                  value={licenseForm.expires_at}
+                  onChangeText={(text) => handleLicenseFormChange('expires_at', text)}
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.buttonSecondary}
+                onPress={closeLicenseModal}
+                disabled={savingLicense}
+              >
+                <Text style={styles.buttonSecondaryText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalPrimaryButton, savingLicense && styles.buttonDisabled]}
+                onPress={handleSaveLicenseEntry}
+                disabled={savingLicense}
+              >
+                <Text style={styles.modalPrimaryButtonText}>
+                  {savingLicense ? 'Guardando...' : 'Guardar'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

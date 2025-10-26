@@ -233,10 +233,9 @@ export default function Register() {
 
       // Navegar según el rol del usuario directamente sin alerta
       if (userInfo.role === 'provider') {
-        // Navegar al flujo de proveedores
-        navigation.navigate('ProviderMain', {
-          screen: 'ProviderRequests',
-          animation: 'fade'
+        navigation.navigate('ProviderLicensesSetup', {
+          animation: 'slide_from_right',
+          fromRegister: true
         });
       } else {
         // Navegar al flujo principal para clientes

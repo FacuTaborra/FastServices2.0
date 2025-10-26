@@ -20,6 +20,9 @@ from .ProviderProfile import (
     ProviderRegisterRequest,
     ProviderResponse,
     ProviderLicense,
+    ProviderLicenseCreate,
+    ProviderLicenseResponse,
+    ProviderLicenseBulkCreate,
 )
 from .Address import (
     Address,
@@ -98,6 +101,12 @@ __all__ = [
     "ProviderProfileResponse",
     "ProviderRegisterRequest",
     "ProviderResponse",
+    "ProviderLicenseCreate",
+    "ProviderLicenseResponse",
+    "ProviderLicenseBulkCreate",
+    "ProviderLicenseCreate",
+    "ProviderLicenseResponse",
+    "ProviderLicenseBulkCreate",
     "TagResponse",
     "ServiceRequestTagResponse",
     "ProviderLicenseTagResponse",

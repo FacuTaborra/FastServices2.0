@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -7,11 +7,13 @@ from fastapi import HTTPException, status
 from models.User import User, UserRole
 from models.ProviderProfile import (
     ProviderProfile,
+    ProviderLicense,
     ProviderRegisterRequest,
     ProviderProfileUpdate,
     ProviderResponse,
     ProviderProfileResponse,
     ProviderLicenseResponse,
+    ProviderLicenseCreate,
 )
 from auth.auth_utils import get_password_hash
 from utils.error_handler import error_handler
@@ -96,9 +98,9 @@ class ProviderController:
         result = await db.execute(
             select(User)
             .options(
-                selectinload(User.provider_profile).selectinload(
-                    ProviderProfile.licenses
-                )
+                selectinload(User.provider_profile)
+                .selectinload(ProviderProfile.licenses)
+                .selectinload(ProviderLicense.tag_links)
             )
             .where(
                 User.id == user_id,
@@ -107,6 +109,90 @@ class ProviderController:
             )
         )
         return result.scalar_one_or_none()
+
+    @staticmethod
+    @error_handler(logger)
+    async def add_provider_licenses(
+        db: AsyncSession, user_id: int, licenses_data: List[ProviderLicenseCreate]
+    ) -> List[ProviderLicenseResponse]:
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Proveedor no encontrado"
+            )
+
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            profile = await ProviderController._ensure_provider_profile(db, user_id)
+
+        if not licenses_data:
+            return [
+                ProviderLicenseResponse(
+                    id=license.id,
+                    provider_profile_id=license.provider_profile_id,
+                    title=license.title,
+                    description=license.description,
+                    license_number=license.license_number,
+                    issued_by=license.issued_by,
+                    issued_at=license.issued_at,
+                    expires_at=license.expires_at,
+                    document_s3_key=license.document_s3_key,
+                    document_url=license.document_url,
+                    created_at=license.created_at,
+                    updated_at=license.updated_at,
+                )
+                for license in profile.licenses
+            ]
+
+        new_licenses = []
+
+        for item in licenses_data:
+            license_model = ProviderLicense(
+                provider_profile_id=profile.id,
+                title=item.title,
+                description=item.description,
+                license_number=item.license_number,
+                issued_by=item.issued_by,
+                issued_at=item.issued_at,
+                expires_at=item.expires_at,
+                document_s3_key=item.document_s3_key,
+                document_url=item.document_url,
+            )
+            db.add(license_model)
+            new_licenses.append(license_model)
+
+        await db.commit()
+
+        for license_model in new_licenses:
+            await db.refresh(license_model)
+
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+        profile = getattr(user, "provider_profile", None)
+
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Perfil de proveedor no encontrado",
+            )
+
+        return [
+            ProviderLicenseResponse(
+                id=license.id,
+                provider_profile_id=license.provider_profile_id,
+                title=license.title,
+                description=license.description,
+                license_number=license.license_number,
+                issued_by=license.issued_by,
+                issued_at=license.issued_at,
+                expires_at=license.expires_at,
+                document_s3_key=license.document_s3_key,
+                document_url=license.document_url,
+                created_at=license.created_at,
+                updated_at=license.updated_at,
+            )
+            for license in profile.licenses
+        ]
 
     @staticmethod
     async def _build_provider_response(user: User) -> ProviderResponse:
@@ -124,11 +210,14 @@ class ProviderController:
             ProviderLicenseResponse(
                 id=license.id,
                 provider_profile_id=license.provider_profile_id,
+                title=license.title,
+                description=license.description,
                 license_number=license.license_number,
-                license_type=license.license_type,
                 issued_by=license.issued_by,
                 issued_at=license.issued_at,
                 expires_at=license.expires_at,
+                document_s3_key=license.document_s3_key,
+                document_url=license.document_url,
                 created_at=license.created_at,
                 updated_at=license.updated_at,
             )
@@ -153,7 +242,7 @@ class ProviderController:
             email=user.email,
             phone=user.phone,
             date_of_birth=user.date_of_birth,
-            role=user.role,
+            role=getattr(user.role, "value", user.role),
             is_active=user.is_active,
             created_at=user.created_at,
             updated_at=user.updated_at,

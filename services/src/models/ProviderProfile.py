@@ -88,7 +88,7 @@ class ProviderLicense(Base):
     )
     title = Column(String(150), nullable=False)
     description = Column(Text, nullable=True)
-    license_number = Column(String(120), nullable=False)
+    license_number = Column(String(120), nullable=True)
     issued_by = Column(String(120), nullable=True)
     issued_at = Column(Date, nullable=True)
     expires_at = Column(Date, nullable=True)
@@ -124,12 +124,14 @@ class ProviderProfileBase(BaseModel):
 
 
 class ProviderLicenseBase(BaseModel):
-    """Esquema de respuesta para licencias de proveedor."""
+    """Esquema base para licencias/certificados de proveedor."""
 
     title: str = Field(..., max_length=150)
-    description: Optional[str] = Field(None, description="Descripción de la licencia")
-    license_number: str = Field(
-        ..., max_length=120, description="Numero identificatorio de la licencia"
+    description: Optional[str] = Field(
+        None, description="Descripción de la licencia o certificado"
+    )
+    license_number: Optional[str] = Field(
+        None, max_length=120, description="Numero identificatorio de la licencia"
     )
     issued_by: Optional[str] = Field(
         None, max_length=120, description="Entidad emisora de la licencia"
@@ -146,6 +148,38 @@ class ProviderLicenseBase(BaseModel):
     document_url: Optional[str] = Field(
         None, description="URL pública del archivo adjunto"
     )
+
+
+class ProviderLicenseCreate(ProviderLicenseBase):
+    """Esquema para crear una nueva licencia o certificado de idoneidad."""
+
+    @field_validator("license_number", mode="before")
+    @classmethod
+    def normalize_license_number(cls, v):
+        if v is None:
+            return None
+        stripped = v.strip()
+        return stripped or None
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def normalize_description(cls, v):
+        if v is None:
+            return None
+        stripped = v.strip()
+        return stripped or None
+
+    @field_validator("license_number", mode="after")
+    @classmethod
+    def validate_license_or_certificate(cls, v, info):
+        description = info.data.get("description")
+        if (v is None or v.strip() == "") and (
+            not description or description.strip() == ""
+        ):
+            raise ValueError(
+                "Debes ingresar un número de licencia o describir el certificado de idoneidad"
+            )
+        return v
 
 
 class ProviderLicenseResponse(ProviderLicenseBase):
@@ -223,6 +257,14 @@ class ProviderRegisterRequest(BaseModel):
                     "Debes ser mayor de 18 años para registrarte como proveedor"
                 )
         return v
+
+
+class ProviderLicenseBulkCreate(BaseModel):
+    """Carga múltiple de licencias para un proveedor."""
+
+    licenses: List[ProviderLicenseCreate] = Field(
+        default_factory=list, description="Listado de licencias a asociar"
+    )
 
 
 class ProviderResponse(BaseModel):

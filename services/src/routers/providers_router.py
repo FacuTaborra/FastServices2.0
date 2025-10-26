@@ -5,6 +5,8 @@ from models.ProviderProfile import (
     ProviderRegisterRequest,
     ProviderResponse,
     ProviderProfileUpdate,
+    ProviderLicenseResponse,
+    ProviderLicenseBulkCreate,
 )
 from models.User import UserRole
 from controllers.provider_controller import ProviderController
@@ -82,6 +84,32 @@ async def update_provider_profile(
         )
 
     return updated_provider
+
+
+@router.post(
+    "/me/licenses",
+    response_model=list[ProviderLicenseResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar licencias del proveedor",
+    description="Agrega una o varias licencias profesionales al perfil del proveedor autenticado",
+)
+async def add_provider_licenses(
+    payload: ProviderLicenseBulkCreate,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    licenses = await ProviderController.add_provider_licenses(
+        db, current_user.id, payload.licenses
+    )
+
+    return licenses
 
 
 @router.get(
