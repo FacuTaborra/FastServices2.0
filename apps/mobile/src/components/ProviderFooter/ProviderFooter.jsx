@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Entypo from '@expo/vector-icons/Entypo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import styles from './ProviderFooter.styles';
 
@@ -31,6 +32,16 @@ export default function ProviderFooter({ state, descriptors, navigation }) {
 
         <TouchableOpacity
           style={styles.buttonWrapper}
+          onPress={() => navigation.navigate('MyServicesScreen')}
+        >
+          <View style={styles.button}>
+            <Entypo name="tools" size={24} color={colorFor('MyServicesScreen')} />
+            <Text style={[styles.label, { color: colorFor('MyServicesScreen') }]}>Servicios</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.buttonWrapper}
           onPress={() => navigation.navigate('Statistics')}
         >
           <View style={styles.button}>
@@ -49,15 +60,7 @@ export default function ProviderFooter({ state, descriptors, navigation }) {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.buttonWrapper}
-          onPress={() => navigation.navigate('More')}
-        >
-          <View style={styles.button}>
-            <Ionicons name="settings-outline" size={24} color={colorFor('More')} />
-            <Text style={[styles.label, { color: colorFor('More') }]}>Más</Text>
-          </View>
-        </TouchableOpacity>
+
       </View>
     </SafeAreaView>
   );

@@ -26,9 +26,19 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 2,
     },
-    headerTitle: {
+    headerTitleWrapper: {
         flex: 1,
         marginLeft: 12,
+    },
+    headerTitle: {
+        fontSize: 12,
+        fontWeight: '700',
+        letterSpacing: 1.1,
+        color: '#0284c7',
+        textTransform: 'uppercase',
+    },
+    headerSubtitle: {
+        marginTop: 4,
         fontSize: 18,
         fontWeight: '700',
         color: '#0f172a',
@@ -120,6 +130,12 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 17,
         fontWeight: '700',
+        color: '#0f172a',
+    },
+    requestName: {
+        marginTop: 10,
+        fontSize: 15,
+        fontWeight: '600',
         color: '#0f172a',
     },
     sectionBadge: {

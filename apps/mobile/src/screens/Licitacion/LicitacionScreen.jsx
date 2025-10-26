@@ -899,9 +899,12 @@ export default function LicitacionScreen() {
                 >
                     <Ionicons name="arrow-back" size={24} color="#111" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle} numberOfLines={2}>
-                    {requestTitle}
-                </Text>
+                <View style={styles.headerTitleWrapper}>
+                    <Text style={styles.headerTitle}>LICITACIÓN</Text>
+                    <Text style={styles.headerSubtitle} numberOfLines={2}>
+                        {requestTitle}
+                    </Text>
+                </View>
             </View>
 
             <ScrollView
@@ -960,6 +963,7 @@ export default function LicitacionScreen() {
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Detalle de la solicitud</Text>
+                    <Text style={styles.requestName}>{requestTitle}</Text>
                     <Text style={styles.requestDescription}>{requestDescription}</Text>
                     {requestAddress ? (
                         <View style={styles.requestMetaRow}>

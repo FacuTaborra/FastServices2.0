@@ -11,7 +11,6 @@ import Login from '../screens/Login/Login';
 import Register from '../screens/Register/Register';
 import RequestDetailScreen from '../screens/RequestDetail/RequestDetailScreen';
 import RequestsScreen from '../screens/Requests/RequestsScreen';
-import ChatScreen from '../screens/Chat/ChatScreen';
 import ProviderRequestsScreen from '../screens/ProviderRequests/ProviderRequestsScreen';
 import ProviderProfileScreen from '../screens/ProviderProfile/ProviderProfileScreen';
 import MyRequestsScreen from '../screens/MyRequests/MyRequestsScreen';
@@ -22,7 +21,7 @@ import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
 import PaymentScreen from '../screens/Payment/PaymentScreen';
 import HelpSupportScreen from '../screens/HelpSupport/HelpSupportScreen';
 import StatsScreen from '../screens/Stats/StatsScreen';
-import MoreScreen from '../screens/More/MoreScreen';
+import MyServicesScreen from '../screens/MyServicesProvider/MyServicesScreen';
 import ProviderFooter from '../components/ProviderFooter/ProviderFooter';
 import FastMatchScreen from '../screens/FastMatch/FastMatchScreen';
 import LicitacionScreen from '../screens/Licitacion/LicitacionScreen';
@@ -42,7 +41,7 @@ function ProviderTabs() {
       />
       <Tab.Screen name="Statistics" component={StatsScreen} options={{ headerShown: false }} />
       <Tab.Screen name="ProviderProfile" component={ProviderProfileScreen} options={{ headerShown: false }} />
-      <Tab.Screen name="More" component={MoreScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="MyServicesScreen" component={MyServicesScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
 }
@@ -95,7 +94,6 @@ export default function AppNavigator() {
             animation: route?.params?.animation ?? 'slide_from_right',
           })}
         />
-        <Stack.Screen name="Chat" component={ChatScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Payment" component={PaymentScreen} />
         <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />

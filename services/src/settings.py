@@ -42,3 +42,5 @@ S3_REGION = os.getenv("S3_REGION", "us-east-1")
 
 # URL pública base para las imágenes
 S3_PUBLIC_URL_BASE = os.getenv("S3_PUBLIC_URL_BASE", f"{S3_ENDPOINT}/{S3_BUCKET_NAME}")
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

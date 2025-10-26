@@ -76,13 +76,75 @@ const formatRatingLabel = (rating) => {
     return numeric.toFixed(1).replace('.', ',');
 };
 
+const parseIsoDate = (isoDate) => {
+    if (!isoDate) {
+        return null;
+    }
+
+    if (isoDate instanceof Date) {
+        return Number.isNaN(isoDate.getTime()) ? null : isoDate;
+    }
+
+    if (typeof isoDate !== 'string') {
+        return null;
+    }
+
+    const trimmed = isoDate.trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    const hasTimezone = /[zZ]|[+-]\d{2}:\d{2}$/.test(trimmed);
+    const normalized = hasTimezone ? trimmed : `${trimmed}Z`;
+    const parsed = new Date(normalized);
+
+    if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+    }
+
+    const fallback = new Date(trimmed);
+    return Number.isNaN(fallback.getTime()) ? null : fallback;
+};
+
+const formatLongDate = (date) => {
+    if (!date) {
+        return null;
+    }
+
+    return date.toLocaleDateString('es-AR', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'long',
+    });
+};
+
+const describeDaysUntil = (targetDate, nowMs) => {
+    if (!targetDate) {
+        return null;
+    }
+
+    const diffMs = targetDate.getTime() - nowMs;
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) {
+        return null;
+    }
+
+    if (diffDays === 1) {
+        return 'En 1 día';
+    }
+
+    return `En ${diffDays} días`;
+};
+
 export default function FastMatchScreen() {
     const navigation = useNavigation();
     const route = useRoute();
     const insets = useSafeAreaInsets();
     const requestId = route.params?.requestId;
     const [nowMs, setNowMs] = useState(Date.now());
-    const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
+    const [isProposalModalVisible, setIsProposalModalVisible] = useState(false);
+    const [selectedProposal, setSelectedProposal] = useState(null);
     const updateRequestMutation = useUpdateServiceRequest();
     const requestSummaryParam = route.params?.requestSummary ?? null;
 
@@ -105,6 +167,11 @@ export default function FastMatchScreen() {
     const requestCreatedAt = requestData?.created_at ?? null;
 
     const createdAtIso = requestData?.created_at ?? null;
+    const requestAttachments = Array.isArray(requestData?.attachments)
+        ? requestData.attachments.filter(
+            (item) => item?.public_url || item?.thumbnail_url,
+        )
+        : [];
 
     useEffect(() => {
         const intervalId = setInterval(() => {
@@ -124,6 +191,31 @@ export default function FastMatchScreen() {
         [remainingSeconds],
     );
 
+    const isCountdownExpired = remainingSeconds <= 0;
+    const countdownCaption = isCountdownExpired ? 'FAST finalizado' : 'FAST activo';
+
+    const statusCopy = useMemo(() => {
+        if (serviceCreated) {
+            return {
+                title: 'Servicio confirmado',
+                message:
+                    'Registraste un pago para esta solicitud. Guardamos las ofertas por si necesitás consultarlas.',
+                hint: 'Recordá que siempre podés revisar el historial desde la pantalla de Solicitudes.',
+            };
+        }
+
+        const hint =
+            remainingSeconds > 0
+                ? 'Mientras esté activo el Fast Match los prestadores tienen prioridad para cotizar.'
+                : 'Podés pasar a licitación para seguir recibiendo propuestas hasta 72 horas.';
+
+        return {
+            title: 'Buscando prestadores...',
+            message: 'Te mostramos las primeras propuestas que llegan en tiempo real.',
+            hint,
+        };
+    }, [serviceCreated, remainingSeconds]);
+
     const offers = useMemo(() => {
         if (!requestData) {
             return [];
@@ -137,6 +229,14 @@ export default function FastMatchScreen() {
     }, [requestData]);
 
     const isUpdating = updateRequestMutation.isPending;
+
+    const handleShowProposalDetails = useCallback((proposal) => {
+        if (!proposal) {
+            return;
+        }
+        setSelectedProposal(proposal);
+        setIsProposalModalVisible(true);
+    }, []);
 
     const handleAcceptOffer = useCallback(
         (proposal) => {
@@ -176,75 +276,114 @@ export default function FastMatchScreen() {
                 return null;
             }
 
-            const avatarUri = item.provider_image_url;
             const ratingLabel = formatRatingLabel(item.provider_rating_avg);
             const reviewsCount = Number(item.provider_total_reviews ?? 0);
             const reviewsLabel = reviewsCount
                 ? `${reviewsCount} ${reviewsCount === 1 ? 'reseña' : 'reseñas'}`
                 : null;
-            const priceLabel = formatPriceLabel(
-                item.quoted_price,
-                item.currency,
-            );
+            const priceLabel = formatPriceLabel(item.quoted_price, item.currency);
             const notes = item.notes?.trim();
+            const hasReputation = Boolean(ratingLabel || reviewsLabel);
+            const reputationText = (() => {
+                if (ratingLabel) {
+                    return reviewsLabel ? `${ratingLabel} • ${reviewsLabel}` : ratingLabel;
+                }
+                if (reviewsLabel) {
+                    return reviewsLabel;
+                }
+                return 'Sin calificaciones';
+            })();
+            const scheduleStart = parseIsoDate(item.proposed_start_at);
+            const scheduleLabel = formatLongDate(scheduleStart);
+            const scheduleRelative = describeDaysUntil(scheduleStart, nowMs);
+            const timingLabel = scheduleLabel
+                ? scheduleRelative
+                    ? `${scheduleLabel} · ${scheduleRelative}`
+                    : scheduleLabel
+                : scheduleRelative || 'Coordiná la fecha con el prestador';
             const isDisabled = serviceCreated;
 
             return (
-                <View style={styles.offerCard}>
-                    {avatarUri ? (
-                        <Image
-                            source={{ uri: avatarUri }}
-                            style={styles.offerAvatar}
-                        />
-                    ) : (
-                        <View style={styles.offerAvatarFallback}>
-                            <Ionicons name="briefcase-outline" size={22} color="#1f2937" />
-                        </View>
-                    )}
-                    <View style={styles.offerContent}>
-                        <Text style={styles.offerName} numberOfLines={1}>
-                            {item.provider_display_name || 'Prestador FastServices'}
-                        </Text>
-                        <Text style={styles.offerTagline} numberOfLines={2}>
-                            {notes || 'Oferta enviada hace instantes.'}
-                        </Text>
-                        <View style={styles.offerMetaRow}>
-                            <Text style={styles.offerPrice}>{priceLabel}</Text>
-                            {ratingLabel ? (
-                                <View style={styles.offerRating}>
-                                    <Ionicons name="star" size={16} color="#f4b331" />
-                                    <Text style={styles.offerRatingText}>{ratingLabel}</Text>
-                                    {reviewsLabel ? (
-                                        <Text style={styles.offerRatingReviews}>{` · ${reviewsLabel}`}</Text>
-                                    ) : null}
-                                </View>
-                            ) : (
-                                <Text style={styles.offerNoRating}>Sin calificaciones</Text>
-                            )}
-                        </View>
-                    </View>
+                <View
+                    style={[
+                        styles.proposalCard,
+                        isDisabled && styles.proposalCardDisabled,
+                    ]}
+                >
                     <TouchableOpacity
-                        style={[
-                            styles.acceptButton,
-                            isDisabled && styles.acceptButtonDisabled,
-                        ]}
-                        activeOpacity={isDisabled ? 1 : 0.9}
-                        onPress={() => handleAcceptOffer(item)}
-                        disabled={isDisabled}
+                        activeOpacity={0.88}
+                        onPress={() => handleShowProposalDetails(item)}
                     >
-                        <Text
-                            style={[
-                                styles.acceptButtonText,
-                                isDisabled && styles.acceptButtonTextDisabled,
-                            ]}
-                        >
-                            {isDisabled ? 'Pago registrado' : 'Aceptar'}
-                        </Text>
+                        <View style={styles.proposalHeader}>
+                            <Text style={styles.proposalProvider} numberOfLines={1}>
+                                {item.provider_display_name || 'Prestador FastServices'}
+                            </Text>
+                            <Text style={styles.proposalPrice}>{priceLabel}</Text>
+                        </View>
+                        <View style={styles.proposalMetaRow}>
+                            <Ionicons
+                                name={ratingLabel ? 'star' : 'star-outline'}
+                                size={16}
+                                color={ratingLabel ? '#f59e0b' : '#94a3b8'}
+                                style={styles.proposalMetaIcon}
+                            />
+                            <Text
+                                style={[
+                                    styles.proposalMetaText,
+                                    !hasReputation && styles.proposalMetaTextMuted,
+                                ]}
+                                numberOfLines={1}
+                            >
+                                {reputationText}
+                            </Text>
+                        </View>
+                        {notes ? (
+                            <Text style={styles.proposalNotes} numberOfLines={2}>
+                                {notes}
+                            </Text>
+                        ) : null}
+                        <View style={styles.proposalMetaRow}>
+                            <Ionicons
+                                name="time-outline"
+                                size={16}
+                                color="#0369a1"
+                                style={styles.proposalMetaIcon}
+                            />
+                            <Text style={styles.proposalMetaText} numberOfLines={1}>
+                                {timingLabel}
+                            </Text>
+                        </View>
                     </TouchableOpacity>
+                    <View style={styles.proposalFooterRow}>
+                        <TouchableOpacity
+                            style={[
+                                styles.proposalPrimaryButton,
+                                isDisabled && styles.proposalPrimaryButtonDisabled,
+                            ]}
+                            activeOpacity={isDisabled ? 1 : 0.9}
+                            onPress={() => handleAcceptOffer(item)}
+                            disabled={isDisabled}
+                        >
+                            <Ionicons
+                                name={isDisabled ? 'shield-checkmark-outline' : 'flash-outline'}
+                                size={18}
+                                color={isDisabled ? '#0f766e' : '#ecfeff'}
+                                style={styles.proposalPrimaryIcon}
+                            />
+                            <Text
+                                style={[
+                                    styles.proposalPrimaryButtonText,
+                                    isDisabled && styles.proposalPrimaryButtonTextDisabled,
+                                ]}
+                            >
+                                {isDisabled ? 'Pago registrado' : 'Aceptar propuesta'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             );
         },
-        [handleAcceptOffer, serviceCreated],
+        [handleAcceptOffer, handleShowProposalDetails, nowMs, serviceCreated],
     );
 
     const resolveErrorMessage = (error, fallbackMessage) => {
@@ -271,7 +410,6 @@ export default function FastMatchScreen() {
                             { requestId, data: { status: 'CANCELLED' } },
                             {
                                 onSuccess: () => {
-                                    setIsInfoModalVisible(false);
                                     Alert.alert(
                                         'Solicitud cancelada',
                                         'La solicitud fue cancelada exitosamente.',
@@ -312,7 +450,6 @@ export default function FastMatchScreen() {
             { requestId, data: { request_type: 'LICITACION' } },
             {
                 onSuccess: () => {
-                    setIsInfoModalVisible(false);
                     Alert.alert(
                         'Solicitud actualizada',
                         'Ahora recibirás ofertas durante las próximas 72 horas.',
@@ -345,11 +482,46 @@ export default function FastMatchScreen() {
         paddingBottom: Math.max(insets.bottom, 24),
     };
 
-    const requestAttachments = Array.isArray(requestData?.attachments)
-        ? requestData.attachments.filter(
-            (item) => !!item?.public_url || !!item?.thumbnail_url,
-        )
-        : [];
+    const closeProposalModal = useCallback(() => {
+        setIsProposalModalVisible(false);
+        setSelectedProposal(null);
+    }, []);
+
+    const selectedProposalMeta = useMemo(() => {
+        if (!selectedProposal) {
+            return null;
+        }
+
+        const scheduleStart = parseIsoDate(selectedProposal.proposed_start_at);
+        const scheduleEnd = parseIsoDate(selectedProposal.proposed_end_at);
+        const validUntil = parseIsoDate(selectedProposal.valid_until);
+
+        const scheduleLabel = formatLongDate(scheduleStart);
+        const scheduleRelative = describeDaysUntil(scheduleStart, nowMs);
+
+        return {
+            providerName:
+                selectedProposal.provider_display_name || 'Prestador FastServices',
+            priceLabel: formatPriceLabel(
+                selectedProposal.quoted_price,
+                selectedProposal.currency,
+            ),
+            ratingLabel: formatRatingLabel(selectedProposal.provider_rating_avg),
+            reviewsLabel: (() => {
+                const reviewsCount = Number(selectedProposal.provider_total_reviews ?? 0);
+                if (!reviewsCount) {
+                    return null;
+                }
+                return `${reviewsCount} ${reviewsCount === 1 ? 'reseña' : 'reseñas'}`;
+            })(),
+            scheduleLabel,
+            scheduleRelative,
+            scheduleEnd: formatLongDate(scheduleEnd),
+            validUntil: formatLongDate(validUntil),
+            notes: selectedProposal.notes?.trim() || null,
+            avatar: selectedProposal.provider_image_url || null,
+        };
+    }, [nowMs, selectedProposal]);
 
     const listContentStyle = useMemo(
         () => [styles.listContent, !offers.length && styles.listContentEmpty],
@@ -424,29 +596,94 @@ export default function FastMatchScreen() {
                     style={styles.backButton}
                     onPress={() => navigation.goBack()}
                 >
-                    <Ionicons name="arrow-back" size={24} color="#111" />
+                    <Ionicons name="arrow-back" size={22} color="#111" />
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.infoButton}
-                    onPress={() => setIsInfoModalVisible(true)}
-                    activeOpacity={0.8}
-                >
-                    <Ionicons name="information-circle-outline" size={24} color="#1f2937" />
-                    <Text style={styles.infoButtonText}>Ver solicitud</Text>
-                </TouchableOpacity>
+                <View style={styles.headerTitleWrapper}>
+                    <Text style={styles.headerTitle}>FAST MATCH</Text>
+                    <Text style={styles.headerSubtitle} numberOfLines={2}>
+                        {requestTitle}
+                    </Text>
+                </View>
             </View>
 
-            <View style={styles.statusWrapper}>
-                <Image
-                    source={require('../../../assets/icon.png')}
-                    style={styles.brandLogo}
-                    resizeMode="contain"
-                />
-                <Text style={styles.statusTitle}>Buscando prestadores...</Text>
-                <Text style={styles.countdown}>{formattedTime}</Text>
-                <Text style={styles.statusSubtitle}>
-                    Te mostramos las primeras ofertas que van llegando.
+            <View style={styles.statusCard}>
+                <View style={styles.statusTopRow}>
+                    <View style={styles.statusBadge}>
+                        <Ionicons
+                            name="flash-outline"
+                            size={16}
+                            color="#0369a1"
+                            style={styles.statusBadgeIcon}
+                        />
+                        <Text style={styles.statusBadgeText}>Fast Match</Text>
+                    </View>
+                    <View style={styles.countdownWrapper}>
+                        <Text
+                            style={[
+                                styles.countdownValue,
+                                isCountdownExpired && styles.countdownValueExpired,
+                            ]}
+                        >
+                            {formattedTime}
+                        </Text>
+                        <Text style={styles.countdownCaption}>{countdownCaption}</Text>
+                    </View>
+                </View>
+                <View style={styles.statusBodyRow}>
+                    <Image
+                        source={require('../../../assets/icon.png')}
+                        style={styles.brandMark}
+                        resizeMode="contain"
+                    />
+                    <View style={styles.statusHeaderCopy}>
+                        <Text style={styles.statusTitle}>{statusCopy.title}</Text>
+                        <Text style={styles.statusDescription}>{statusCopy.message}</Text>
+                    </View>
+                </View>
+                <Text style={styles.statusHint}>{statusCopy.hint}</Text>
+            </View>
+
+            <View style={styles.requestInfoCard}>
+                <View style={styles.requestInfoHeader}>
+                    <Text style={styles.requestInfoTitle}>Detalle de la solicitud</Text>
+                </View>
+                <Text style={styles.requestName} numberOfLines={2}>
+                    {requestTitle}
                 </Text>
+                <Text style={styles.requestInfoDescription}>{requestDescription}</Text>
+                {requestAddress ? (
+                    <View style={styles.requestInfoMetaRow}>
+                        <Ionicons
+                            name="location-outline"
+                            size={16}
+                            color="#0369a1"
+                            style={styles.requestInfoMetaIcon}
+                        />
+                        <Text style={styles.requestInfoMetaText}>{requestAddress}</Text>
+                    </View>
+                ) : null}
+                {requestAttachments.length ? (
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.attachmentsScroll}
+                    >
+                        {requestAttachments.map((attachment, index) => {
+                            const imageUri = attachment.thumbnail_url || attachment.public_url;
+                            if (!imageUri) {
+                                return null;
+                            }
+
+                            return (
+                                <Image
+                                    key={`${attachment.s3_key || imageUri || index}`}
+                                    source={{ uri: imageUri }}
+                                    style={styles.attachmentImage}
+                                />
+                            );
+                        })}
+                    </ScrollView>
+                ) : null}
             </View>
 
             {serviceCreated ? (
@@ -518,65 +755,105 @@ export default function FastMatchScreen() {
             </View>
 
             <Modal
-                visible={isInfoModalVisible}
+                visible={isProposalModalVisible}
                 animationType="slide"
                 transparent
-                onRequestClose={() => setIsInfoModalVisible(false)}
+                onRequestClose={closeProposalModal}
             >
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalContainer, modalContainerStyle]}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Detalle de la solicitud</Text>
+                            <Text style={styles.modalTitle}>Detalle de la propuesta</Text>
                             <TouchableOpacity
-                                onPress={() => setIsInfoModalVisible(false)}
+                                onPress={closeProposalModal}
                                 style={styles.modalCloseButton}
                             >
                                 <Ionicons name="close" size={20} color="#111" />
                             </TouchableOpacity>
                         </View>
-                        <ScrollView contentContainerStyle={styles.modalContent}>
-                            <View style={styles.modalSection}>
-                                <Text style={styles.modalLabel}>Título</Text>
-                                <Text style={styles.modalValue}>{requestTitle}</Text>
-                            </View>
-                            <View style={styles.modalSection}>
-                                <Text style={styles.modalLabel}>Descripción</Text>
-                                <Text style={styles.modalValue}>{requestDescription}</Text>
-                            </View>
-                            <View style={styles.modalSection}>
-                                <Text style={styles.modalLabel}>Dirección</Text>
-                                <Text style={styles.modalValue}>{requestAddress}</Text>
-                            </View>
-                            {requestCreatedAt && (
-                                <View style={styles.modalSection}>
-                                    <Text style={styles.modalLabel}>Creada</Text>
-                                    <Text style={styles.modalValue}>{requestCreatedAt}</Text>
+                        {selectedProposal && selectedProposalMeta ? (
+                            <ScrollView contentContainerStyle={styles.modalContent}>
+                                <View style={styles.modalProviderRow}>
+                                    {selectedProposalMeta.avatar ? (
+                                        <Image
+                                            source={{ uri: selectedProposalMeta.avatar }}
+                                            style={styles.modalProviderAvatar}
+                                        />
+                                    ) : (
+                                        <View style={styles.modalProviderAvatarFallback}>
+                                            <Ionicons name="person-circle-outline" size={44} color="#0f172a" />
+                                        </View>
+                                    )}
+                                    <View style={styles.modalProviderInfo}>
+                                        <Text style={styles.modalProviderName} numberOfLines={2}>
+                                            {selectedProposalMeta.providerName}
+                                        </Text>
+                                        <View style={styles.modalProviderMetaRow}>
+                                            {selectedProposalMeta.ratingLabel ? (
+                                                <View style={styles.modalChip}>
+                                                    <Ionicons name="star" size={14} color="#f59e0b" />
+                                                    <Text style={styles.modalChipText}>{selectedProposalMeta.ratingLabel}</Text>
+                                                </View>
+                                            ) : (
+                                                <View style={styles.modalChipMuted}>
+                                                    <Ionicons name="star-outline" size={14} color="#94a3b8" />
+                                                    <Text style={styles.modalChipMutedText}>Sin calificaciones</Text>
+                                                </View>
+                                            )}
+                                            {selectedProposalMeta.reviewsLabel ? (
+                                                <View style={styles.modalChipSecondary}>
+                                                    <Ionicons name="chatbubble-ellipses-outline" size={14} color="#0f172a" />
+                                                    <Text style={styles.modalChipSecondaryText}>{selectedProposalMeta.reviewsLabel}</Text>
+                                                </View>
+                                            ) : null}
+                                        </View>
+                                    </View>
                                 </View>
-                            )}
-                            <View style={styles.modalSection}>
-                                <Text style={styles.modalLabel}>Adjuntos</Text>
-                                {requestAttachments.length > 0 ? (
-                                    <ScrollView
-                                        horizontal
-                                        showsHorizontalScrollIndicator={false}
-                                        contentContainerStyle={styles.attachmentScroller}
-                                    >
-                                        {requestAttachments.map((attachment, index) => {
-                                            const imageUri = attachment.thumbnail_url || attachment.public_url;
-                                            return (
-                                                <Image
-                                                    key={`${attachment.s3_key || imageUri || index}`}
-                                                    source={{ uri: imageUri }}
-                                                    style={styles.modalAttachment}
-                                                />
-                                            );
-                                        })}
-                                    </ScrollView>
-                                ) : (
-                                    <Text style={styles.modalEmptyValue}>Sin imágenes adjuntas</Text>
-                                )}
+
+                                <View style={styles.modalSection}>
+                                    <Text style={styles.modalLabel}>Precio cotizado</Text>
+                                    <Text style={styles.modalValue}>{selectedProposalMeta.priceLabel}</Text>
+                                </View>
+
+                                <View style={styles.modalSection}>
+                                    <Text style={styles.modalLabel}>Fecha estimada</Text>
+                                    <Text style={styles.modalValue}>
+                                        {selectedProposalMeta.scheduleLabel || 'A coordinar'}
+                                    </Text>
+                                    {selectedProposalMeta.scheduleRelative ? (
+                                        <Text style={styles.modalHelper}>{selectedProposalMeta.scheduleRelative}</Text>
+                                    ) : null}
+                                </View>
+
+                                {selectedProposalMeta.scheduleEnd ? (
+                                    <View style={styles.modalSection}>
+                                        <Text style={styles.modalLabel}>Fin estimado</Text>
+                                        <Text style={styles.modalValue}>{selectedProposalMeta.scheduleEnd}</Text>
+                                    </View>
+                                ) : null}
+
+                                {selectedProposalMeta.validUntil ? (
+                                    <View style={styles.modalSection}>
+                                        <Text style={styles.modalLabel}>Vigencia</Text>
+                                        <Text style={styles.modalValue}>{selectedProposalMeta.validUntil}</Text>
+                                    </View>
+                                ) : null}
+
+                                {selectedProposalMeta.notes ? (
+                                    <View style={styles.modalNotesBox}>
+                                        <Text style={styles.modalNotesLabel}>Detalle adicional</Text>
+                                        <Text style={styles.modalNotesText}>{selectedProposalMeta.notes}</Text>
+                                    </View>
+                                ) : null}
+                            </ScrollView>
+                        ) : (
+                            <View style={styles.modalEmptyState}>
+                                <Ionicons name="information-circle-outline" size={36} color="#64748b" />
+                                <Text style={styles.modalEmptyStateText}>
+                                    Seleccioná una propuesta para ver los detalles completos.
+                                </Text>
                             </View>
-                        </ScrollView>
+                        )}
                     </View>
                 </View>
             </Modal>

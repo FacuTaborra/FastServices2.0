@@ -13,6 +13,7 @@ dependencies = [
     "fastapi>=0.116.1",
     "minio>=7.2.0",
     "mysqlclient>=2.2.7",
+    "openai>=2.6.1",
     "pillow>=10.0.0",
     "pydantic[email]>=2.11.7",
     "python-dotenv>=1.1.1",
