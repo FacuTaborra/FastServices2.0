@@ -6,6 +6,7 @@ from models.ProviderProfile import (
     ProviderResponse,
     ProviderProfileUpdate,
 )
+from models.User import UserRole
 from controllers.provider_controller import ProviderController
 from auth.auth_utils import get_current_user
 
@@ -35,7 +36,8 @@ async def register_provider(
 async def get_current_provider_profile(
     current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
-    if current_user.role != "provider":
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acceso denegado: Solo para proveedores de servicios",
@@ -62,7 +64,8 @@ async def update_provider_profile(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if current_user.role != "provider":
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acceso denegado: Solo para proveedores de servicios",

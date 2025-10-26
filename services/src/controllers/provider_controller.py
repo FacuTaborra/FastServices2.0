@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
-from models.User import User
+from models.User import User, UserRole
 from models.ProviderProfile import (
     ProviderProfile,
     ProviderRegisterRequest,
@@ -28,7 +28,7 @@ class ProviderController:
         password_hash = get_password_hash(provider_data.password)
 
         new_user = User(
-            role="provider",
+            role=UserRole.PROVIDER,
             first_name=provider_data.first_name,
             last_name=provider_data.last_name,
             email=provider_data.email,
@@ -64,24 +64,61 @@ class ProviderController:
         return await ProviderController._build_provider_response(user_with_profile)
 
     @staticmethod
+    async def _ensure_provider_profile(
+        db: AsyncSession, user_id: int
+    ) -> ProviderProfile:
+        """Garantiza que exista un perfil de proveedor para el usuario dado."""
+
+        result = await db.execute(
+            select(ProviderProfile).where(ProviderProfile.user_id == user_id)
+        )
+        profile = result.scalar_one_or_none()
+        if profile:
+            return profile
+
+        profile = ProviderProfile(
+            user_id=user_id,
+            bio="Proveedor de servicios profesional",
+            rating_avg=0.0,
+            total_reviews=0,
+        )
+
+        db.add(profile)
+        await db.commit()
+        await db.refresh(profile)
+
+        return profile
+
+    @staticmethod
+    async def _load_provider_with_relations(
+        db: AsyncSession, user_id: int
+    ) -> Optional[User]:
+        result = await db.execute(
+            select(User)
+            .options(
+                selectinload(User.provider_profile).selectinload(
+                    ProviderProfile.licenses
+                )
+            )
+            .where(
+                User.id == user_id,
+                User.role == UserRole.PROVIDER,
+                User.is_active,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def _build_provider_response(user: User) -> ProviderResponse:
         """Construye la respuesta Pydantic con el perfil del proveedor."""
         profile = getattr(user, "provider_profile", None)
-        if profile is None and hasattr(user, "awaitable_attrs"):
-            profile = await user.awaitable_attrs.provider_profile
-
         if not profile:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Perfil de proveedor no encontrado",
             )
 
-        licenses_data = getattr(profile, "licenses", None)
-        if licenses_data is None and hasattr(profile, "awaitable_attrs"):
-            licenses_data = await profile.awaitable_attrs.licenses
-
-        if licenses_data is None:
-            licenses_data = []
+        licenses_data = getattr(profile, "licenses", []) or []
 
         licenses = [
             ProviderLicenseResponse(
@@ -131,19 +168,18 @@ class ProviderController:
     async def get_provider_by_id(
         db: AsyncSession, provider_id: int
     ) -> Optional[ProviderResponse]:
-        result = await db.execute(
-            select(User)
-            .options(
-                selectinload(User.provider_profile).selectinload(
-                    ProviderProfile.licenses
-                )
-            )
-            .where(User.id == provider_id, User.role == "provider", User.is_active)
-        )
-        user = result.scalar_one_or_none()
+        user = await ProviderController._load_provider_with_relations(db, provider_id)
 
-        if not user or not user.provider_profile:
+        if not user:
             return None
+
+        if not getattr(user, "provider_profile", None):
+            await ProviderController._ensure_provider_profile(db, user.id)
+            user = await ProviderController._load_provider_with_relations(
+                db, provider_id
+            )
+            if not user:
+                return None
 
         return await ProviderController._build_provider_response(user)
 
@@ -152,28 +188,27 @@ class ProviderController:
     async def update_provider_profile(
         db: AsyncSession, user_id: int, profile_data: ProviderProfileUpdate
     ) -> Optional[ProviderResponse]:
-        result = await db.execute(
-            select(User)
-            .options(
-                selectinload(User.provider_profile).selectinload(
-                    ProviderProfile.licenses
-                )
-            )
-            .where(User.id == user_id, User.role == "provider", User.is_active)
-        )
-        user = result.scalar_one_or_none()
+        user = await ProviderController._load_provider_with_relations(db, user_id)
 
-        if not user or not user.provider_profile:
+        if not user:
             return None
 
-        profile = user.provider_profile
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            await ProviderController._ensure_provider_profile(db, user.id)
+            user = await ProviderController._load_provider_with_relations(db, user_id)
+            if not user:
+                return None
+            profile = user.provider_profile
 
         if profile_data.bio is not None:
             profile.bio = profile_data.bio
 
         await db.commit()
-        await db.refresh(profile)
-        await db.refresh(user)
+        # Re-cargar usuario con relaciones para retornar información consistente
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+        if not user:
+            return None
 
         return await ProviderController._build_provider_response(user)
 
