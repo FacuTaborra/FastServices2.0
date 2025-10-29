@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, case
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 from models.User import User, UserRole
@@ -15,10 +15,25 @@ from models.ProviderProfile import (
     ProviderLicenseResponse,
     ProviderLicenseCreate,
 )
+from models.Tag import ProviderLicenseTag, ProviderLicenseTagResponse, TagResponse
+from models.ServiceRequest import (
+    ServiceRequest,
+    ServiceRequestStatus,
+    ServiceRequestProposal,
+    Service,
+    ServiceRequestType,
+)
+from models.Tag import ServiceRequestTag
+from models.ServiceRequestSchemas import ServiceRequestResponse
+from controllers.service_request_controller import ServiceRequestController
 from auth.auth_utils import get_password_hash
 from utils.error_handler import error_handler
+from controllers.tags_controllers import TagsController
+from controllers.llm_controller import LLMController
 
 logger = logging.getLogger(__name__)
+
+llm_controller = LLMController()
 
 
 class ProviderController:
@@ -101,6 +116,7 @@ class ProviderController:
                 selectinload(User.provider_profile)
                 .selectinload(ProviderProfile.licenses)
                 .selectinload(ProviderLicense.tag_links)
+                .selectinload(ProviderLicenseTag.tag)
             )
             .where(
                 User.id == user_id,
@@ -167,6 +183,11 @@ class ProviderController:
         for license_model in new_licenses:
             await db.refresh(license_model)
 
+        if new_licenses:
+            await TagsController.generate_tags_for_licenses(
+                db, new_licenses, llm_controller.create_tag_of_licences
+            )
+
         user = await ProviderController._load_provider_with_relations(db, user_id)
         profile = getattr(user, "provider_profile", None)
 
@@ -175,22 +196,8 @@ class ProviderController:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Perfil de proveedor no encontrado",
             )
-
         return [
-            ProviderLicenseResponse(
-                id=license.id,
-                provider_profile_id=license.provider_profile_id,
-                title=license.title,
-                description=license.description,
-                license_number=license.license_number,
-                issued_by=license.issued_by,
-                issued_at=license.issued_at,
-                expires_at=license.expires_at,
-                document_s3_key=license.document_s3_key,
-                document_url=license.document_url,
-                created_at=license.created_at,
-                updated_at=license.updated_at,
-            )
+            ProviderController._map_license_to_response(license)
             for license in profile.licenses
         ]
 
@@ -207,20 +214,7 @@ class ProviderController:
         licenses_data = getattr(profile, "licenses", []) or []
 
         licenses = [
-            ProviderLicenseResponse(
-                id=license.id,
-                provider_profile_id=license.provider_profile_id,
-                title=license.title,
-                description=license.description,
-                license_number=license.license_number,
-                issued_by=license.issued_by,
-                issued_at=license.issued_at,
-                expires_at=license.expires_at,
-                document_s3_key=license.document_s3_key,
-                document_url=license.document_url,
-                created_at=license.created_at,
-                updated_at=license.updated_at,
-            )
+            ProviderController._map_license_to_response(license)
             for license in licenses_data
         ]
 
@@ -273,6 +267,44 @@ class ProviderController:
         return await ProviderController._build_provider_response(user)
 
     @staticmethod
+    def _map_license_to_response(license: ProviderLicense) -> ProviderLicenseResponse:
+        tag_responses: List[ProviderLicenseTagResponse] = []
+        for link in getattr(license, "tag_links", []) or []:
+            tag = getattr(link, "tag", None)
+            if not tag:
+                continue
+            tag_responses.append(
+                ProviderLicenseTagResponse(
+                    tag=TagResponse(
+                        id=tag.id,
+                        slug=tag.slug,
+                        name=tag.name,
+                        description=tag.description,
+                    ),
+                    confidence=float(link.confidence)
+                    if link.confidence is not None
+                    else None,
+                    source=link.source,
+                )
+            )
+
+        return ProviderLicenseResponse(
+            id=license.id,
+            provider_profile_id=license.provider_profile_id,
+            title=license.title,
+            description=license.description,
+            license_number=license.license_number,
+            issued_by=license.issued_by,
+            issued_at=license.issued_at,
+            expires_at=license.expires_at,
+            document_s3_key=license.document_s3_key,
+            document_url=license.document_url,
+            created_at=license.created_at,
+            updated_at=license.updated_at,
+            tags=tag_responses,
+        )
+
+    @staticmethod
     @error_handler(logger)
     async def update_provider_profile(
         db: AsyncSession, user_id: int, profile_data: ProviderProfileUpdate
@@ -300,6 +332,84 @@ class ProviderController:
             return None
 
         return await ProviderController._build_provider_response(user)
+
+    @staticmethod
+    @error_handler(logger)
+    async def list_matching_service_requests(
+        db: AsyncSession, user_id: int
+    ) -> List[ServiceRequestResponse]:
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proveedor no encontrado",
+            )
+
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            profile = await ProviderController._ensure_provider_profile(db, user_id)
+
+        licenses = getattr(profile, "licenses", []) or []
+        tag_ids = {
+            link.tag_id
+            for license in licenses
+            for link in getattr(license, "tag_links", []) or []
+            if getattr(link, "tag_id", None) is not None
+        }
+
+        if not tag_ids:
+            return []
+
+        stmt = (
+            select(ServiceRequest)
+            .join(
+                ServiceRequestTag,
+                ServiceRequestTag.request_id == ServiceRequest.id,
+            )
+            .options(
+                selectinload(ServiceRequest.images),
+                selectinload(ServiceRequest.tag_links).selectinload(
+                    ServiceRequestTag.tag
+                ),
+                selectinload(ServiceRequest.proposals).options(
+                    selectinload(ServiceRequestProposal.provider).options(
+                        selectinload(ProviderProfile.user)
+                    )
+                ),
+                selectinload(ServiceRequest.service).options(
+                    selectinload(Service.provider).options(
+                        selectinload(ProviderProfile.user)
+                    ),
+                    selectinload(Service.proposal),
+                    selectinload(Service.status_history),
+                ),
+                selectinload(ServiceRequest.address),
+            )
+            .where(
+                ServiceRequest.status == ServiceRequestStatus.PUBLISHED,
+                ServiceRequestTag.tag_id.in_(tag_ids),
+            )
+            .order_by(
+                case(
+                    (ServiceRequest.request_type == ServiceRequestType.FAST, 0),
+                    else_=1,
+                ),
+                case(
+                    (ServiceRequestTag.confidence.is_(None), 1),
+                    else_=0,
+                ),
+                ServiceRequestTag.confidence.desc(),
+                ServiceRequest.created_at.asc(),
+            )
+        )
+
+        result = await db.execute(stmt)
+        requests = list(result.scalars().unique().all())
+
+        return [
+            ServiceRequestController._build_response(request) for request in requests
+        ]
 
 
 provider_controller = ProviderController()

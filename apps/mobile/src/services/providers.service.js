@@ -24,3 +24,13 @@ export async function createProviderLicenses(licenses) {
         throw error;
     }
 }
+
+export async function getMatchingServiceRequests() {
+    try {
+        const response = await api.get('/providers/me/matching-requests');
+        return response.data;
+    } catch (error) {
+        console.error('❌ Error obteniendo solicitudes compatibles:', error.message || error);
+        throw error;
+    }
+}

@@ -9,6 +9,7 @@ from models.ProviderProfile import (
     ProviderLicenseBulkCreate,
 )
 from models.User import UserRole
+from models.ServiceRequestSchemas import ServiceRequestResponse
 from controllers.provider_controller import ProviderController
 from auth.auth_utils import get_current_user
 
@@ -129,3 +130,22 @@ async def get_provider_public_profile(
         )
 
     return provider
+
+
+@router.get(
+    "/me/matching-requests",
+    response_model=list[ServiceRequestResponse],
+    summary="Listar solicitudes compatibles",
+    description="Retorna solicitudes publicadas cuyos tags coinciden con las licencias del proveedor autenticado",
+)
+async def list_matching_service_requests(
+    current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    return await ProviderController.list_matching_service_requests(db, current_user.id)

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,14 +16,15 @@ import ChatRequestCard from '../../components/ProviderRequestCards/ChatRequestCa
 import Spinner from '../../components/Spinner/Spinner';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import styles from './ProviderRequestsScreen.styles';
-import data from '../../data/providerRequests';
+import mockData from '../../data/providerRequests';
+import { getMatchingServiceRequests } from '../../services/providers.service';
 
 const brandIcon = require('../../../assets/icon.png');
 
 const TAB_CONFIG = {
   nuevas: {
     label: 'Nuevas',
-    dataKey: 'nuevas',
+    dataKey: null,
     emptyMessage: 'Sin solicitudes nuevas por ahora',
   },
   presupuestos: {
@@ -33,6 +34,96 @@ const TAB_CONFIG = {
   },
 };
 
+const DEFAULT_ADDRESS_LABEL = 'Ubicación a coordinar';
+const DEFAULT_DATE_LABEL = 'Fecha a coordinar';
+
+function formatDateTimeLabel(value) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const day = `${date.getDate()}`.padStart(2, '0');
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = `${date.getHours()}`.padStart(2, '0');
+  const minutes = `${date.getMinutes()}`.padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${minutes} hs`;
+}
+
+function formatCurrencyValue(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) {
+    return null;
+  }
+  try {
+    return numeric.toLocaleString('es-AR', {
+      minimumFractionDigits: numeric % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: numeric % 1 === 0 ? 0 : 2,
+    });
+  } catch (error) {
+    return `${numeric.toFixed(0)}`;
+  }
+}
+
+function buildTitleFromRequest(rawTitle, rawDescription) {
+  const title = (rawTitle || '').trim();
+  if (title) {
+    return title;
+  }
+  const description = (rawDescription || '').trim();
+  if (!description) {
+    return 'Solicitud sin título';
+  }
+  if (description.length <= 60) {
+    return description;
+  }
+  return `${description.slice(0, 57).trimEnd()}...`;
+}
+
+function extractBudgetValue(proposals) {
+  if (!Array.isArray(proposals) || proposals.length === 0) {
+    return null;
+  }
+  const numericValues = proposals
+    .map((proposal) => {
+      if (!proposal || proposal.quoted_price === undefined || proposal.quoted_price === null) {
+        return null;
+      }
+      const numeric = Number(proposal.quoted_price);
+      return Number.isNaN(numeric) ? null : numeric;
+    })
+    .filter((value) => value !== null);
+  if (!numericValues.length) {
+    return null;
+  }
+  return Math.min(...numericValues);
+}
+
+function mapServiceRequestToCard(request) {
+  if (!request || request.id === undefined || request.id === null) {
+    return null;
+  }
+  const budgetValue = extractBudgetValue(request.proposals);
+  const dateLabel =
+    formatDateTimeLabel(request.preferred_start_at || request.created_at) ||
+    DEFAULT_DATE_LABEL;
+
+  return {
+    id: String(request.id),
+    title: buildTitleFromRequest(request.title, request.description),
+    date: dateLabel,
+    address: request.city_snapshot || DEFAULT_ADDRESS_LABEL,
+    budget: budgetValue !== null ? formatCurrencyValue(budgetValue) : null,
+    fast: request.request_type === 'FAST',
+  };
+}
+
 export default function ProviderRequestsScreen() {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState('nuevas');
@@ -41,20 +132,53 @@ export default function ProviderRequestsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [filterModal, setFilterModal] = useState(false);
+  const [matchingRequests, setMatchingRequests] = useState([]);
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    setLoading(true);
-    setTimeout(() => {
-      setRefreshing(false);
-      setLoading(false);
-    }, 1000);
-  };
+  const loadMatchingRequests = useCallback(
+    async ({ useRefreshIndicator = false } = {}) => {
+      if (useRefreshIndicator) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const response = await getMatchingServiceRequests();
+        const normalized = Array.isArray(response)
+          ? response
+              .map((request) => mapServiceRequestToCard(request))
+              .filter((item) => item !== null)
+          : [];
+        setMatchingRequests(normalized);
+      } catch (error) {
+        console.error('❌ Error sincronizando solicitudes del proveedor:', error.message || error);
+      } finally {
+        if (useRefreshIndicator) {
+          setRefreshing(false);
+        } else {
+          setLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    loadMatchingRequests();
+  }, [loadMatchingRequests]);
+
+  const handleRefresh = useCallback(() => {
+    loadMatchingRequests({ useRefreshIndicator: true });
+  }, [loadMatchingRequests]);
 
   const filteredRequests = useMemo(() => {
     const tabSettings = TAB_CONFIG[activeTab] ?? TAB_CONFIG.nuevas;
-    const source = data[tabSettings.dataKey] ?? [];
     const query = search.trim().toLowerCase();
+
+    const source =
+      activeTab === 'nuevas'
+        ? matchingRequests
+        : mockData[tabSettings.dataKey] ?? [];
 
     if (!query) {
       return source;
@@ -66,7 +190,7 @@ export default function ProviderRequestsScreen() {
         (field) => typeof field === 'string' && field.toLowerCase().includes(query),
       );
     });
-  }, [activeTab, search]);
+  }, [activeTab, search, matchingRequests]);
 
   const renderItem = ({ item }) => {
     if (activeTab === 'nuevas') {
@@ -157,7 +281,7 @@ export default function ProviderRequestsScreen() {
               </Text>
               {tabKey === 'nuevas' ? (
                 <View style={[styles.badge, activeTab === tabKey && styles.badgeActive]}>
-                  <Text style={styles.badgeText}>{data.nuevas.length}</Text>
+                  <Text style={styles.badgeText}>{matchingRequests.length}</Text>
                 </View>
               ) : null}
             </TouchableOpacity>
@@ -166,7 +290,7 @@ export default function ProviderRequestsScreen() {
 
         <FlatList
           data={filteredRequests}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => (item?.id ? String(item.id) : `item-${index}`)}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           refreshControl={(

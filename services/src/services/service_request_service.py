@@ -32,8 +32,12 @@ from models.ServiceRequestSchemas import (
 )
 from models.User import User, UserRole
 from utils.error_handler import error_handler
+from controllers.tags_controllers import TagsController
+from controllers.llm_controller import LLMController
 
 logger = logging.getLogger(__name__)
+
+llm_controller = LLMController()
 
 SERVICE_REQUESTS_FOLDER = "service-requests"
 MANAGEMENT_FEE_RATE = Decimal("0.02")
@@ -106,6 +110,12 @@ class ServiceRequestService:
             db,
             request_id=new_request.id,
             tag_ids=payload.tag_ids,
+        )
+
+        await TagsController.generate_tags_for_service_request(
+            db,
+            new_request,
+            llm_controller.create_tags_for_request,
         )
 
         await db.commit()

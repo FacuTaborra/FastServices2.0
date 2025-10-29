@@ -8,17 +8,15 @@ class OpenAIService:
         self,
         model: str = "gpt-3.5-turbo",
         temperature: float = 0.2,
-        role_system: str = None,
         api_key: str = OPENAI_API_KEY,
     ):
-        self.client = OpenAI()
+        self.client = OpenAI(api_key=api_key)
         self.model = model
         self.temperature = temperature
-        self.role_system = role_system
 
-    def run(self, message: str) -> str:
+    def run(self, role_system: str, message: str) -> str:
         messages = [
-            {"role": "system", "content": self.role_system},
+            {"role": "system", "content": role_system},
             {"role": "user", "content": f"{message}"},
         ]
         rsp = self.client.responses.create(

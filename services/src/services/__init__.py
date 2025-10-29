@@ -1,8 +1,3 @@
-"""
-Módulo de servicios de FastServices.
-Contiene servicios para diferentes funcionalidades de la aplicación.
-"""
+"""Paquete de servicios de FastServices."""
 
-from .service_request_service import ServiceRequestService
-
-__all__ = ["ServiceRequestService"]
+__all__: list[str] = []
