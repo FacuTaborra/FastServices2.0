@@ -146,8 +146,8 @@ export default function ProviderRequestsScreen() {
         const response = await getMatchingServiceRequests();
         const normalized = Array.isArray(response)
           ? response
-              .map((request) => mapServiceRequestToCard(request))
-              .filter((item) => item !== null)
+            .map((request) => mapServiceRequestToCard(request))
+            .filter((item) => item !== null)
           : [];
         setMatchingRequests(normalized);
       } catch (error) {
