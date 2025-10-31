@@ -9,6 +9,7 @@ from models.ProviderProfile import (
     ProviderLicenseBulkCreate,
     ProviderProposalResponse,
     ProviderProposalCreate,
+    ProviderServiceResponse,
 )
 from models.User import UserRole
 from models.ServiceRequestSchemas import ServiceRequestResponse, CurrencyResponse
@@ -193,6 +194,28 @@ async def list_provider_proposals(
         )
 
     return await ProviderController.list_provider_proposals(db, current_user.id)
+
+
+@router.get(
+    "/me/services",
+    response_model=list[ProviderServiceResponse],
+    summary="Listar servicios del proveedor",
+    description=(
+        "Devuelve los servicios confirmados, en progreso y completados del proveedor, "
+        "incluyendo la información relevante de la solicitud asociada."
+    ),
+)
+async def list_provider_services(
+    current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    return await ProviderController.list_provider_services(db, current_user.id)
 
 
 @router.post(

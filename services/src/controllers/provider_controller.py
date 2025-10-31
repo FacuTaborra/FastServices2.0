@@ -17,6 +17,9 @@ from models.ProviderProfile import (
     ProviderLicenseCreate,
     ProviderProposalResponse,
     ProviderProposalCreate,
+    ProviderServiceResponse,
+    ProviderServiceRequestPreview,
+    ProviderServiceStatusHistory,
 )
 from models.Tag import ProviderLicenseTag, ProviderLicenseTagResponse, TagResponse
 from models.ServiceRequest import (
@@ -25,6 +28,7 @@ from models.ServiceRequest import (
     ServiceRequestProposal,
     Service,
     ServiceRequestType,
+    ServiceStatus,
     ProposalStatus,
     Currency,
 )
@@ -440,6 +444,50 @@ class ProviderController:
 
     @staticmethod
     @error_handler(logger)
+    async def list_provider_services(
+        db: AsyncSession, user_id: int
+    ) -> List[ProviderServiceResponse]:
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proveedor no encontrado",
+            )
+
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            profile = await ProviderController._ensure_provider_profile(db, user_id)
+
+        stmt = (
+            select(Service)
+            .options(
+                selectinload(Service.request).selectinload(ServiceRequest.images),
+                selectinload(Service.request),
+                selectinload(Service.proposal),
+                selectinload(Service.status_history),
+                selectinload(Service.client),
+            )
+            .where(Service.provider_profile_id == profile.id)
+            .order_by(
+                case((Service.status == ServiceStatus.IN_PROGRESS, 0), else_=1),
+                case((Service.status == ServiceStatus.CONFIRMED, 0), else_=1),
+                case((Service.status == ServiceStatus.COMPLETED, 0), else_=1),
+                Service.scheduled_start_at.asc(),
+                Service.created_at.desc(),
+            )
+        )
+
+        result = await db.execute(stmt)
+        services = list(result.scalars().all())
+
+        return [
+            ProviderController._map_service_to_provider_response(service)
+            for service in services
+        ]
+
+    @staticmethod
+    @error_handler(logger)
     async def list_provider_proposals(
         db: AsyncSession, user_id: int
     ) -> List[ProviderProposalResponse]:
@@ -596,6 +644,14 @@ class ProviderController:
         normalized_end = _normalize_to_utc_naive(payload.proposed_end_at)
         normalized_valid_until = _normalize_to_utc_naive(payload.valid_until)
 
+        is_fast_request = service_request.request_type == ServiceRequestType.FAST
+
+        if is_fast_request:
+            current_utc = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
+            normalized_start = current_utc
+            normalized_end = None
+            normalized_valid_until = None
+
         if (
             normalized_valid_until is not None
             and normalized_valid_until <= datetime.utcnow()
@@ -625,6 +681,9 @@ class ProviderController:
             .options(
                 selectinload(ServiceRequestProposal.request).selectinload(
                     ServiceRequest.client
+                ),
+                selectinload(ServiceRequestProposal.request).selectinload(
+                    ServiceRequest.images
                 ),
                 selectinload(ServiceRequestProposal.request),
             )
@@ -674,6 +733,77 @@ class ProviderController:
             preferred_start_at=getattr(request, "preferred_start_at", None),
             preferred_end_at=getattr(request, "preferred_end_at", None),
             client_name=client_name,
+        )
+
+    @staticmethod
+    def _map_service_to_provider_response(
+        service: Service,
+    ) -> ProviderServiceResponse:
+        request = getattr(service, "request", None)
+        request_preview = None
+        if request is not None:
+            attachments = ServiceRequestController._serialize_attachments(request)
+            request_preview = ProviderServiceRequestPreview(
+                id=request.id,
+                title=getattr(request, "title", None),
+                description=getattr(request, "description", None),
+                request_type=getattr(request, "request_type", None),
+                status=getattr(request, "status", None),
+                city_snapshot=getattr(request, "city_snapshot", None),
+                preferred_start_at=getattr(request, "preferred_start_at", None),
+                preferred_end_at=getattr(request, "preferred_end_at", None),
+                attachments=attachments,
+            )
+
+        proposal = getattr(service, "proposal", None)
+        currency = getattr(proposal, "currency", None) if proposal else None
+        quoted_price = getattr(proposal, "quoted_price", None) if proposal else None
+
+        client = getattr(service, "client", None)
+        client_name = None
+        client_phone = None
+        if client is not None:
+            first = (getattr(client, "first_name", "") or "").strip()
+            last = (getattr(client, "last_name", "") or "").strip()
+            client_name = (
+                " ".join(part for part in [first, last] if part).strip() or None
+            )
+            client_phone = getattr(client, "phone", None)
+
+        status_history = []
+        for change in sorted(
+            list(getattr(service, "status_history", []) or []),
+            key=lambda item: (
+                getattr(item, "changed_at", None) or service.updated_at,
+                getattr(item, "id", 0),
+            ),
+        ):
+            status_history.append(
+                ProviderServiceStatusHistory(
+                    changed_at=change.changed_at,
+                    from_status=change.from_status,
+                    to_status=change.to_status,
+                )
+            )
+
+        return ProviderServiceResponse(
+            id=service.id,
+            status=service.status,
+            scheduled_start_at=service.scheduled_start_at,
+            scheduled_end_at=service.scheduled_end_at,
+            total_price=service.total_price,
+            quoted_price=quoted_price,
+            currency=currency,
+            proposal_id=service.proposal_id,
+            request_id=service.request_id,
+            request=request_preview,
+            client_id=service.client_id,
+            client_name=client_name,
+            client_phone=client_phone,
+            address_snapshot=getattr(service, "address_snapshot", None),
+            created_at=service.created_at,
+            updated_at=service.updated_at,
+            status_history=status_history,
         )
 
 

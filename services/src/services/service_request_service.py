@@ -586,7 +586,11 @@ class ServiceRequestService:
                 else None,
             }
 
-        if selected_proposal.proposed_start_at:
+        if service_request.request_type == ServiceRequestType.FAST:
+            service_entity.scheduled_start_at = datetime.now(timezone.utc).replace(
+                tzinfo=None, microsecond=0
+            )
+        elif selected_proposal.proposed_start_at:
             service_entity.scheduled_start_at = selected_proposal.proposed_start_at
         if selected_proposal.proposed_end_at:
             service_entity.scheduled_end_at = selected_proposal.proposed_end_at

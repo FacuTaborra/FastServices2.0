@@ -45,6 +45,16 @@ export async function getProviderProposals() {
     }
 }
 
+export async function getProviderServices() {
+    try {
+        const response = await api.get('/providers/me/services');
+        return response.data;
+    } catch (error) {
+        console.error('❌ Error obteniendo servicios del proveedor:', error.message || error);
+        throw error;
+    }
+}
+
 export async function createProviderProposal(payload) {
     try {
         const response = await api.post('/providers/me/proposals', payload);

@@ -1,6 +1,6 @@
 """Modelos vinculados a la información de prestadores."""
 
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from decimal import Decimal
 from datetime import datetime, date
 from sqlalchemy import (
@@ -21,7 +21,12 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator, model_valida
 
 from database.database import Base
 from .Tag import ProviderLicenseTagResponse
-from .ServiceRequest import ServiceRequestType, ServiceRequestStatus, ProposalStatus
+from .ServiceRequest import (
+    ServiceRequestType,
+    ServiceRequestStatus,
+    ServiceStatus,
+    ProposalStatus,
+)
 from .ServiceRequestSchemas import ServiceRequestImageResponse
 
 
@@ -359,3 +364,53 @@ class ProviderProposalResponse(BaseModel):
     preferred_start_at: Optional[datetime] = None
     preferred_end_at: Optional[datetime] = None
     client_name: Optional[str] = None
+
+
+class ProviderServiceStatusHistory(BaseModel):
+    """Historial de cambios de estado para un servicio confirmado."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    changed_at: datetime
+    from_status: Optional[str] = None
+    to_status: str
+
+
+class ProviderServiceRequestPreview(BaseModel):
+    """Resumen de la solicitud asociada al servicio del proveedor."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: Optional[str] = None
+    description: Optional[str] = None
+    request_type: Optional[ServiceRequestType] = None
+    status: Optional[ServiceRequestStatus] = None
+    city_snapshot: Optional[str] = None
+    preferred_start_at: Optional[datetime] = None
+    preferred_end_at: Optional[datetime] = None
+    attachments: List[ServiceRequestImageResponse] = Field(default_factory=list)
+
+
+class ProviderServiceResponse(BaseModel):
+    """Servicio confirmado asignado al proveedor."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    status: ServiceStatus
+    scheduled_start_at: Optional[datetime] = None
+    scheduled_end_at: Optional[datetime] = None
+    total_price: Optional[Decimal] = None
+    quoted_price: Optional[Decimal] = None
+    currency: Optional[str] = None
+    proposal_id: Optional[int] = None
+    request_id: Optional[int] = None
+    request: Optional[ProviderServiceRequestPreview] = None
+    client_id: Optional[int] = None
+    client_name: Optional[str] = None
+    client_phone: Optional[str] = None
+    address_snapshot: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    updated_at: datetime
+    status_history: List[ProviderServiceStatusHistory] = Field(default_factory=list)

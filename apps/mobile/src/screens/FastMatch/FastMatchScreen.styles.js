@@ -5,6 +5,12 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f1f5f9',
     },
+    scroll: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: 40,
+    },
     header: {
         marginTop: 16,
         paddingHorizontal: 20,
@@ -143,14 +149,62 @@ const styles = StyleSheet.create({
         color: '#64748b',
         lineHeight: 18,
     },
-    listContent: {
-        paddingHorizontal: 20,
-        paddingBottom: 28,
-        paddingTop: 12,
+    offersSection: {
+        marginHorizontal: 20,
+        marginTop: 18,
+        padding: 20,
+        borderRadius: 24,
+        backgroundColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: '#dbeafe',
+        shadowColor: '#0f172a',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
+        elevation: 3,
     },
-    listContentEmpty: {
-        flexGrow: 1,
-        justifyContent: 'center',
+    offersHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 18,
+    },
+    offersHeaderCopy: {
+        flex: 1,
+        paddingRight: 12,
+    },
+    offersTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#0f172a',
+    },
+    offersSubtitle: {
+        marginTop: 4,
+        fontSize: 13,
+        color: '#475569',
+        lineHeight: 18,
+    },
+    offersBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        backgroundColor: '#e0f2fe',
+        borderWidth: 1,
+        borderColor: '#bfdbfe',
+    },
+    offersBadgeText: {
+        marginLeft: 6,
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#0369a1',
+    },
+    offersList: {
+        marginTop: 4,
+    },
+    offerItemWrapper: {
+        marginBottom: 12,
     },
     proposalCard: {
         borderRadius: 16,
@@ -158,7 +212,6 @@ const styles = StyleSheet.create({
         borderColor: '#dbeafe',
         backgroundColor: '#f8fbff',
         padding: 16,
-        marginBottom: 12,
     },
     proposalCardDisabled: {
         borderColor: '#d1fae5',
@@ -231,9 +284,16 @@ const styles = StyleSheet.create({
     proposalPrimaryButtonTextDisabled: {
         color: '#0f766e',
     },
+    offersFooterHint: {
+        marginHorizontal: 20,
+        marginTop: 8,
+        alignItems: 'center',
+        paddingBottom: 12,
+    },
     footerWrapper: {
         paddingHorizontal: 24,
         paddingBottom: 32,
+        marginTop: 24,
     },
     cancelButton: {
         borderRadius: 16,
@@ -292,10 +352,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         color: '#475569',
         marginTop: 12,
-    },
-    listFooterHint: {
-        alignItems: 'center',
-        paddingVertical: 12,
     },
     refreshHint: {
         fontSize: 12,

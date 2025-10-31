@@ -131,6 +131,9 @@ export default function CreateProposalScreen() {
     const navigation = useNavigation();
     const route = useRoute();
     const initialData = useInitialData(route.params);
+    const isFastRequest = initialData.type === 'FAST' || initialData.type === 'FAST_MATCH';
+    const shouldRenderScheduling = !isFastRequest;
+    const shouldRenderValidity = !isFastRequest;
     const requestTypeLabel = useMemo(
         () => REQUEST_TYPE_LABELS[initialData.type] ?? null,
         [initialData.type],
@@ -278,11 +281,14 @@ export default function CreateProposalScreen() {
     }, [price]);
 
     const dateError = useMemo(() => {
+        if (!shouldRenderScheduling) {
+            return null;
+        }
         if (!validateDateRange(startDate, endDate)) {
             return 'La fecha de fin no puede ser anterior al inicio';
         }
         return null;
-    }, [startDate, endDate]);
+    }, [shouldRenderScheduling, startDate, endDate]);
 
     const selectedCurrency = useMemo(
         () => currencies.find((item) => item.code === currency) || null,
@@ -305,7 +311,7 @@ export default function CreateProposalScreen() {
             return;
         }
 
-        if (dateError) {
+        if (!isFastRequest && dateError) {
             Alert.alert('Error', dateError);
             return;
         }
@@ -321,11 +327,17 @@ export default function CreateProposalScreen() {
                 request_id: initialData.requestId,
                 quoted_price: normalizeDecimal(price),
                 currency: (currency || DEFAULT_CURRENCY).toUpperCase(),
-                proposed_start_at: normalizeDate(startDate),
-                proposed_end_at: normalizeDate(endDate),
-                valid_until: normalizeDate(validUntil),
-                notes: notes ? notes.trim() : undefined,
             };
+
+            if (notes && notes.trim()) {
+                payload.notes = notes.trim();
+            }
+
+            if (!isFastRequest) {
+                payload.proposed_start_at = normalizeDate(startDate);
+                payload.proposed_end_at = normalizeDate(endDate);
+                payload.valid_until = normalizeDate(validUntil);
+            }
 
             await createProviderProposal(payload);
 
@@ -347,6 +359,9 @@ export default function CreateProposalScreen() {
 
     const openAndroidPicker = useCallback(
         (mode) => {
+            if (isFastRequest) {
+                return false;
+            }
             if (Platform.OS !== 'android') {
                 return false;
             }
@@ -428,7 +443,7 @@ export default function CreateProposalScreen() {
 
             return true;
         },
-        [startDate, endDate, validUntil]
+        [isFastRequest, startDate, endDate, validUntil]
     );
 
     const handleSelectCurrency = useCallback((code) => {
@@ -439,6 +454,10 @@ export default function CreateProposalScreen() {
     const currencyKeyExtractor = useCallback((item) => item.code, []);
 
     const handleOpenPicker = useCallback((mode) => {
+        if (isFastRequest) {
+            return;
+        }
+
         if (openAndroidPicker(mode)) {
             return;
         }
@@ -454,7 +473,7 @@ export default function CreateProposalScreen() {
 
         setIosPickerTempDate(baseDate);
         setIosPickerMode(mode);
-    }, [openAndroidPicker, startDate, endDate, validUntil]);
+    }, [isFastRequest, openAndroidPicker, startDate, endDate, validUntil]);
 
     const iosPickerVisible = iosPickerMode !== null;
 
@@ -573,42 +592,46 @@ export default function CreateProposalScreen() {
                     ) : null}
                 </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.sectionLabel}>Fechas propuestas</Text>
-                    <TouchableOpacity
-                        style={styles.dateButton}
-                        onPress={() => handleOpenPicker('start')}
-                    >
-                        <Ionicons name="calendar-outline" size={18} style={styles.dateIcon} />
-                        <Text style={styles.dateText}>
-                            {startDate ? startDate.toLocaleString('es-AR') : 'Fecha de inicio'}
-                        </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.dateButton, !startDate && styles.dateButtonDisabled]}
-                        onPress={() => handleOpenPicker('end')}
-                        disabled={!startDate}
-                    >
-                        <Ionicons name="calendar-clear-outline" size={18} style={styles.dateIcon} />
-                        <Text style={styles.dateText}>
-                            {endDate ? endDate.toLocaleString('es-AR') : 'Fecha de fin'}
-                        </Text>
-                    </TouchableOpacity>
-                    {dateError ? <Text style={styles.errorText}>{dateError}</Text> : null}
-                </View>
+                {shouldRenderScheduling ? (
+                    <View style={styles.card}>
+                        <Text style={styles.sectionLabel}>Fechas propuestas</Text>
+                        <TouchableOpacity
+                            style={styles.dateButton}
+                            onPress={() => handleOpenPicker('start')}
+                        >
+                            <Ionicons name="calendar-outline" size={18} style={styles.dateIcon} />
+                            <Text style={styles.dateText}>
+                                {startDate ? startDate.toLocaleString('es-AR') : 'Fecha de inicio'}
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.dateButton, !startDate && styles.dateButtonDisabled]}
+                            onPress={() => handleOpenPicker('end')}
+                            disabled={!startDate}
+                        >
+                            <Ionicons name="calendar-clear-outline" size={18} style={styles.dateIcon} />
+                            <Text style={styles.dateText}>
+                                {endDate ? endDate.toLocaleString('es-AR') : 'Fecha de fin'}
+                            </Text>
+                        </TouchableOpacity>
+                        {dateError ? <Text style={styles.errorText}>{dateError}</Text> : null}
+                    </View>
+                ) : null}
 
-                <View style={styles.card}>
-                    <Text style={styles.sectionLabel}>Vigencia de la oferta</Text>
-                    <TouchableOpacity
-                        style={styles.dateButton}
-                        onPress={() => handleOpenPicker('valid')}
-                    >
-                        <Ionicons name="time-outline" size={18} style={styles.dateIcon} />
-                        <Text style={styles.dateText}>
-                            {validUntil ? validUntil.toLocaleString('es-AR') : 'Fecha límite'}
-                        </Text>
-                    </TouchableOpacity>
-                </View>
+                {shouldRenderValidity ? (
+                    <View style={styles.card}>
+                        <Text style={styles.sectionLabel}>Vigencia de la oferta</Text>
+                        <TouchableOpacity
+                            style={styles.dateButton}
+                            onPress={() => handleOpenPicker('valid')}
+                        >
+                            <Ionicons name="time-outline" size={18} style={styles.dateIcon} />
+                            <Text style={styles.dateText}>
+                                {validUntil ? validUntil.toLocaleString('es-AR') : 'Fecha límite'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
 
                 <View style={styles.card}>
                     <Text style={styles.sectionLabel}>Notas para el cliente</Text>

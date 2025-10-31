@@ -3,8 +3,8 @@ import {
     Alert,
     ActivityIndicator,
     Image,
-    FlatList,
     Modal,
+    RefreshControl,
     ScrollView,
     Text,
     TouchableOpacity,
@@ -270,19 +270,19 @@ export default function FastMatchScreen() {
         [navigation, requestId, requestTitle, serviceCreated],
     );
 
-    const renderOffer = useCallback(
-        ({ item }) => {
-            if (!item) {
+    const renderOfferCard = useCallback(
+        (offer) => {
+            if (!offer) {
                 return null;
             }
 
-            const ratingLabel = formatRatingLabel(item.provider_rating_avg);
-            const reviewsCount = Number(item.provider_total_reviews ?? 0);
+            const ratingLabel = formatRatingLabel(offer.provider_rating_avg);
+            const reviewsCount = Number(offer.provider_total_reviews ?? 0);
             const reviewsLabel = reviewsCount
                 ? `${reviewsCount} ${reviewsCount === 1 ? 'reseña' : 'reseñas'}`
                 : null;
-            const priceLabel = formatPriceLabel(item.quoted_price, item.currency);
-            const notes = item.notes?.trim();
+            const priceLabel = formatPriceLabel(offer.quoted_price, offer.currency);
+            const notes = offer.notes?.trim();
             const hasReputation = Boolean(ratingLabel || reviewsLabel);
             const reputationText = (() => {
                 if (ratingLabel) {
@@ -293,7 +293,7 @@ export default function FastMatchScreen() {
                 }
                 return 'Sin calificaciones';
             })();
-            const scheduleStart = parseIsoDate(item.proposed_start_at);
+            const scheduleStart = parseIsoDate(offer.proposed_start_at);
             const scheduleLabel = formatLongDate(scheduleStart);
             const scheduleRelative = describeDaysUntil(scheduleStart, nowMs);
             const timingLabel = scheduleLabel
@@ -312,11 +312,11 @@ export default function FastMatchScreen() {
                 >
                     <TouchableOpacity
                         activeOpacity={0.88}
-                        onPress={() => handleShowProposalDetails(item)}
+                        onPress={() => handleShowProposalDetails(offer)}
                     >
                         <View style={styles.proposalHeader}>
                             <Text style={styles.proposalProvider} numberOfLines={1}>
-                                {item.provider_display_name || 'Prestador FastServices'}
+                                {offer.provider_display_name || 'Prestador FastServices'}
                             </Text>
                             <Text style={styles.proposalPrice}>{priceLabel}</Text>
                         </View>
@@ -361,7 +361,7 @@ export default function FastMatchScreen() {
                                 isDisabled && styles.proposalPrimaryButtonDisabled,
                             ]}
                             activeOpacity={isDisabled ? 1 : 0.9}
-                            onPress={() => handleAcceptOffer(item)}
+                            onPress={() => handleAcceptOffer(offer)}
                             disabled={isDisabled}
                         >
                             <Ionicons
@@ -417,8 +417,9 @@ export default function FastMatchScreen() {
                                             {
                                                 text: 'OK',
                                                 onPress: () =>
-                                                    navigation.navigate('Requests', {
-                                                        animation: 'slide_from_left',
+                                                    navigation.navigate('Main', {
+                                                        screen: 'HomePage',
+                                                        params: { animation: 'slide_from_right' }
                                                     }),
                                             },
                                         ],
@@ -442,7 +443,7 @@ export default function FastMatchScreen() {
     };
 
     const handleSwitchToLicitacion = () => {
-        if (!requestId || remainingSeconds > 0 || isUpdating) {
+        if (!requestId || serviceCreated || remainingSeconds > 0 || isUpdating) {
             return;
         }
 
@@ -524,12 +525,7 @@ export default function FastMatchScreen() {
         };
     }, [nowMs, selectedProposal]);
 
-    const listContentStyle = useMemo(
-        () => [styles.listContent, !offers.length && styles.listContentEmpty],
-        [offers.length],
-    );
-
-    const renderEmptyComponent = useMemo(() => {
+    const offersFallback = useMemo(() => {
         if (serviceCreated) {
             return (
                 <View style={styles.emptyOffersWrapper}>
@@ -571,18 +567,42 @@ export default function FastMatchScreen() {
         );
     }, [isDetailError, isDetailFetching, isDetailLoading, serviceCreated]);
 
-    const listFooter = useMemo(
-        () => (
-            <View style={styles.listFooterHint}>
+    const offersCount = offers.length;
+
+    const offersList = useMemo(() => {
+        if (!offersCount) {
+            return offersFallback;
+        }
+
+        return offers.map((offer, index) => {
+            const key = offer?.id ? String(offer.id) : `fast-offer-${index}`;
+            const card = renderOfferCard(offer);
+            if (!card) {
+                return null;
+            }
+            return (
+                <View key={key} style={styles.offerItemWrapper}>
+                    {card}
+                </View>
+            );
+        });
+    }, [offers, offersCount, offersFallback, renderOfferCard]);
+
+    const offersFooter = useMemo(() => {
+        if (!offersCount) {
+            return null;
+        }
+
+        return (
+            <View style={styles.offersFooterHint}>
                 <Text style={styles.refreshHint}>
                     {serviceCreated
                         ? 'El servicio quedó confirmado. Guardamos esta pantalla por si necesitás revisar las ofertas.'
                         : 'Deslizá hacia abajo para actualizar las ofertas'}
                 </Text>
             </View>
-        ),
-        [serviceCreated],
-    );
+        );
+    }, [offersCount, serviceCreated]);
 
     const handleRefresh = useCallback(() => {
         if (typeof refetchDetail === 'function') {
@@ -590,170 +610,197 @@ export default function FastMatchScreen() {
         }
     }, [refetchDetail]);
 
+    const isSwitchDisabled = serviceCreated || remainingSeconds > 0 || isUpdating;
+
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons name="arrow-back" size={22} color="#111" />
-                </TouchableOpacity>
-                <View style={styles.headerTitleWrapper}>
-                    <Text style={styles.headerTitle}>FAST MATCH</Text>
-                    <Text style={styles.headerSubtitle} numberOfLines={2}>
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={(
+                    <RefreshControl
+                        refreshing={isDetailRefetching}
+                        onRefresh={handleRefresh}
+                        tintColor="#0f172a"
+                        colors={["#0f172a"]}
+                    />
+                )}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.header}>
+                    <TouchableOpacity
+                        style={styles.backButton}
+                        onPress={() => navigation.goBack()}
+                    >
+                        <Ionicons name="arrow-back" size={22} color="#111" />
+                    </TouchableOpacity>
+                    <View style={styles.headerTitleWrapper}>
+                        <Text style={styles.headerTitle}>FAST MATCH</Text>
+                        <Text style={styles.headerSubtitle} numberOfLines={2}>
+                            {requestTitle}
+                        </Text>
+                    </View>
+                </View>
+
+                <View style={styles.statusCard}>
+                    <View style={styles.statusTopRow}>
+                        <View style={styles.statusBadge}>
+                            <Ionicons
+                                name="flash-outline"
+                                size={16}
+                                color="#0369a1"
+                                style={styles.statusBadgeIcon}
+                            />
+                            <Text style={styles.statusBadgeText}>Fast Match</Text>
+                        </View>
+                        <View style={styles.countdownWrapper}>
+                            <Text
+                                style={[
+                                    styles.countdownValue,
+                                    isCountdownExpired && styles.countdownValueExpired,
+                                ]}
+                            >
+                                {formattedTime}
+                            </Text>
+                            <Text style={styles.countdownCaption}>{countdownCaption}</Text>
+                        </View>
+                    </View>
+                    <View style={styles.statusBodyRow}>
+                        <Image
+                            source={require('../../../assets/icon.png')}
+                            style={styles.brandMark}
+                            resizeMode="contain"
+                        />
+                        <View style={styles.statusHeaderCopy}>
+                            <Text style={styles.statusTitle}>{statusCopy.title}</Text>
+                            <Text style={styles.statusDescription}>{statusCopy.message}</Text>
+                        </View>
+                    </View>
+                    <Text style={styles.statusHint}>{statusCopy.hint}</Text>
+                </View>
+
+                <View style={styles.requestInfoCard}>
+                    <View style={styles.requestInfoHeader}>
+                        <Text style={styles.requestInfoTitle}>Detalle de la solicitud</Text>
+                    </View>
+                    <Text style={styles.requestName} numberOfLines={2}>
                         {requestTitle}
                     </Text>
-                </View>
-            </View>
-
-            <View style={styles.statusCard}>
-                <View style={styles.statusTopRow}>
-                    <View style={styles.statusBadge}>
-                        <Ionicons
-                            name="flash-outline"
-                            size={16}
-                            color="#0369a1"
-                            style={styles.statusBadgeIcon}
-                        />
-                        <Text style={styles.statusBadgeText}>Fast Match</Text>
-                    </View>
-                    <View style={styles.countdownWrapper}>
-                        <Text
-                            style={[
-                                styles.countdownValue,
-                                isCountdownExpired && styles.countdownValueExpired,
-                            ]}
+                    <Text style={styles.requestInfoDescription}>{requestDescription}</Text>
+                    {requestAddress ? (
+                        <View style={styles.requestInfoMetaRow}>
+                            <Ionicons
+                                name="location-outline"
+                                size={16}
+                                color="#0369a1"
+                                style={styles.requestInfoMetaIcon}
+                            />
+                            <Text style={styles.requestInfoMetaText}>{requestAddress}</Text>
+                        </View>
+                    ) : null}
+                    {requestAttachments.length ? (
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.attachmentsScroll}
                         >
-                            {formattedTime}
+                            {requestAttachments.map((attachment, index) => {
+                                const imageUri = attachment.thumbnail_url || attachment.public_url;
+                                if (!imageUri) {
+                                    return null;
+                                }
+
+                                return (
+                                    <Image
+                                        key={`${attachment.s3_key || imageUri || index}`}
+                                        source={{ uri: imageUri }}
+                                        style={styles.attachmentImage}
+                                    />
+                                );
+                            })}
+                        </ScrollView>
+                    ) : null}
+                </View>
+
+                {serviceCreated ? (
+                    <View style={styles.serviceConfirmedBanner}>
+                        <Ionicons name="shield-checkmark" size={18} color="#0f766e" style={styles.serviceConfirmedIcon} />
+                        <Text style={styles.serviceConfirmedText}>
+                            Ya confirmaste este servicio. Podés revisar las ofertas restantes si lo necesitás.
                         </Text>
-                        <Text style={styles.countdownCaption}>{countdownCaption}</Text>
-                    </View>
-                </View>
-                <View style={styles.statusBodyRow}>
-                    <Image
-                        source={require('../../../assets/icon.png')}
-                        style={styles.brandMark}
-                        resizeMode="contain"
-                    />
-                    <View style={styles.statusHeaderCopy}>
-                        <Text style={styles.statusTitle}>{statusCopy.title}</Text>
-                        <Text style={styles.statusDescription}>{statusCopy.message}</Text>
-                    </View>
-                </View>
-                <Text style={styles.statusHint}>{statusCopy.hint}</Text>
-            </View>
-
-            <View style={styles.requestInfoCard}>
-                <View style={styles.requestInfoHeader}>
-                    <Text style={styles.requestInfoTitle}>Detalle de la solicitud</Text>
-                </View>
-                <Text style={styles.requestName} numberOfLines={2}>
-                    {requestTitle}
-                </Text>
-                <Text style={styles.requestInfoDescription}>{requestDescription}</Text>
-                {requestAddress ? (
-                    <View style={styles.requestInfoMetaRow}>
-                        <Ionicons
-                            name="location-outline"
-                            size={16}
-                            color="#0369a1"
-                            style={styles.requestInfoMetaIcon}
-                        />
-                        <Text style={styles.requestInfoMetaText}>{requestAddress}</Text>
                     </View>
                 ) : null}
-                {requestAttachments.length ? (
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.attachmentsScroll}
-                    >
-                        {requestAttachments.map((attachment, index) => {
-                            const imageUri = attachment.thumbnail_url || attachment.public_url;
-                            if (!imageUri) {
-                                return null;
-                            }
 
-                            return (
-                                <Image
-                                    key={`${attachment.s3_key || imageUri || index}`}
-                                    source={{ uri: imageUri }}
-                                    style={styles.attachmentImage}
-                                />
-                            );
-                        })}
-                    </ScrollView>
-                ) : null}
-            </View>
-
-            {serviceCreated ? (
-                <View style={styles.serviceConfirmedBanner}>
-                    <Ionicons name="shield-checkmark" size={18} color="#0f766e" style={styles.serviceConfirmedIcon} />
-                    <Text style={styles.serviceConfirmedText}>
-                        Ya confirmaste este servicio. Podés revisar las ofertas restantes si lo necesitás.
-                    </Text>
+                <View style={styles.offersSection}>
+                    <View style={styles.offersHeaderRow}>
+                        <View style={styles.offersHeaderCopy}>
+                            <Text style={styles.offersTitle}>Ofertas recibidas</Text>
+                            <Text style={styles.offersSubtitle}>
+                                Elegí y confirmá al instante mientras el FAST está activo.
+                            </Text>
+                        </View>
+                        <View style={styles.offersBadge}>
+                            <Ionicons name="sparkles-outline" size={16} color="#0369a1" />
+                            <Text style={styles.offersBadgeText}>{offersCount}</Text>
+                        </View>
+                    </View>
+                    <View style={styles.offersList}>{offersList}</View>
                 </View>
-            ) : null}
 
-            <FlatList
-                data={offers}
-                keyExtractor={(item, index) => (item?.id ? String(item.id) : `fast-offer-${index}`)}
-                renderItem={renderOffer}
-                contentContainerStyle={listContentStyle}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={renderEmptyComponent}
-                ListFooterComponent={offers.length ? listFooter : null}
-                refreshing={isDetailRefetching}
-                onRefresh={handleRefresh}
-            />
-            <View style={styles.footerWrapper}>
-                <TouchableOpacity
-                    style={[styles.cancelButton, isUpdating && styles.buttonDisabled]}
-                    activeOpacity={isUpdating ? 1 : 0.9}
-                    onPress={handleCancelRequest}
-                    disabled={isUpdating}
-                >
-                    <Text
-                        style={[styles.cancelButtonText, isUpdating && styles.cancelButtonTextDisabled]}
+                {offersFooter}
+
+                <View style={styles.footerWrapper}>
+                    <TouchableOpacity
+                        style={[styles.cancelButton, isUpdating && styles.buttonDisabled]}
+                        activeOpacity={isUpdating ? 1 : 0.9}
+                        onPress={handleCancelRequest}
+                        disabled={isUpdating}
                     >
-                        Cancelar solicitud
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[
-                        styles.switchButton,
-                        (remainingSeconds > 0 || isUpdating) && styles.switchButtonDisabled,
-                        (remainingSeconds > 0 || isUpdating) && styles.buttonDisabled,
-                    ]}
-                    activeOpacity={remainingSeconds > 0 || isUpdating ? 1 : 0.9}
-                    disabled={remainingSeconds > 0 || isUpdating}
-                    onPress={handleSwitchToLicitacion}
-                >
-                    <Text
+                        <Text
+                            style={[styles.cancelButtonText, isUpdating && styles.cancelButtonTextDisabled]}
+                        >
+                            Cancelar solicitud
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
                         style={[
-                            styles.switchButtonText,
-                            (remainingSeconds > 0 || isUpdating) && styles.switchButtonTextDisabled,
+                            styles.switchButton,
+                            isSwitchDisabled && styles.switchButtonDisabled,
+                            isSwitchDisabled && styles.buttonDisabled,
                         ]}
+                        activeOpacity={isSwitchDisabled ? 1 : 0.9}
+                        disabled={isSwitchDisabled}
+                        onPress={handleSwitchToLicitacion}
                     >
-                        Pasar a licitación
-                    </Text>
-                    {remainingSeconds > 0 ? (
-                        <Text style={styles.switchHelperText}>
-                            Disponible cuando termine la búsqueda rápida
-                        </Text>
-                    ) : (
                         <Text
                             style={[
-                                styles.switchHelperText,
-                                !isUpdating && styles.switchHelperTextReady,
+                                styles.switchButtonText,
+                                isSwitchDisabled && styles.switchButtonTextDisabled,
                             ]}
                         >
-                            Ahora podés ampliar la licitación
+                            Pasar a licitación
                         </Text>
-                    )}
-                </TouchableOpacity>
-            </View>
+                        {serviceCreated ? (
+                            <Text style={styles.switchHelperText}>
+                                El servicio FAST ya está confirmado
+                            </Text>
+                        ) : remainingSeconds > 0 ? (
+                            <Text style={styles.switchHelperText}>
+                                Disponible cuando termine la búsqueda rápida
+                            </Text>
+                        ) : (
+                            <Text
+                                style={[
+                                    styles.switchHelperText,
+                                    !isUpdating && styles.switchHelperTextReady,
+                                ]}
+                            >
+                                Ahora podés ampliar la licitación
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
 
             <Modal
                 visible={isProposalModalVisible}
