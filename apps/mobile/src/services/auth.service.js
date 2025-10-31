@@ -77,8 +77,8 @@ export async function logout() {
         }
 
         // Limpiar tokens localmente
-    userService.invalidateUserCache?.();
-    await tokenStore.clear();
+        userService.invalidateUserCache?.();
+        await tokenStore.clear();
         console.log('✅ Sesión cerrada exitosamente');
     } catch (error) {
         console.error('❌ Error en logout:', error);
