@@ -1,8 +1,9 @@
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, case
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select, case, or_, and_
+from sqlalchemy.orm import selectinload, aliased
 from fastapi import HTTPException, status
 from models.User import User, UserRole
 from models.ProviderProfile import (
@@ -14,6 +15,8 @@ from models.ProviderProfile import (
     ProviderProfileResponse,
     ProviderLicenseResponse,
     ProviderLicenseCreate,
+    ProviderProposalResponse,
+    ProviderProposalCreate,
 )
 from models.Tag import ProviderLicenseTag, ProviderLicenseTagResponse, TagResponse
 from models.ServiceRequest import (
@@ -22,9 +25,11 @@ from models.ServiceRequest import (
     ServiceRequestProposal,
     Service,
     ServiceRequestType,
+    ProposalStatus,
+    Currency,
 )
 from models.Tag import ServiceRequestTag
-from models.ServiceRequestSchemas import ServiceRequestResponse
+from models.ServiceRequestSchemas import ServiceRequestResponse, CurrencyResponse
 from controllers.service_request_controller import ServiceRequestController
 from auth.auth_utils import get_password_hash
 from utils.error_handler import error_handler
@@ -34,6 +39,18 @@ from controllers.llm_controller import LLMController
 logger = logging.getLogger(__name__)
 
 llm_controller = LLMController()
+
+
+def _normalize_to_utc_naive(value: Optional[datetime]) -> Optional[datetime]:
+    """Devuelve un datetime naive en UTC para almacenar o comparar."""
+
+    if value is None:
+        return None
+
+    if value.tzinfo is None:
+        return value
+
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 class ProviderController:
@@ -361,11 +378,20 @@ class ProviderController:
         if not tag_ids:
             return []
 
+        provider_proposal_alias = aliased(ServiceRequestProposal)
+
         stmt = (
             select(ServiceRequest)
             .join(
                 ServiceRequestTag,
                 ServiceRequestTag.request_id == ServiceRequest.id,
+            )
+            .outerjoin(
+                provider_proposal_alias,
+                and_(
+                    provider_proposal_alias.request_id == ServiceRequest.id,
+                    provider_proposal_alias.provider_profile_id == profile.id,
+                ),
             )
             .options(
                 selectinload(ServiceRequest.images),
@@ -389,6 +415,7 @@ class ProviderController:
             .where(
                 ServiceRequest.status == ServiceRequestStatus.PUBLISHED,
                 ServiceRequestTag.tag_id.in_(tag_ids),
+                provider_proposal_alias.id.is_(None),
             )
             .order_by(
                 case(
@@ -410,6 +437,244 @@ class ProviderController:
         return [
             ServiceRequestController._build_response(request) for request in requests
         ]
+
+    @staticmethod
+    @error_handler(logger)
+    async def list_provider_proposals(
+        db: AsyncSession, user_id: int
+    ) -> List[ProviderProposalResponse]:
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proveedor no encontrado",
+            )
+
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            profile = await ProviderController._ensure_provider_profile(db, user_id)
+
+        recent_threshold = datetime.utcnow() - timedelta(hours=24)
+
+        stmt = (
+            select(ServiceRequestProposal)
+            .options(
+                selectinload(ServiceRequestProposal.request).selectinload(
+                    ServiceRequest.client
+                ),
+                selectinload(ServiceRequestProposal.request).selectinload(
+                    ServiceRequest.address
+                ),
+                selectinload(ServiceRequestProposal.request).selectinload(
+                    ServiceRequest.images
+                ),
+            )
+            .where(ServiceRequestProposal.provider_profile_id == profile.id)
+            .where(
+                or_(
+                    ServiceRequestProposal.status == ProposalStatus.PENDING,
+                    and_(
+                        ServiceRequestProposal.status == ProposalStatus.REJECTED,
+                        ServiceRequestProposal.created_at >= recent_threshold,
+                    ),
+                )
+            )
+            .order_by(
+                case(
+                    (ServiceRequestProposal.status == ProposalStatus.PENDING, 0),
+                    else_=1,
+                ),
+                ServiceRequestProposal.created_at.desc(),
+            )
+        )
+
+        result = await db.execute(stmt)
+        proposals = list(result.scalars().all())
+
+        return [
+            ProviderController._map_proposal_to_provider_response(proposal)
+            for proposal in proposals
+        ]
+
+    @staticmethod
+    @error_handler(logger)
+    async def list_currencies(db: AsyncSession) -> List[CurrencyResponse]:
+        result = await db.execute(
+            select(Currency).order_by(Currency.name, Currency.code)
+        )
+        currencies = result.scalars().all()
+
+        return [
+            CurrencyResponse.model_validate(currency, from_attributes=True)
+            for currency in currencies
+        ]
+
+    @staticmethod
+    @error_handler(logger)
+    async def create_provider_proposal(
+        db: AsyncSession, user_id: int, payload: ProviderProposalCreate
+    ) -> ProviderProposalResponse:
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proveedor no encontrado",
+            )
+
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            profile = await ProviderController._ensure_provider_profile(db, user_id)
+
+        currency_code = payload.currency.upper()
+        currency_stmt = select(Currency.code).where(Currency.code == currency_code)
+        currency_exists = await db.execute(currency_stmt)
+        if currency_exists.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La moneda indicada no está soportada",
+            )
+
+        request_stmt = (
+            select(ServiceRequest)
+            .options(
+                selectinload(ServiceRequest.proposals),
+                selectinload(ServiceRequest.service),
+                selectinload(ServiceRequest.client),
+            )
+            .where(ServiceRequest.id == payload.request_id)
+        )
+        request_result = await db.execute(request_stmt)
+        service_request = request_result.scalar_one_or_none()
+
+        if not service_request:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="La solicitud indicada no existe",
+            )
+
+        if service_request.status != ServiceRequestStatus.PUBLISHED:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="La solicitud no está disponible para presupuestar",
+            )
+
+        if getattr(service_request, "service", None) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="La solicitud ya tiene un servicio confirmado",
+            )
+
+        if service_request.client_id == user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No podés presupuestar tu propia solicitud",
+            )
+
+        existing_versions = [
+            proposal.version
+            for proposal in getattr(service_request, "proposals", []) or []
+            if proposal.provider_profile_id == profile.id
+        ]
+
+        has_active_proposal = any(
+            proposal.status in {ProposalStatus.PENDING, ProposalStatus.ACCEPTED}
+            for proposal in getattr(service_request, "proposals", []) or []
+            if proposal.provider_profile_id == profile.id
+        )
+
+        if has_active_proposal:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ya tenés un presupuesto activo para esta solicitud",
+            )
+
+        next_version = max(existing_versions) + 1 if existing_versions else 1
+
+        normalized_start = _normalize_to_utc_naive(payload.proposed_start_at)
+        normalized_end = _normalize_to_utc_naive(payload.proposed_end_at)
+        normalized_valid_until = _normalize_to_utc_naive(payload.valid_until)
+
+        if (
+            normalized_valid_until is not None
+            and normalized_valid_until <= datetime.utcnow()
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La fecha de vigencia debe ser futura",
+            )
+
+        new_proposal = ServiceRequestProposal(
+            request_id=service_request.id,
+            provider_profile_id=profile.id,
+            version=next_version,
+            quoted_price=payload.quoted_price,
+            currency=currency_code,
+            proposed_start_at=normalized_start,
+            proposed_end_at=normalized_end,
+            valid_until=normalized_valid_until,
+            notes=payload.notes,
+        )
+
+        db.add(new_proposal)
+        await db.commit()
+
+        proposal_stmt = (
+            select(ServiceRequestProposal)
+            .options(
+                selectinload(ServiceRequestProposal.request).selectinload(
+                    ServiceRequest.client
+                ),
+                selectinload(ServiceRequestProposal.request),
+            )
+            .where(ServiceRequestProposal.id == new_proposal.id)
+        )
+        refreshed_result = await db.execute(proposal_stmt)
+        persisted = refreshed_result.scalar_one()
+
+        return ProviderController._map_proposal_to_provider_response(persisted)
+
+    @staticmethod
+    def _map_proposal_to_provider_response(
+        proposal: ServiceRequestProposal,
+    ) -> ProviderProposalResponse:
+        request = getattr(proposal, "request", None)
+        client_name = None
+        if request and getattr(request, "client", None):
+            first = (request.client.first_name or "").strip()
+            last = (request.client.last_name or "").strip()
+            client_name = (
+                " ".join(part for part in [first, last] if part).strip() or None
+            )
+
+        attachments = []
+        if request is not None:
+            attachments = ServiceRequestController._serialize_attachments(request)
+
+        return ProviderProposalResponse(
+            id=proposal.id,
+            request_id=proposal.request_id,
+            provider_profile_id=proposal.provider_profile_id,
+            version=proposal.version,
+            status=proposal.status,
+            quoted_price=proposal.quoted_price,
+            currency=proposal.currency,
+            notes=proposal.notes,
+            valid_until=proposal.valid_until,
+            created_at=proposal.created_at,
+            updated_at=proposal.updated_at,
+            request_title=getattr(request, "title", None),
+            request_type=getattr(request, "request_type", None),
+            request_status=getattr(request, "status", None),
+            request_city=getattr(request, "city_snapshot", None),
+            request_description=getattr(request, "description", None),
+            request_created_at=getattr(request, "created_at", None),
+            request_attachments=attachments,
+            preferred_start_at=getattr(request, "preferred_start_at", None),
+            preferred_end_at=getattr(request, "preferred_end_at", None),
+            client_name=client_name,
+        )
 
 
 provider_controller = ProviderController()

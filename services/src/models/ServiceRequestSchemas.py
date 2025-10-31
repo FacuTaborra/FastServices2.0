@@ -19,6 +19,15 @@ from models.Tag import ServiceRequestTagResponse
 MAX_ATTACHMENTS = 6
 
 
+class CurrencyResponse(BaseModel):
+    """Moneda disponible para cotizaciones."""
+
+    code: str
+    name: str
+
+    model_config = dict(from_attributes=True)
+
+
 class ServiceRequestAttachment(BaseModel):
     """Archivo adjunto (imagen) asociado a una solicitud."""
 

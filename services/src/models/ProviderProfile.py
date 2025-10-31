@@ -17,10 +17,12 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
 from database.database import Base
 from .Tag import ProviderLicenseTagResponse
+from .ServiceRequest import ServiceRequestType, ServiceRequestStatus, ProposalStatus
+from .ServiceRequestSchemas import ServiceRequestImageResponse
 
 
 class ProviderProfile(Base):
@@ -289,3 +291,71 @@ class ProviderResponse(BaseModel):
 
     # Datos del perfil
     provider_profile: ProviderProfileResponse
+
+
+class ProviderProposalCreate(BaseModel):
+    """Payload para registrar un nuevo presupuesto."""
+
+    request_id: int = Field(..., gt=0)
+    quoted_price: Decimal = Field(..., gt=0)
+    currency: str = Field("ARS", min_length=3, max_length=3)
+    proposed_start_at: Optional[datetime] = None
+    proposed_end_at: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if len(normalized) != 3 or not normalized.isascii():
+            raise ValueError(
+                "El código de moneda debe tener 3 caracteres alfanuméricos"
+            )
+        return normalized
+
+    @field_validator("notes", mode="before")
+    @classmethod
+    def clean_notes(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+    @model_validator(mode="after")
+    def validate_temporal_ranges(self) -> "ProviderProposalCreate":
+        if self.proposed_start_at and self.proposed_end_at:
+            if self.proposed_end_at < self.proposed_start_at:
+                raise ValueError(
+                    "La fecha de fin propuesta no puede ser anterior al inicio"
+                )
+        return self
+
+
+class ProviderProposalResponse(BaseModel):
+    """Resumen de propuestas/presupuestos enviados por el proveedor."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    request_id: int
+    provider_profile_id: int
+    version: int
+    status: ProposalStatus
+    quoted_price: Decimal
+    currency: str
+    notes: Optional[str]
+    valid_until: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+
+    request_title: Optional[str] = None
+    request_type: Optional[ServiceRequestType] = None
+    request_status: Optional[ServiceRequestStatus] = None
+    request_city: Optional[str] = None
+    request_description: Optional[str] = None
+    request_created_at: Optional[datetime] = None
+    request_attachments: List[ServiceRequestImageResponse] = Field(default_factory=list)
+    preferred_start_at: Optional[datetime] = None
+    preferred_end_at: Optional[datetime] = None
+    client_name: Optional[str] = None

@@ -7,9 +7,11 @@ from models.ProviderProfile import (
     ProviderProfileUpdate,
     ProviderLicenseResponse,
     ProviderLicenseBulkCreate,
+    ProviderProposalResponse,
+    ProviderProposalCreate,
 )
 from models.User import UserRole
-from models.ServiceRequestSchemas import ServiceRequestResponse
+from models.ServiceRequestSchemas import ServiceRequestResponse, CurrencyResponse
 from controllers.provider_controller import ProviderController
 from auth.auth_utils import get_current_user
 
@@ -114,6 +116,25 @@ async def add_provider_licenses(
 
 
 @router.get(
+    "/currencies",
+    response_model=list[CurrencyResponse],
+    summary="Listar monedas disponibles",
+    description="Devuelve el catálogo de monedas que se pueden utilizar al generar un presupuesto",
+)
+async def list_currencies(
+    current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    return await ProviderController.list_currencies(db)
+
+
+@router.get(
     "/{provider_id}",
     response_model=ProviderResponse,
     summary="Obtener perfil público de proveedor",
@@ -149,3 +170,50 @@ async def list_matching_service_requests(
         )
 
     return await ProviderController.list_matching_service_requests(db, current_user.id)
+
+
+@router.get(
+    "/me/proposals",
+    response_model=list[ProviderProposalResponse],
+    summary="Listar presupuestos del proveedor",
+    description=(
+        "Devuelve los presupuestos generados por el proveedor. "
+        "Incluye todos los presupuestos en estado pending y los rechazados de las últimas 24 horas, "
+        "ordenados priorizando los pendientes más recientes."
+    ),
+)
+async def list_provider_proposals(
+    current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    return await ProviderController.list_provider_proposals(db, current_user.id)
+
+
+@router.post(
+    "/me/proposals",
+    response_model=ProviderProposalResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Crear un presupuesto",
+    description="Crea una propuesta para una solicitud específica",
+)
+async def create_provider_proposal(
+    payload: ProviderProposalCreate,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    return await ProviderController.create_provider_proposal(
+        db, current_user.id, payload
+    )

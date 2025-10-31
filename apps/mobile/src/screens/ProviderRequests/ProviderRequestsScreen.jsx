@@ -12,26 +12,32 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import NewRequestCard from '../../components/ProviderRequestCards/NewRequestCard';
-import ChatRequestCard from '../../components/ProviderRequestCards/ChatRequestCard';
+import ProviderProposalCard from '../../components/ProviderRequestCards/ProviderProposalCard';
 import Spinner from '../../components/Spinner/Spinner';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import styles from './ProviderRequestsScreen.styles';
-import mockData from '../../data/providerRequests';
-import { getMatchingServiceRequests } from '../../services/providers.service';
+import { getMatchingServiceRequests, getProviderProposals } from '../../services/providers.service';
+import { useAuth } from '../../hooks/useAuth';
 
 const brandIcon = require('../../../assets/icon.png');
 
 const TAB_CONFIG = {
   nuevas: {
     label: 'Nuevas',
-    dataKey: null,
     emptyMessage: 'Sin solicitudes nuevas por ahora',
   },
   presupuestos: {
     label: 'Presupuestos',
-    dataKey: 'chats',
     emptyMessage: 'Aún no tenés presupuestos activos',
   },
+};
+
+const PROPOSAL_STATUS_LABELS = {
+  pending: 'Pendiente',
+  accepted: 'Aceptado',
+  rejected: 'Rechazado',
+  withdrawn: 'Retirado',
+  expired: 'Expirado',
 };
 
 const DEFAULT_ADDRESS_LABEL = 'Ubicación a coordinar';
@@ -53,7 +59,7 @@ function formatDateTimeLabel(value) {
   return `${day}/${month}/${year} ${hours}:${minutes} hs`;
 }
 
-function formatCurrencyValue(value) {
+function formatCurrencyValue(value, currencyCode) {
   if (value === null || value === undefined) {
     return null;
   }
@@ -62,12 +68,14 @@ function formatCurrencyValue(value) {
     return null;
   }
   try {
-    return numeric.toLocaleString('es-AR', {
+    const formatted = numeric.toLocaleString('es-AR', {
       minimumFractionDigits: numeric % 1 === 0 ? 0 : 2,
       maximumFractionDigits: numeric % 1 === 0 ? 0 : 2,
     });
+    return currencyCode ? `${currencyCode} ${formatted}` : formatted;
   } catch (error) {
-    return `${numeric.toFixed(0)}`;
+    const fallback = `${numeric.toFixed(0)}`;
+    return currencyCode ? `${currencyCode} ${fallback}` : fallback;
   }
 }
 
@@ -105,6 +113,21 @@ function extractBudgetValue(proposals) {
   return Math.min(...numericValues);
 }
 
+function buildProposalSummary(request) {
+  if (!request) {
+    return null;
+  }
+
+  return {
+    id: request.id ?? null,
+    title: request.title ?? 'Solicitud sin título',
+    address: request.city_snapshot ?? DEFAULT_ADDRESS_LABEL,
+    request_type: request.request_type ?? null,
+    preferred_start_at: request.preferred_start_at ?? null,
+    preferred_end_at: request.preferred_end_at ?? null,
+  };
+}
+
 function mapServiceRequestToCard(request) {
   if (!request || request.id === undefined || request.id === null) {
     return null;
@@ -121,102 +144,159 @@ function mapServiceRequestToCard(request) {
     address: request.city_snapshot || DEFAULT_ADDRESS_LABEL,
     budget: budgetValue !== null ? formatCurrencyValue(budgetValue) : null,
     fast: request.request_type === 'FAST',
+    preferred_start_at: request.preferred_start_at,
+    preferred_end_at: request.preferred_end_at,
+    rawRequest: request,
+    proposalSummary: buildProposalSummary(request),
   };
 }
 
 export default function ProviderRequestsScreen() {
   const navigation = useNavigation();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('nuevas');
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [filterModal, setFilterModal] = useState(false);
   const [matchingRequests, setMatchingRequests] = useState([]);
+  const [proposals, setProposals] = useState([]);
+  const [loadingMatching, setLoadingMatching] = useState(false);
+  const [loadingProposals, setLoadingProposals] = useState(false);
 
-  const loadMatchingRequests = useCallback(
-    async ({ useRefreshIndicator = false } = {}) => {
-      if (useRefreshIndicator) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
+  const providerProfileId = user?.provider_profile?.id ?? null;
 
-      try {
-        const response = await getMatchingServiceRequests();
-        const normalized = Array.isArray(response)
-          ? response
-            .map((request) => mapServiceRequestToCard(request))
-            .filter((item) => item !== null)
-          : [];
-        setMatchingRequests(normalized);
-      } catch (error) {
-        console.error('❌ Error sincronizando solicitudes del proveedor:', error.message || error);
-      } finally {
-        if (useRefreshIndicator) {
-          setRefreshing(false);
-        } else {
-          setLoading(false);
+  const loadMatchingRequests = useCallback(async () => {
+    setLoadingMatching(true);
+
+    try {
+      const response = await getMatchingServiceRequests();
+      const normalized = Array.isArray(response)
+        ? response
+          .map((request) => mapServiceRequestToCard(request))
+          .filter((item) => item !== null)
+        : [];
+      const filtered = normalized.filter((item) => {
+        if (!providerProfileId) {
+          return true;
         }
-      }
-    },
-    [],
-  );
+        const proposalsForRequest = item.rawRequest?.proposals;
+        if (!Array.isArray(proposalsForRequest)) {
+          return true;
+        }
+        return !proposalsForRequest.some(
+          (proposal) => proposal?.provider_profile_id === providerProfileId,
+        );
+      });
+      setMatchingRequests(filtered);
+    } catch (error) {
+      console.error('❌ Error sincronizando solicitudes del proveedor:', error.message || error);
+    } finally {
+      setLoadingMatching(false);
+    }
+  }, [providerProfileId]);
+
+  const loadProposals = useCallback(async () => {
+    setLoadingProposals(true);
+
+    try {
+      const response = await getProviderProposals();
+      const normalized = Array.isArray(response)
+        ? response
+          .map((proposal) => mapProposalToCard(proposal))
+          .filter((item) => item !== null)
+        : [];
+      setProposals(normalized);
+    } catch (error) {
+      console.error('❌ Error obteniendo presupuestos del proveedor:', error.message || error);
+    } finally {
+      setLoadingProposals(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadMatchingRequests();
-  }, [loadMatchingRequests]);
+    loadProposals();
+  }, [loadMatchingRequests, loadProposals]);
 
-  const handleRefresh = useCallback(() => {
-    loadMatchingRequests({ useRefreshIndicator: true });
-  }, [loadMatchingRequests]);
+  useEffect(() => {
+    if (activeTab === 'presupuestos' && proposals.length === 0 && !loadingProposals) {
+      loadProposals();
+    }
+  }, [activeTab, proposals.length, loadingProposals, loadProposals]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadMatchingRequests(), loadProposals()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadMatchingRequests, loadProposals]);
 
   const filteredRequests = useMemo(() => {
-    const tabSettings = TAB_CONFIG[activeTab] ?? TAB_CONFIG.nuevas;
     const query = search.trim().toLowerCase();
 
-    const source =
-      activeTab === 'nuevas'
-        ? matchingRequests
-        : mockData[tabSettings.dataKey] ?? [];
+    const source = activeTab === 'nuevas' ? matchingRequests : proposals;
 
     if (!query) {
       return source;
     }
 
     return source.filter((item) => {
-      const fields = [item.title, item.address, item.client];
+      const fields = activeTab === 'nuevas'
+        ? [item.title, item.address]
+        : [item.title, item.address, item.clientName, item.statusLabel];
       return fields.some(
         (field) => typeof field === 'string' && field.toLowerCase().includes(query),
       );
     });
-  }, [activeTab, search, matchingRequests]);
+  }, [activeTab, search, matchingRequests, proposals]);
 
   const renderItem = ({ item }) => {
     if (activeTab === 'nuevas') {
+      const rawRequest = item.rawRequest;
+      const proposalSummary = item.proposalSummary;
+
       return (
         <NewRequestCard
           item={item}
           onPress={() =>
-            navigation.navigate('RequestDetail', {
-              requestId: item.id,
-              showButton: false,
+            navigation.navigate('ProviderRequestDetail', {
+              request: rawRequest,
+              requestId: rawRequest?.id ?? item.id,
             })
           }
-          onAccept={() => { }}
+          onAccept={() => navigation.navigate('CreateProposal', {
+            requestSummary: proposalSummary || {
+              id: item.id,
+              title: item.title,
+              address: item.address,
+              request_type: item.fast ? 'FAST' : 'LICITACION',
+              preferred_start_at: item.preferred_start_at,
+              preferred_end_at: item.preferred_end_at,
+            },
+          })}
           onReject={() => { }}
         />
       );
     }
     return (
-      <ChatRequestCard
+      <ProviderProposalCard
         item={item}
-        onPress={() => navigation.navigate('Chat', { isProvider: true, request: item })}
-        detail={() => navigation.navigate('RequestDetail', { requestId: item.id, showButton: false })}
+        onPress={() => {
+          navigation.navigate('ProviderRequestDetail', {
+            requestId: item.requestId,
+            proposal: item.rawProposal,
+            requestPreview: item.requestPreview,
+          });
+        }}
       />
     );
   };
 
+
+  const loading = loadingMatching || loadingProposals;
 
   if (loading) {
     return <Spinner />;
@@ -330,4 +410,55 @@ export default function ProviderRequestsScreen() {
       </View>
     </SafeAreaView>
   );
+}
+
+function mapProposalToCard(proposal) {
+  if (!proposal || proposal.id === undefined || proposal.id === null) {
+    return null;
+  }
+
+  const normalizedStatus = typeof proposal.status === 'string'
+    ? proposal.status.toLowerCase()
+    : null;
+
+  const statusLabel = normalizedStatus
+    ? PROPOSAL_STATUS_LABELS[normalizedStatus] || proposal.status
+    : 'Sin estado';
+
+  const createdLabel = formatDateTimeLabel(proposal.created_at) || DEFAULT_DATE_LABEL;
+  const validUntilLabel = proposal.valid_until
+    ? formatDateTimeLabel(proposal.valid_until)
+    : null;
+
+  const requestPreview = {
+    id: proposal.request_id ?? null,
+    title: proposal.request_title ?? 'Solicitud sin título',
+    request_type: proposal.request_type ?? null,
+    status: proposal.request_status ?? null,
+    city_snapshot: proposal.request_city ?? DEFAULT_ADDRESS_LABEL,
+    description: proposal.request_description ?? null,
+    preferred_start_at: proposal.preferred_start_at ?? null,
+    preferred_end_at: proposal.preferred_end_at ?? null,
+    created_at: proposal.request_created_at ?? proposal.created_at ?? null,
+    client_snapshot: proposal.client_name ?? null,
+    attachments: Array.isArray(proposal.request_attachments)
+      ? proposal.request_attachments
+      : [],
+  };
+
+  return {
+    id: String(proposal.id),
+    requestId: proposal.request_id ?? null,
+    title: buildTitleFromRequest(proposal.request_title, proposal.request_description),
+    address: proposal.request_city || DEFAULT_ADDRESS_LABEL,
+    status: normalizedStatus,
+    statusLabel,
+    createdAt: createdLabel,
+    validUntil: validUntilLabel,
+    amountLabel: formatCurrencyValue(proposal.quoted_price, proposal.currency || 'ARS'),
+    rawProposal: proposal,
+    requestType: proposal.request_type,
+    clientName: proposal.client_name || 'Cliente',
+    requestPreview,
+  };
 }

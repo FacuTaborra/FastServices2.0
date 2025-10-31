@@ -13,6 +13,8 @@ import ProviderLicensesScreen from '../screens/ProviderLicenses/ProviderLicenses
 import RequestDetailScreen from '../screens/RequestDetail/RequestDetailScreen';
 import RequestsScreen from '../screens/Requests/RequestsScreen';
 import ProviderRequestsScreen from '../screens/ProviderRequests/ProviderRequestsScreen';
+import ProviderRequestDetailScreen from '../screens/ProviderRequests/ProviderRequestDetailScreen';
+import CreateProposalScreen from '../screens/CreateProposal/CreateProposalScreen';
 import ProviderProfileScreen from '../screens/ProviderProfile/ProviderProfileScreen';
 import MyRequestsScreen from '../screens/MyRequests/MyRequestsScreen';
 import Footer from '../components/ClientFooter/ClientFooter';
@@ -95,6 +97,16 @@ export default function AppNavigator() {
         />
         <Stack.Screen name="MyRequests" component={MainTabs} />
         <Stack.Screen name="RequestDetail" component={RequestDetailScreen} />
+        <Stack.Screen
+          name="CreateProposal"
+          component={CreateProposalScreen}
+          options={{ presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="ProviderRequestDetail"
+          component={ProviderRequestDetailScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
         <Stack.Screen
           name="Requests"
           component={RequestsScreen}
