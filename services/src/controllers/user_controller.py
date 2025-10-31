@@ -12,6 +12,7 @@ from auth.auth_utils import (
     create_access_token,
     get_password_hash,
     verify_password,
+    decode_token,
 )
 from settings import JWT_EXPIRE_MINUTES
 from utils.error_handler import error_handler
@@ -21,7 +22,10 @@ logger = logging.getLogger(__name__)
 
 class UserController:
     def __init__(self):
-        self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+        self.oauth2_scheme = OAuth2PasswordBearer(
+            tokenUrl="/api/auth/login",
+            auto_error=False,
+        )
 
     @error_handler(
         {
@@ -249,6 +253,29 @@ class UserController:
         )
 
         return updated_user
+
+    async def logout(self, token: Optional[str]) -> None:
+        """Registra la salida de sesión; la invalidación se completa en el cliente."""
+
+        if not token:
+            logger.info("Logout solicitado sin token adjunto; se omite validación")
+            return
+
+        try:
+            payload = decode_token(token)
+        except HTTPException as exc:
+            logger.warning(
+                "Intento de logout con token inválido o expirado: %s",
+                exc.detail,
+            )
+            return
+        except Exception:
+            logger.exception("Error inesperado validando token durante logout")
+            return
+
+        subject = payload.get("sub")
+        uid = payload.get("uid")
+        logger.info("Sesión finalizada para usuario %s (uid=%s)", subject, uid)
 
 
 user_controller = UserController()

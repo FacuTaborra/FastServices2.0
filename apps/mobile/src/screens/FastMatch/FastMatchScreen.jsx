@@ -457,8 +457,9 @@ export default function FastMatchScreen() {
                             {
                                 text: 'OK',
                                 onPress: () =>
-                                    navigation.navigate('Requests', {
-                                        animation: 'slide_from_left',
+                                    navigation.navigate('Main', {
+                                        screen: 'HomePage',
+                                        params: { animation: 'slide_from_right' }
                                     }),
                             },
                         ],

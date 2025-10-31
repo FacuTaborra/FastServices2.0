@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from controllers.user_controller import user_controller
@@ -23,3 +25,16 @@ async def login_endpoint(
         email=login_data.email,
         password=login_data.password,
     )
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Cerrar sesión",
+    description="Finaliza la sesión activa del usuario",
+)
+async def logout_endpoint(
+    token: Optional[str] = Depends(user_controller.oauth2_scheme),
+) -> Response:
+    await user_controller.logout(token)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

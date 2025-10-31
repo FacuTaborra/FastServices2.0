@@ -31,6 +31,8 @@ export async function login(email, password) {
             tokenData.token_type || 'Bearer',
         );
 
+        userService.invalidateUserCache?.();
+
         try {
             await tokenStore.setUserType(normalizedRole);
         } catch (storeError) {
@@ -75,7 +77,8 @@ export async function logout() {
         }
 
         // Limpiar tokens localmente
-        await tokenStore.clear();
+    userService.invalidateUserCache?.();
+    await tokenStore.clear();
         console.log('✅ Sesión cerrada exitosamente');
     } catch (error) {
         console.error('❌ Error en logout:', error);
