@@ -11,7 +11,6 @@ import Login from '../screens/Login/Login';
 import Register from '../screens/Register/Register';
 import ProviderLicensesScreen from '../screens/ProviderLicenses/ProviderLicensesScreen';
 import RequestDetailScreen from '../screens/RequestDetail/RequestDetailScreen';
-import RequestsScreen from '../screens/Requests/RequestsScreen';
 import ProviderRequestsScreen from '../screens/ProviderRequests/ProviderRequestsScreen';
 import ProviderRequestDetailScreen from '../screens/ProviderRequests/ProviderRequestDetailScreen';
 import CreateProposalScreen from '../screens/CreateProposal/CreateProposalScreen';
@@ -114,13 +113,6 @@ export default function AppNavigator() {
           name="ProviderRequestDetail"
           component={ProviderRequestDetailScreen}
           options={{ animation: 'slide_from_right' }}
-        />
-        <Stack.Screen
-          name="Requests"
-          component={RequestsScreen}
-          options={({ route }) => ({
-            animation: route?.params?.animation ?? 'slide_from_right',
-          })}
         />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Payment" component={PaymentScreen} />
