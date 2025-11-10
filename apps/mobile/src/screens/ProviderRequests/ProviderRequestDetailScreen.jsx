@@ -15,35 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import styles from './ProviderRequestDetailScreen.styles';
 import { PALETTE } from '../HomePage/HomePage.styles';
 import { useServiceRequest } from '../../hooks/useServiceRequests';
-import RequestSummaryCard from './components/RequestSummaryCard';
 
 const DEFAULT_ADDRESS_LABEL = 'Ubicación a coordinar';
-const DEFAULT_DATETIME_LABEL = 'Fecha a coordinar';
-
-function formatDateTime(value) {
-    if (!value) {
-        return DEFAULT_DATETIME_LABEL;
-    }
-
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-        return DEFAULT_DATETIME_LABEL;
-    }
-
-    try {
-        return parsed.toLocaleString('es-AR', {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-        });
-    } catch (error) {
-        const day = `${parsed.getDate()}`.padStart(2, '0');
-        const month = `${parsed.getMonth() + 1}`.padStart(2, '0');
-        const year = parsed.getFullYear();
-        const hours = `${parsed.getHours()}`.padStart(2, '0');
-        const minutes = `${parsed.getMinutes()}`.padStart(2, '0');
-        return `${day}/${month}/${year} ${hours}:${minutes} hs`;
-    }
-}
 
 function resolveAttachmentUri(attachment) {
     if (!attachment) {
@@ -59,57 +32,6 @@ function resolveAttachmentUri(attachment) {
         null
     );
 }
-
-function formatCurrencyValue(value, currencyCode = 'ARS') {
-    if (value === null || value === undefined) {
-        return null;
-    }
-
-    const numeric = Number(value);
-    if (Number.isNaN(numeric)) {
-        return null;
-    }
-
-    try {
-        return new Intl.NumberFormat('es-AR', {
-            style: 'currency',
-            currency: currencyCode,
-            minimumFractionDigits: numeric % 1 === 0 ? 0 : 2,
-            maximumFractionDigits: numeric % 1 === 0 ? 0 : 2,
-        }).format(numeric);
-    } catch (error) {
-        const fallback = numeric.toLocaleString('es-AR', {
-            minimumFractionDigits: numeric % 1 === 0 ? 0 : 2,
-            maximumFractionDigits: numeric % 1 === 0 ? 0 : 2,
-        });
-        return `${currencyCode} ${fallback}`;
-    }
-}
-
-const STATUS_LABELS = {
-    PUBLISHED: 'Publicada',
-    MATCHED: 'Asignada',
-    IN_PROGRESS: 'En progreso',
-    COMPLETED: 'Completada',
-    CANCELED: 'Cancelada',
-    CANCELLED: 'Cancelada',
-    PENDING: 'Pendiente',
-};
-
-const TYPE_LABELS = {
-    FAST: 'FAST ⚡',
-    FAST_MATCH: 'FAST ⚡',
-    LICITACION: 'Licitación ⏰',
-    BUDGET: 'Licitación ⏰',
-};
-
-const PROPOSAL_STATUS_LABELS = {
-    pending: 'Pendiente',
-    accepted: 'Aceptado',
-    rejected: 'Rechazado',
-    withdrawn: 'Retirado',
-    expired: 'Expirado',
-};
 
 export default function ProviderRequestDetailScreen() {
     const navigation = useNavigation();
@@ -151,21 +73,15 @@ export default function ProviderRequestDetailScreen() {
         [resolvedRequest],
     );
 
-    const normalizedRequestType = typeof resolvedRequest?.request_type === 'string'
-        ? resolvedRequest.request_type.toUpperCase()
-        : null;
+    const cityLabel = useMemo(() => {
+        if (typeof resolvedRequest?.city_snapshot !== 'string') {
+            return DEFAULT_ADDRESS_LABEL;
+        }
 
-    const isFastRequest = normalizedRequestType === 'FAST' || normalizedRequestType === 'FAST_MATCH';
-
-    const preferredStartLabel = isFastRequest
-        ? 'El servicio comienza cuando el cliente acepta tu presupuesto.'
-        : formatDateTime(resolvedRequest?.preferred_start_at);
-    const preferredEndLabel = formatDateTime(resolvedRequest?.preferred_end_at);
-    const publishedAtLabel = formatDateTime(resolvedRequest?.created_at);
-
-    const addressLabel = resolvedRequest?.city_snapshot || DEFAULT_ADDRESS_LABEL;
-    const statusLabel = STATUS_LABELS[resolvedRequest?.status] || resolvedRequest?.status || 'Sin estado';
-    const typeLabel = TYPE_LABELS[normalizedRequestType] || 'Solicitud';
+        const [firstSegment] = resolvedRequest.city_snapshot.split(',');
+        const normalized = firstSegment ? firstSegment.trim() : null;
+        return normalized || DEFAULT_ADDRESS_LABEL;
+    }, [resolvedRequest]);
 
     const proposalSummary = useMemo(() => {
         if (!resolvedRequest) {
@@ -182,55 +98,28 @@ export default function ProviderRequestDetailScreen() {
         };
     }, [resolvedRequest]);
 
-    const summaryDetails = useMemo(() => {
-        if (!resolvedRequest) {
-            return [];
-        }
-
-        return [
-            {
-                icon: 'location-outline',
-                label: 'Ubicación',
-                value: addressLabel,
-            },
-            {
-                icon: 'calendar-outline',
-                label: 'Disponibilidad',
-                value: preferredStartLabel,
-                hint: !isFastRequest ? `Fin estimado: ${preferredEndLabel}` : null,
-            },
-        ];
-    }, [resolvedRequest, addressLabel, preferredStartLabel, preferredEndLabel, isFastRequest]);
-
-    const proposalDetails = useMemo(() => {
-        if (!proposalParam) {
-            return null;
-        }
-
-        const normalizedStatus = typeof proposalParam.status === 'string'
-            ? proposalParam.status.toLowerCase()
+    const isRequestConfirmed = useMemo(() => {
+        const status = typeof resolvedRequest?.status === 'string'
+            ? resolvedRequest.status.toUpperCase()
             : null;
 
-        const statusLabelForProposal = normalizedStatus
-            ? PROPOSAL_STATUS_LABELS[normalizedStatus] || proposalParam.status
-            : 'Sin estado';
+        if (!status) {
+            return false;
+        }
 
-        return {
-            status: normalizedStatus,
-            statusLabel: statusLabelForProposal,
-            amountLabel: formatCurrencyValue(proposalParam.quoted_price, proposalParam.currency || 'ARS'),
-            createdAtLabel: formatDateTime(proposalParam.created_at),
-            validUntilLabel: proposalParam.valid_until ? formatDateTime(proposalParam.valid_until) : null,
-            notes: proposalParam.notes,
-        };
-    }, [proposalParam]);
+        return status === 'MATCHED'
+            || status === 'IN_PROGRESS'
+            || status === 'COMPLETED'
+            || status === 'CANCELED'
+            || status === 'CANCELLED';
+    }, [resolvedRequest]);
 
     const handleGoBack = () => {
         navigation.goBack();
     };
 
     const handleCreateProposal = () => {
-        if (!proposalSummary || proposalParam) {
+        if (!proposalSummary || proposalParam || isRequestConfirmed) {
             return;
         }
 
@@ -281,7 +170,7 @@ export default function ProviderRequestDetailScreen() {
                         <Ionicons name="chevron-back" size={22} color={PALETTE.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle} numberOfLines={1}>
-                        {proposalParam ? 'Detalle de presupuesto' : 'Detalle de solicitud'}
+                        {proposalParam ? 'Detalle de presupuesto' : 'Detalle de la solicitud'}
                     </Text>
                     <View style={styles.headerButtonPlaceholder} />
                 </View>
@@ -291,64 +180,15 @@ export default function ProviderRequestDetailScreen() {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    <RequestSummaryCard
-                        typeLabel={typeLabel}
-                        typeIcon={isFastRequest ? 'flash' : 'hammer'}
-                        title={resolvedRequest.title ?? 'Solicitud sin título'}
-                        metaLabel={`Creada: ${publishedAtLabel}`}
-                        statusLabel={statusLabel}
-                        details={summaryDetails}
-                    />
-
-                    {proposalDetails ? (
-                        <View style={styles.section}>
-                            <View style={styles.sectionHeaderRow}>
-                                <Text style={styles.sectionTitle}>Tu presupuesto</Text>
-                                <View
-                                    style={[
-                                        styles.proposalStatusBadge,
-                                        proposalDetails.status === 'accepted' && styles.proposalStatusBadgeAccepted,
-                                        proposalDetails.status === 'pending' && styles.proposalStatusBadgePending,
-                                        proposalDetails.status === 'rejected' && styles.proposalStatusBadgeRejected,
-                                        (proposalDetails.status === 'withdrawn' || proposalDetails.status === 'expired') && styles.proposalStatusBadgeMuted,
-                                    ]}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.proposalStatusText,
-                                            proposalDetails.status === 'accepted' && styles.proposalStatusTextAccepted,
-                                            proposalDetails.status === 'pending' && styles.proposalStatusTextPending,
-                                            proposalDetails.status === 'rejected' && styles.proposalStatusTextRejected,
-                                            (proposalDetails.status === 'withdrawn' || proposalDetails.status === 'expired') && styles.proposalStatusTextMuted,
-                                        ]}
-                                    >
-                                        {proposalDetails.statusLabel}
-                                    </Text>
-                                </View>
-                            </View>
-
-                            <Text style={styles.proposalAmount}>
-                                {proposalDetails.amountLabel || 'Sin monto declarado'}
-                            </Text>
-
-                            <Text style={styles.proposalMetaLabel}>
-                                Enviada: {proposalDetails.createdAtLabel}
-                            </Text>
-
-                            {proposalDetails.validUntilLabel ? (
-                                <Text style={styles.proposalMetaLabel}>
-                                    Válida hasta: {proposalDetails.validUntilLabel}
-                                </Text>
-                            ) : null}
-
-                            {proposalDetails.notes ? (
-                                <View style={styles.proposalNotesBlock}>
-                                    <Text style={styles.proposalNotesTitle}>Notas</Text>
-                                    <Text style={styles.proposalNotesText}>{proposalDetails.notes}</Text>
-                                </View>
-                            ) : null}
+                    <View style={styles.section}>
+                        <Text style={styles.requestTitle}>
+                            {resolvedRequest.title ?? 'Solicitud sin título'}
+                        </Text>
+                        <View style={styles.requestLocationRow}>
+                            <Ionicons name="location-outline" size={18} color={PALETTE.textSecondary} style={styles.requestLocationIcon} />
+                            <Text style={styles.requestLocationLabel}>{cityLabel}</Text>
                         </View>
-                    ) : null}
+                    </View>
 
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Descripción</Text>
@@ -417,12 +257,12 @@ export default function ProviderRequestDetailScreen() {
                     ) : null}
                 </ScrollView>
 
-                {!proposalParam ? (
+                {!proposalParam && !isRequestConfirmed ? (
                     <View style={styles.footer}>
                         <TouchableOpacity
-                            style={[styles.ctaButton, !proposalSummary && styles.ctaButtonDisabled]}
+                            style={[styles.ctaButton, (!proposalSummary || isRequestConfirmed) && styles.ctaButtonDisabled]}
                             onPress={handleCreateProposal}
-                            disabled={!proposalSummary}
+                            disabled={!proposalSummary || isRequestConfirmed}
                         >
                             <Ionicons name="document-text" size={18} color={PALETTE.white} style={styles.ctaIcon} />
                             <Text style={styles.ctaText}>Crear presupuesto</Text>

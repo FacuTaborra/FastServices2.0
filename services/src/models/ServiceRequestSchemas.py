@@ -164,6 +164,14 @@ class ServiceSummaryResponse(BaseModel):
     address_snapshot: Optional[Dict[str, Any]]
     provider_profile_id: Optional[int]
     provider_display_name: Optional[str]
+    status_history: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Historial de cambios de estado del servicio",
+    )
+    client_review: Optional["ServiceReviewResponse"] = Field(
+        default=None,
+        description="Calificación registrada por el cliente para este servicio",
+    )
     created_at: datetime
     updated_at: datetime
 
@@ -186,6 +194,13 @@ class ServiceRequestResponse(BaseModel):
     city_snapshot: Optional[str]
     lat_snapshot: Optional[Decimal]
     lon_snapshot: Optional[Decimal]
+    address: Optional[str] = Field(
+        default=None, description="Dirección asociada a la solicitud en formato legible"
+    )
+    address_details: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Snapshot completo de la dirección asociada (si está disponible)",
+    )
     tags: List[ServiceRequestTagResponse] = Field(default_factory=list)
     attachments: List[ServiceRequestImageResponse] = Field(default_factory=list)
     proposal_count: int = Field(0, ge=0)
@@ -225,6 +240,38 @@ class ServiceRequestConfirmPayment(BaseModel):
         max_length=120,
         description="Referencia opcional del comprobante de pago",
     )
+
+
+class ServiceReviewCreate(BaseModel):
+    """Payload para registrar una calificación sobre un servicio."""
+
+    rating: int = Field(
+        ..., ge=1, le=5, description="Valor de 1 a 5 otorgado al servicio"
+    )
+    comment: Optional[str] = Field(
+        default=None,
+        max_length=600,
+        description="Comentario opcional dirigido al prestador",
+    )
+
+    @field_validator("comment", mode="before")
+    @classmethod
+    def normalize_comment(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = " ".join(value.split())
+        return cleaned or None
+
+
+class ServiceReviewResponse(BaseModel):
+    """Respuesta detallada para una calificación."""
+
+    id: int
+    rating: int
+    comment: Optional[str]
+    created_at: datetime
+
+    model_config = dict(from_attributes=True)
 
 
 class ServiceCancelRequest(BaseModel):

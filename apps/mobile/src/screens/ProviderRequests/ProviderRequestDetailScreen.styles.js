@@ -57,6 +57,23 @@ export default StyleSheet.create({
         shadowRadius: 10,
         elevation: 2,
     },
+    requestTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: PALETTE.textPrimary,
+        marginBottom: 12,
+    },
+    requestLocationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    requestLocationIcon: {
+        marginRight: 8,
+    },
+    requestLocationLabel: {
+        fontSize: 15,
+        color: PALETTE.textSecondary,
+    },
     sectionHeaderRow: {
         flexDirection: 'row',
         alignItems: 'center',

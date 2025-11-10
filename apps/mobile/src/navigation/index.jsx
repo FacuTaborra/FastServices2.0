@@ -29,6 +29,7 @@ import ProviderFooter from '../components/ProviderFooter/ProviderFooter';
 import FastMatchScreen from '../screens/FastMatch/FastMatchScreen';
 import LicitacionScreen from '../screens/Licitacion/LicitacionScreen';
 import ServiceDetailScreen from '../screens/ServiceDetail/ServiceDetailScreen';
+import ProviderServiceDetailScreen from '../screens/MyServicesProvider/ServiceDetail/ProviderServiceDetailScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -65,7 +66,14 @@ function MainTabs() {
 export default function AppNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: false, headerTitleAlign: 'center', animation: 'slide_from_right' }}>
+      <Stack.Navigator
+        initialRouteName="Splash"
+        screenOptions={{
+          headerShown: false,
+          headerTitleAlign: 'center',
+          animation: 'slide_from_right',
+        }}
+      >
 
         <Stack.Screen name="Splash" component={SplashScreen} options={{ animation: 'fade' }} />
         <Stack.Screen name="Login" component={Login} options={({ route }) => ({
@@ -117,9 +125,18 @@ export default function AppNavigator() {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Payment" component={PaymentScreen} />
         <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
-        <Stack.Screen name="FastMatch" component={FastMatchScreen} />
-        <Stack.Screen name="Licitacion" component={LicitacionScreen} />
+        <Stack.Screen
+          name="FastMatch"
+          component={FastMatchScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="Licitacion"
+          component={LicitacionScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
         <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
+        <Stack.Screen name="ProviderServiceDetail" component={ProviderServiceDetailScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

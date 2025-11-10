@@ -16,6 +16,8 @@ from models.ServiceRequestSchemas import (
     ServiceSummaryResponse,
     ServiceRequestUpdate,
     ServiceCancelRequest,
+    ServiceReviewCreate,
+    ServiceReviewResponse,
 )
 from models.User import User
 from services.service_request_service import ServiceRequestService
@@ -146,6 +148,35 @@ class ServiceRequestController:
         return ServiceRequestController._build_response(updated_request)
 
     @staticmethod
+    async def mark_service_on_route(
+        db: AsyncSession,
+        current_user: User,
+        request_id: int,
+    ) -> ServiceRequestResponse:
+        updated_request = await ServiceRequestService.mark_service_on_route(
+            db,
+            client_id=current_user.id,
+            request_id=request_id,
+        )
+        return ServiceRequestController._build_response(updated_request)
+
+    @staticmethod
+    @error_handler(logger)
+    async def submit_service_review(
+        db: AsyncSession,
+        current_user: User,
+        request_id: int,
+        payload: ServiceReviewCreate,
+    ) -> ServiceRequestResponse:
+        updated_request = await ServiceRequestService.submit_service_review(
+            db,
+            client_id=current_user.id,
+            request_id=request_id,
+            payload=payload,
+        )
+        return ServiceRequestController._build_response(updated_request)
+
+    @staticmethod
     def _build_response(service_request: ServiceRequest) -> ServiceRequestResponse:
         attachments = ServiceRequestController._serialize_attachments(service_request)
         tag_links = sorted(
@@ -162,6 +193,46 @@ class ServiceRequestController:
             service_request
         )
 
+        address_details: dict | None = None
+        address_label: str | None = None
+        if service_request.address is not None:
+            address_obj = service_request.address
+            address_details = {
+                "id": address_obj.id,
+                "title": address_obj.title,
+                "street": address_obj.street,
+                "city": address_obj.city,
+                "state": address_obj.state,
+                "postal_code": address_obj.postal_code,
+                "country": address_obj.country,
+                "additional_info": address_obj.additional_info,
+                "latitude": float(address_obj.latitude)
+                if address_obj.latitude is not None
+                else None,
+                "longitude": float(address_obj.longitude)
+                if address_obj.longitude is not None
+                else None,
+            }
+
+            parts = [address_obj.street, address_obj.city, address_obj.state]
+            if address_obj.postal_code:
+                parts.append(address_obj.postal_code)
+            if address_obj.country and address_obj.country.lower() not in {""}:
+                parts.append(address_obj.country)
+            address_label = (
+                ", ".join(
+                    segment.strip()
+                    for segment in parts
+                    if isinstance(segment, str) and segment.strip()
+                )
+                or None
+            )
+
+            if not address_label and service_request.city_snapshot:
+                address_label = service_request.city_snapshot
+        elif service_request.city_snapshot:
+            address_label = service_request.city_snapshot
+
         return ServiceRequestResponse(
             id=service_request.id,
             client_id=service_request.client_id,
@@ -176,6 +247,8 @@ class ServiceRequestController:
             city_snapshot=service_request.city_snapshot,
             lat_snapshot=service_request.lat_snapshot,
             lon_snapshot=service_request.lon_snapshot,
+            address=address_label,
+            address_details=address_details,
             tags=tags,
             attachments=attachments,
             proposal_count=len(proposals),
@@ -261,6 +334,33 @@ class ServiceRequestController:
         if service.proposal is not None:
             currency = service.proposal.currency
 
+        history_items = sorted(
+            list(service.status_history or []),
+            key=lambda item: (item.changed_at or item.id or 0),
+        )
+        history_payload = [
+            {
+                "id": history.id,
+                "service_id": history.service_id,
+                "from_status": history.from_status,
+                "to_status": history.to_status,
+                "changed_at": history.changed_at,
+                "changed_by": history.changed_by,
+            }
+            for history in history_items
+        ]
+
+        client_review_payload: ServiceReviewResponse | None = None
+        for review in list(getattr(service, "reviews", []) or []):
+            if review.rater_user_id == service_request.client_id:
+                client_review_payload = ServiceReviewResponse(
+                    id=review.id,
+                    rating=review.rating,
+                    comment=review.comment,
+                    created_at=review.created_at,
+                )
+                break
+
         return ServiceSummaryResponse(
             id=service.id,
             status=service.status,
@@ -272,6 +372,8 @@ class ServiceRequestController:
             address_snapshot=service.address_snapshot,
             provider_profile_id=service.provider_profile_id,
             provider_display_name=provider_name,
+            status_history=history_payload,
+            client_review=client_review_payload,
             created_at=service.created_at,
             updated_at=service.updated_at,
         )

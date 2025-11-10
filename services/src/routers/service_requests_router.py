@@ -16,6 +16,7 @@ from models.ServiceRequestSchemas import (
     ServiceRequestCreate,
     ServiceRequestResponse,
     ServiceRequestUpdate,
+    ServiceReviewCreate,
 )
 from models.User import User
 
@@ -165,4 +166,41 @@ async def mark_service_in_progress_endpoint(
         db,
         current_user,
         request_id,
+    )
+
+
+@router.post(
+    "/{request_id}/service/mark-on-route",
+    response_model=ServiceRequestResponse,
+    summary="Marcar un servicio como en camino",
+)
+async def mark_service_on_route_endpoint(
+    request_id: int,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceRequestResponse:
+    return await ServiceRequestController.mark_service_on_route(
+        db,
+        current_user,
+        request_id,
+    )
+
+
+@router.post(
+    "/{request_id}/service/review",
+    response_model=ServiceRequestResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar la calificación del servicio",
+)
+async def submit_service_review_endpoint(
+    request_id: int,
+    payload: ServiceReviewCreate,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceRequestResponse:
+    return await ServiceRequestController.submit_service_review(
+        db,
+        current_user,
+        request_id,
+        payload,
     )

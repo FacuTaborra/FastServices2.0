@@ -8,14 +8,35 @@ import {
     useServiceRequest,
     useCancelService,
     useMarkServiceInProgress,
+    useSubmitServiceReview,
 } from '../../hooks/useServiceRequests';
+import RatingModal from '../../components/RatingModal/RatingModal';
 
 const STATUS_BADGE_MAP = {
     CONFIRMED: { label: 'Confirmado', styleKey: 'confirmed' },
+    ON_ROUTE: { label: 'En camino', styleKey: 'onRoute' },
     IN_PROGRESS: { label: 'En progreso', styleKey: 'inProgress' },
     COMPLETED: { label: 'Completado', styleKey: 'completed' },
     CANCELED: { label: 'Cancelado', styleKey: 'canceled' },
 };
+
+const STATUS_DESCRIPTIONS = {
+    CONFIRMED: 'Servicio confirmado con el prestador. Podés coordinar cualquier detalle pendiente.',
+    ON_ROUTE: 'El prestador está en camino hacia tu domicilio.',
+    IN_PROGRESS: 'El servicio está en ejecución.',
+    COMPLETED: 'El servicio finalizó. Recordá calificar al prestador.',
+    CANCELED: 'El servicio fue cancelado. Si necesitás asistencia contanos desde Ayuda y soporte.',
+};
+
+const TIMELINE_COLORS = {
+    done: '#0f766e',
+    active: '#2563eb',
+    pending: '#cbd5f5',
+    canceled: '#ef4444',
+    review: '#f59e0b',
+};
+
+const BASE_STATUS_FLOW = ['CONFIRMED', 'ON_ROUTE', 'IN_PROGRESS', 'COMPLETED'];
 
 const resolveStatusBadge = (status) => STATUS_BADGE_MAP[status] || { label: status, styleKey: 'default' };
 
@@ -95,21 +116,152 @@ const shouldAutoMarkInProgress = (service) => {
     return start <= now;
 };
 
+const buildTimelineEntries = (service, pendingReview = null) => {
+    if (!service) {
+        return [];
+    }
+
+    const historyItems = Array.isArray(service.status_history) ? [...service.status_history] : [];
+    const historyByStatus = new Map();
+    historyItems.forEach((item) => {
+        const status = item?.to_status;
+        if (!status) {
+            return;
+        }
+        const timestamp = item?.changed_at ? new Date(item.changed_at).getTime() : null;
+        const existing = historyByStatus.get(status);
+        if (!existing || (timestamp !== null && timestamp < existing.timestamp)) {
+            historyByStatus.set(status, {
+                timestamp,
+                changed_at: item.changed_at,
+            });
+        }
+    });
+
+    const finalStatus = typeof service.status === 'string'
+        ? service.status
+        : String(service.status || '');
+
+    const flow = [...BASE_STATUS_FLOW];
+    if (finalStatus === 'CANCELED') {
+        flow.push('CANCELED');
+    }
+    if (finalStatus && !flow.includes(finalStatus)) {
+        flow.push(finalStatus);
+    }
+
+    const uniqueFlow = flow.filter((status, index, array) => array.indexOf(status) === index);
+    const currentIndex = Math.max(uniqueFlow.indexOf(finalStatus), 0);
+
+    const entries = uniqueFlow.map((status, index) => {
+        const record = historyByStatus.get(status);
+        let timestampLabel = null;
+        if (record?.changed_at) {
+            timestampLabel = formatDateTime(record.changed_at);
+        } else if (status === 'CONFIRMED') {
+            timestampLabel = formatDateTime(service.created_at);
+        } else if (status === finalStatus) {
+            timestampLabel = formatDateTime(service.updated_at);
+        }
+
+        const badge = resolveStatusBadge(status);
+        const description = STATUS_DESCRIPTIONS[status] || null;
+
+        let paletteKey;
+        if (status === 'CANCELED') {
+            paletteKey = 'canceled';
+        } else if (status === 'COMPLETED') {
+            paletteKey = 'done';
+        } else if (index < currentIndex) {
+            paletteKey = 'done';
+        } else if (status === finalStatus) {
+            paletteKey = 'active';
+        } else {
+            paletteKey = 'pending';
+        }
+
+        const paletteColor = TIMELINE_COLORS[paletteKey] || TIMELINE_COLORS.pending;
+        const connectorColor = paletteKey === 'pending'
+            ? '#dbeafe'
+            : paletteColor;
+
+        return {
+            key: `timeline-${status}-${index}`,
+            status,
+            label: badge.label,
+            timestamp: timestampLabel,
+            description,
+            paletteColor,
+            connectorColor,
+            isFirst: index === 0,
+            isLast: index === uniqueFlow.length - 1,
+            isActive: status === finalStatus,
+            isDone: (index < currentIndex || status === 'COMPLETED') && status !== 'CANCELED',
+        };
+    });
+    const review = service.client_review || pendingReview;
+    if (review) {
+        const lastIndex = entries.length - 1;
+        if (lastIndex >= 0) {
+            entries[lastIndex] = {
+                ...entries[lastIndex],
+                isLast: false,
+            };
+        }
+
+        const ratingLabel = review.rating === 1
+            ? '1 estrella'
+            : `${review.rating} estrellas`;
+        const descriptionParts = [`Calificaste al prestador con ${ratingLabel}.`];
+        if (review.comment) {
+            descriptionParts.push(`Comentario: "${review.comment}".`);
+        }
+
+        entries.push({
+            key: 'timeline-review',
+            status: 'REVIEW',
+            label: 'Servicio calificado',
+            timestamp: formatDateTime(review.created_at),
+            description: descriptionParts.join(' '),
+            paletteColor: TIMELINE_COLORS.review,
+            connectorColor: TIMELINE_COLORS.review,
+            isFirst: entries.length === 0,
+            isLast: true,
+            isActive: false,
+            isDone: true,
+        });
+    }
+
+    return entries.map((entry, index) => ({
+        ...entry,
+        isFirst: index === 0,
+        isLast: index === entries.length - 1,
+    }));
+};
+
 const ServiceDetailScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
-    const { requestId } = route.params ?? {};
+    const { requestId, autoOpenRating = false } = route.params ?? {};
 
     const [autoMarkAttempted, setAutoMarkAttempted] = useState(false);
+    const [ratingModalVisible, setRatingModalVisible] = useState(false);
+    const [ratingSubmitted, setRatingSubmitted] = useState(false);
+    const [optimisticReview, setOptimisticReview] = useState(null);
 
     const serviceRequestQuery = useServiceRequest(requestId, {
         enabled: Boolean(requestId),
     });
     const cancelServiceMutation = useCancelService();
     const markInProgressMutation = useMarkServiceInProgress();
+    const submitReviewMutation = useSubmitServiceReview();
+    const isSubmittingReview = submitReviewMutation.isPending;
+    const hasReviewMutationSucceeded = submitReviewMutation.isSuccess;
+    const { reset: resetReviewMutation } = submitReviewMutation;
 
     const requestData = serviceRequestQuery.data;
     const serviceData = requestData?.service ?? null;
+    const hasPersistedReview = Boolean(serviceData?.client_review);
 
     const providerName = useMemo(() => {
         if (!serviceData?.provider_display_name) {
@@ -128,6 +280,39 @@ const ServiceDetailScreen = () => {
     const endLabel = formatDateTime(serviceData?.scheduled_end_at);
     const addressLabel = extractAddressLabel(serviceData?.address_snapshot) || requestData?.city_snapshot;
     const priceLabel = formatCurrency(serviceData?.total_price, serviceData?.currency);
+    const timelineEntries = useMemo(
+        () => buildTimelineEntries(serviceData, optimisticReview),
+        [serviceData, optimisticReview],
+    );
+    const isServiceCompleted = serviceData?.status === 'COMPLETED';
+
+    useEffect(() => {
+        setOptimisticReview(null);
+        setRatingSubmitted(false);
+        resetReviewMutation();
+    }, [requestId, resetReviewMutation]);
+
+    useEffect(() => {
+        if (hasPersistedReview) {
+            setRatingSubmitted(true);
+            if (optimisticReview) {
+                setOptimisticReview(null);
+            }
+            return;
+        }
+        if (hasReviewMutationSucceeded) {
+            return;
+        }
+        if (!isSubmittingReview && !ratingModalVisible) {
+            setRatingSubmitted(false);
+        }
+    }, [
+        hasPersistedReview,
+        hasReviewMutationSucceeded,
+        isSubmittingReview,
+        ratingModalVisible,
+        optimisticReview,
+    ]);
 
     const cancelDisabledReason = useMemo(() => {
         if (!serviceData) {
@@ -148,6 +333,7 @@ const ServiceDetailScreen = () => {
 
     const isLoading = serviceRequestQuery.isLoading || serviceRequestQuery.isFetching;
     const isMutating = cancelServiceMutation.isPending || markInProgressMutation.isPending;
+    const showCancelButton = serviceData?.status === 'CONFIRMED';
 
     useEffect(() => {
         if (!autoMarkAttempted && shouldAutoMarkInProgress(serviceData)) {
@@ -165,6 +351,21 @@ const ServiceDetailScreen = () => {
             );
         }
     }, [autoMarkAttempted, markInProgressMutation, requestId, serviceData]);
+
+    useEffect(() => {
+        if (!autoOpenRating) {
+            return;
+        }
+        if (!serviceData) {
+            return;
+        }
+        if (!isServiceCompleted || ratingSubmitted) {
+            navigation.setParams({ autoOpenRating: false });
+            return;
+        }
+        setRatingModalVisible(true);
+        navigation.setParams({ autoOpenRating: false });
+    }, [autoOpenRating, serviceData, isServiceCompleted, ratingSubmitted, navigation]);
 
     const handleCancelService = useCallback(() => {
         if (!requestId || !serviceData) {
@@ -201,6 +402,59 @@ const ServiceDetailScreen = () => {
     const handleBack = useCallback(() => {
         navigation.goBack();
     }, [navigation]);
+
+    const handleOpenRatingModal = useCallback(() => {
+        if (ratingSubmitted || isSubmittingReview) {
+            return;
+        }
+        setRatingModalVisible(true);
+    }, [ratingSubmitted, isSubmittingReview]);
+
+    const handleCloseRatingModal = useCallback(() => {
+        if (isSubmittingReview) {
+            return;
+        }
+        setRatingModalVisible(false);
+    }, [isSubmittingReview]);
+
+    const handleSubmitRating = useCallback(
+        (ratingValue, comment) => {
+            if (!requestId) {
+                return;
+            }
+            submitReviewMutation.mutate(
+                { requestId, rating: ratingValue, comment },
+                {
+                    onSuccess: (updatedRequest) => {
+                        setRatingModalVisible(false);
+                        const persistedReview = Boolean(
+                            updatedRequest?.service?.client_review,
+                        );
+                        const fallbackReview =
+                            updatedRequest?.service?.client_review ?? {
+                                rating: ratingValue,
+                                comment,
+                                created_at: new Date().toISOString(),
+                            };
+                        setOptimisticReview(fallbackReview);
+                        setRatingSubmitted(persistedReview || ratingValue > 0);
+                        Alert.alert(
+                            'Calificación enviada',
+                            'Gracias por calificar este servicio.',
+                        );
+                    },
+                    onError: (error) => {
+                        const message =
+                            error?.response?.data?.detail ||
+                            error?.message ||
+                            'No pudimos registrar tu calificación.';
+                        Alert.alert('Error', message);
+                    },
+                },
+            );
+        },
+        [requestId, submitReviewMutation],
+    );
 
     if (!requestId) {
         return (
@@ -315,31 +569,126 @@ const ServiceDetailScreen = () => {
                             </Text>
                         </View>
                     ) : null}
+
+                    <View style={[styles.timelineCard]}>
+                        <Text style={styles.sectionTitle}>Historial del servicio</Text>
+                        <View style={styles.timelineSection}>
+                            {timelineEntries.length ? (
+                                timelineEntries.map((entry) => (
+                                    <View
+                                        key={entry.key}
+                                        style={[styles.timelineItem, entry.isLast && styles.timelineItemLast]}
+                                    >
+                                        <View style={styles.timelineMarkerWrapper}>
+                                            {!entry.isFirst ? (
+                                                <View
+                                                    style={[
+                                                        styles.timelineConnector,
+                                                        { backgroundColor: entry.connectorColor },
+                                                    ]}
+                                                />
+                                            ) : null}
+                                            <View
+                                                style={[
+                                                    styles.timelineBullet,
+                                                    {
+                                                        borderColor: entry.paletteColor,
+                                                        backgroundColor: entry.isDone ? entry.paletteColor : '#FFFFFF',
+                                                    },
+                                                ]}
+                                            >
+                                                <View
+                                                    style={[
+                                                        styles.timelineBulletInner,
+                                                        { backgroundColor: entry.paletteColor },
+                                                    ]}
+                                                />
+                                            </View>
+                                            {!entry.isLast ? (
+                                                <View
+                                                    style={[
+                                                        styles.timelineConnector,
+                                                        { backgroundColor: entry.connectorColor },
+                                                    ]}
+                                                />
+                                            ) : null}
+                                        </View>
+
+                                        <View style={styles.timelineContent}>
+                                            <Text style={styles.timelineLabel}>{entry.label}</Text>
+                                            {entry.timestamp ? (
+                                                <Text style={styles.timelineTimestamp}>{entry.timestamp}</Text>
+                                            ) : null}
+                                            {entry.description ? (
+                                                <Text style={styles.timelineDescription}>{entry.description}</Text>
+                                            ) : null}
+                                        </View>
+                                    </View>
+                                ))
+                            ) : (
+                                <Text style={styles.timelineEmptyText}>Todavía no registramos movimientos para este servicio.</Text>
+                            )}
+                        </View>
+                    </View>
                 </ScrollView>
 
                 <View style={styles.footer}>
-                    <TouchableOpacity
-                        style={[
-                            styles.cancelButton,
-                            (cancelDisabledReason || isMutating) && styles.cancelButtonDisabled,
-                        ]}
-                        onPress={handleCancelService}
-                        disabled={Boolean(cancelDisabledReason) || isMutating}
-                    >
-                        {isMutating ? (
-                            <ActivityIndicator size="small" color="#fef2f2" style={styles.buttonSpinner} />
+                    {isServiceCompleted ? (
+                        ratingSubmitted ? (
+                            <Text style={styles.ratingThankYou}>Gracias por calificar este servicio.</Text>
                         ) : (
-                            <Ionicons name="close-circle" size={20} color="#fee2e2" style={styles.buttonIcon} />
-                        )}
-                        <Text style={styles.cancelButtonText}>Cancelar servicio</Text>
-                    </TouchableOpacity>
-                    {cancelDisabledReason ? (
+                            <TouchableOpacity
+                                style={[
+                                    styles.primaryButton,
+                                    isSubmittingReview && { opacity: 0.7 },
+                                ]}
+                                onPress={handleOpenRatingModal}
+                                disabled={isSubmittingReview}
+                            >
+                                <Ionicons
+                                    name="star"
+                                    size={20}
+                                    color="#fef9c3"
+                                    style={styles.primaryButtonIcon}
+                                />
+                                <Text style={styles.primaryButtonText}>Calificar servicio</Text>
+                            </TouchableOpacity>
+                        )
+                    ) : showCancelButton ? (
+                        <>
+                            <TouchableOpacity
+                                style={[
+                                    styles.cancelButton,
+                                    (cancelDisabledReason || isMutating) && styles.cancelButtonDisabled,
+                                ]}
+                                onPress={handleCancelService}
+                                disabled={Boolean(cancelDisabledReason) || isMutating}
+                            >
+                                {isMutating ? (
+                                    <ActivityIndicator size="small" color="#fef2f2" style={styles.buttonSpinner} />
+                                ) : (
+                                    <Ionicons name="close-circle" size={20} color="#fee2e2" style={styles.buttonIcon} />
+                                )}
+                                <Text style={styles.cancelButtonText}>Cancelar servicio</Text>
+                            </TouchableOpacity>
+                            {cancelDisabledReason ? (
+                                <Text style={styles.cancelHelper}>{cancelDisabledReason}</Text>
+                            ) : null}
+                        </>
+                    ) : cancelDisabledReason ? (
                         <Text style={styles.cancelHelper}>{cancelDisabledReason}</Text>
                     ) : null}
                 </View>
+                <RatingModal
+                    visible={ratingModalVisible}
+                    onClose={handleCloseRatingModal}
+                    onSubmit={handleSubmitRating}
+                    submitting={isSubmittingReview}
+                />
             </View>
         </SafeAreaView>
     );
 };
 
 export default ServiceDetailScreen;
+

@@ -154,6 +154,26 @@ export async function markServiceInProgress(requestId) {
     }
 }
 
+export async function submitServiceReview(requestId, payload) {
+    if (!requestId) {
+        throw new Error('submitServiceReview requiere un ID de solicitud válido.');
+    }
+
+    try {
+        console.log('⭐ Enviando calificación del servicio...', { requestId });
+        const response = await api.post(
+            `/service-requests/${requestId}/service/review`,
+            payload,
+        );
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error enviando calificación del servicio:', { status, message });
+        throw error;
+    }
+}
+
 export default {
     createServiceRequest,
     getActiveServiceRequests,
@@ -164,4 +184,5 @@ export default {
     confirmPayment,
     cancelService,
     markServiceInProgress,
+    submitServiceReview,
 };

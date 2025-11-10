@@ -7,6 +7,7 @@ from typing import Iterable, Sequence, List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy import Select, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -21,6 +22,7 @@ from models.ServiceRequest import (
     ServiceRequestStatus,
     ServiceRequestType,
     ServiceStatus,
+    ServiceReview,
 )
 from models.Tag import Tag, ServiceRequestTag
 from models.ServiceRequestSchemas import (
@@ -29,6 +31,7 @@ from models.ServiceRequestSchemas import (
     ServiceRequestConfirmPayment,
     ServiceRequestCreate,
     ServiceRequestUpdate,
+    ServiceReviewCreate,
 )
 from models.User import User, UserRole
 from utils.error_handler import error_handler
@@ -316,6 +319,7 @@ class ServiceRequestService:
                     ),
                     selectinload(Service.proposal),
                     selectinload(Service.status_history),
+                    selectinload(Service.reviews),
                 ),
                 selectinload(ServiceRequest.address),
             )
@@ -353,7 +357,14 @@ class ServiceRequestService:
                         selectinload(ProviderProfile.user)
                     )
                 ),
-                selectinload(ServiceRequest.service),
+                selectinload(ServiceRequest.service).options(
+                    selectinload(Service.provider).options(
+                        selectinload(ProviderProfile.user)
+                    ),
+                    selectinload(Service.proposal),
+                    selectinload(Service.status_history),
+                    selectinload(Service.reviews),
+                ),
                 selectinload(ServiceRequest.address),
             )
             .where(
@@ -383,7 +394,14 @@ class ServiceRequestService:
                         selectinload(ProviderProfile.user)
                     )
                 ),
-                selectinload(ServiceRequest.service),
+                selectinload(ServiceRequest.service).options(
+                    selectinload(Service.provider).options(
+                        selectinload(ProviderProfile.user)
+                    ),
+                    selectinload(Service.proposal),
+                    selectinload(Service.status_history),
+                    selectinload(Service.reviews),
+                ),
                 selectinload(ServiceRequest.address),
             )
             .where(ServiceRequest.client_id == client_id)
@@ -659,10 +677,10 @@ class ServiceRequestService:
                 detail="La solicitud no tiene un servicio asociado",
             )
 
-        if service.status != ServiceStatus.CONFIRMED:
+        if service.status not in {ServiceStatus.CONFIRMED, ServiceStatus.ON_ROUTE}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Solo se pueden cancelar servicios confirmados",
+                detail="Solo se pueden cancelar servicios confirmados o en camino",
             )
 
         now = datetime.now(timezone.utc)
@@ -678,6 +696,132 @@ class ServiceRequestService:
 
         service.status = ServiceStatus.CANCELED
         service_request.status = ServiceRequestStatus.CANCELLED
+
+        await db.commit()
+
+        return await ServiceRequestService._fetch_request_with_relations(
+            db, service_request.id, client_id=client_id
+        )
+
+    @staticmethod
+    @error_handler(logger)
+    async def submit_service_review(
+        db: AsyncSession,
+        *,
+        client_id: int,
+        request_id: int,
+        payload: ServiceReviewCreate,
+    ) -> ServiceRequest:
+        service_request = await ServiceRequestService._fetch_request_with_relations(
+            db, request_id, client_id=client_id
+        )
+
+        service = service_request.service
+        if service is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="La solicitud no tiene un servicio asociado",
+            )
+
+        normalized_status = (
+            service.status.value
+            if isinstance(service.status, ServiceStatus)
+            else service.status
+        )
+        if normalized_status != ServiceStatus.COMPLETED.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Solo podés calificar servicios completados",
+            )
+
+        provider_profile = service.provider
+        if provider_profile is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="El servicio no tiene un proveedor para calificar",
+            )
+
+        existing_review = next(
+            (
+                review
+                for review in list(getattr(service, "reviews", []) or [])
+                if review.rater_user_id == client_id
+            ),
+            None,
+        )
+        if existing_review is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ya calificaste este servicio",
+            )
+
+        new_review = ServiceReview(
+            service_id=service.id,
+            rater_user_id=client_id,
+            ratee_provider_profile_id=provider_profile.id,
+            rating=payload.rating,
+            comment=payload.comment,
+        )
+        db.add(new_review)
+
+        try:
+            await db.flush()
+        except IntegrityError as exc:
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ya calificaste este servicio",
+            ) from exc
+
+        current_total = provider_profile.total_reviews or 0
+        current_avg_value = provider_profile.rating_avg
+        current_avg = (
+            Decimal(current_avg_value)
+            if current_avg_value is not None
+            else Decimal("0")
+        )
+
+        new_total = current_total + 1
+        aggregated = (current_avg * current_total) + Decimal(payload.rating)
+        provider_profile.total_reviews = new_total
+        provider_profile.rating_avg = (aggregated / Decimal(new_total)).quantize(
+            TWO_DECIMALS, rounding=ROUND_HALF_UP
+        )
+
+        await db.commit()
+
+        return await ServiceRequestService._fetch_request_with_relations(
+            db, service_request.id, client_id=client_id
+        )
+
+    @staticmethod
+    async def mark_service_on_route(
+        db: AsyncSession,
+        *,
+        client_id: int,
+        request_id: int,
+    ) -> ServiceRequest:
+        service_request = await ServiceRequestService._fetch_request_with_relations(
+            db, request_id, client_id=client_id
+        )
+
+        service = service_request.service
+        if service is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="La solicitud no tiene un servicio asociado",
+            )
+
+        if service.status not in {ServiceStatus.CONFIRMED, ServiceStatus.ON_ROUTE}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El servicio no puede marcarse como en camino",
+            )
+
+        if service.status == ServiceStatus.ON_ROUTE:
+            return service_request
+
+        service.status = ServiceStatus.ON_ROUTE
 
         await db.commit()
 
@@ -703,7 +847,11 @@ class ServiceRequestService:
                 detail="La solicitud no tiene un servicio asociado",
             )
 
-        if service.status not in {ServiceStatus.CONFIRMED, ServiceStatus.IN_PROGRESS}:
+        if service.status not in {
+            ServiceStatus.CONFIRMED,
+            ServiceStatus.ON_ROUTE,
+            ServiceStatus.IN_PROGRESS,
+        }:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El servicio no puede pasar a en ejecución",

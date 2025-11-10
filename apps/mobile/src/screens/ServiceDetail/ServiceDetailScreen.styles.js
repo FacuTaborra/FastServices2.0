@@ -80,6 +80,9 @@ const styles = StyleSheet.create({
     statusBadge_confirmed: {
         backgroundColor: '#dbeafe',
     },
+    statusBadge_onRoute: {
+        backgroundColor: '#bfdbfe',
+    },
     statusBadge_inProgress: {
         backgroundColor: '#c7d2fe',
     },
@@ -126,6 +129,12 @@ const styles = StyleSheet.create({
         color: '#64748b',
         marginTop: 4,
     },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#0f172a',
+        marginBottom: 16,
+    },
     infoBanner: {
         flexDirection: 'row',
         padding: 16,
@@ -139,12 +148,101 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#0f172a',
     },
+    timelineCard: {
+        marginTop: 24,
+        backgroundColor: '#ffffff',
+        borderRadius: 16,
+        padding: 20,
+        shadowColor: '#0f172a',
+        shadowOpacity: 0.04,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 2,
+    },
+    timelineSection: {
+        marginTop: 4,
+    },
+    timelineItem: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        paddingBottom: 24,
+    },
+    timelineItemLast: {
+        paddingBottom: 0,
+    },
+    timelineMarkerWrapper: {
+        width: 28,
+        alignItems: 'center',
+        alignSelf: 'stretch',
+    },
+    timelineConnector: {
+        width: 2,
+        flex: 1,
+        borderRadius: 1,
+        backgroundColor: '#dbeafe',
+    },
+    timelineBullet: {
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        borderWidth: 2,
+        borderColor: '#cbd5f5',
+        backgroundColor: '#FFFFFF',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    timelineBulletInner: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#2563eb',
+    },
+    timelineContent: {
+        flex: 1,
+        marginLeft: 16,
+    },
+    timelineLabel: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#0f172a',
+    },
+    timelineTimestamp: {
+        marginTop: 4,
+        fontSize: 12,
+        color: '#64748b',
+    },
+    timelineDescription: {
+        marginTop: 8,
+        fontSize: 13,
+        lineHeight: 20,
+        color: '#1f2937',
+    },
+    timelineEmptyText: {
+        fontSize: 13,
+        color: '#64748b',
+    },
     footer: {
         paddingHorizontal: 20,
         paddingVertical: 16,
         borderTopWidth: 1,
         borderTopColor: '#e2e8f0',
         backgroundColor: '#ffffff',
+    },
+    primaryButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        borderRadius: 999,
+        backgroundColor: '#2563eb',
+    },
+    primaryButtonIcon: {
+        marginRight: 8,
+    },
+    primaryButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#f8fafc',
     },
     cancelButton: {
         flexDirection: 'row',
@@ -166,6 +264,11 @@ const styles = StyleSheet.create({
         marginTop: 8,
         fontSize: 13,
         color: '#64748b',
+        textAlign: 'center',
+    },
+    ratingThankYou: {
+        fontSize: 14,
+        color: '#0f172a',
         textAlign: 'center',
     },
     centerContent: {

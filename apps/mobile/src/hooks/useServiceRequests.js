@@ -157,6 +157,28 @@ export function useMarkServiceInProgress() {
     });
 }
 
+export function useSubmitServiceReview() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ requestId, rating, comment }) =>
+            serviceRequestService.submitServiceReview(requestId, {
+                rating,
+                comment,
+            }),
+        onSuccess: (updatedRequest) => {
+            if (updatedRequest?.id) {
+                queryClient.setQueryData(
+                    serviceRequestKeys.detail(updatedRequest.id),
+                    updatedRequest,
+                );
+            }
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.history });
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.active });
+        },
+    });
+}
+
 export default {
     useCreateServiceRequest,
     useActiveServiceRequests,
@@ -167,4 +189,5 @@ export default {
     useConfirmServicePayment,
     useCancelService,
     useMarkServiceInProgress,
+    useSubmitServiceReview,
 };

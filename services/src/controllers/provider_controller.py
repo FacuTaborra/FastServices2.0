@@ -29,11 +29,16 @@ from models.ServiceRequest import (
     Service,
     ServiceRequestType,
     ServiceStatus,
+    ServiceStatusHistory,
     ProposalStatus,
     Currency,
 )
 from models.Tag import ServiceRequestTag
-from models.ServiceRequestSchemas import ServiceRequestResponse, CurrencyResponse
+from models.ServiceRequestSchemas import (
+    ServiceRequestResponse,
+    CurrencyResponse,
+    ServiceReviewResponse,
+)
 from controllers.service_request_controller import ServiceRequestController
 from auth.auth_utils import get_password_hash
 from utils.error_handler import error_handler
@@ -466,11 +471,13 @@ class ProviderController:
                 selectinload(Service.request),
                 selectinload(Service.proposal),
                 selectinload(Service.status_history),
+                selectinload(Service.reviews),
                 selectinload(Service.client),
             )
             .where(Service.provider_profile_id == profile.id)
             .order_by(
                 case((Service.status == ServiceStatus.IN_PROGRESS, 0), else_=1),
+                case((Service.status == ServiceStatus.ON_ROUTE, 0), else_=1),
                 case((Service.status == ServiceStatus.CONFIRMED, 0), else_=1),
                 case((Service.status == ServiceStatus.COMPLETED, 0), else_=1),
                 Service.scheduled_start_at.asc(),
@@ -485,6 +492,250 @@ class ProviderController:
             ProviderController._map_service_to_provider_response(service)
             for service in services
         ]
+
+    @staticmethod
+    @error_handler(logger)
+    async def mark_service_on_route(
+        db: AsyncSession, user_id: int, service_id: int
+    ) -> ProviderServiceResponse:
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proveedor no encontrado",
+            )
+
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            profile = await ProviderController._ensure_provider_profile(db, user_id)
+
+        stmt = (
+            select(Service)
+            .options(
+                selectinload(Service.request).selectinload(ServiceRequest.images),
+                selectinload(Service.request),
+                selectinload(Service.proposal),
+                selectinload(Service.status_history),
+                selectinload(Service.reviews),
+                selectinload(Service.client),
+            )
+            .where(
+                Service.id == service_id,
+                Service.provider_profile_id == profile.id,
+            )
+        )
+
+        result = await db.execute(stmt)
+        service = result.scalar_one_or_none()
+
+        if service is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Servicio no encontrado para este proveedor",
+            )
+
+        if service.status not in {ServiceStatus.CONFIRMED, ServiceStatus.ON_ROUTE}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Este servicio no puede marcarse como en camino",
+            )
+
+        if service.status == ServiceStatus.ON_ROUTE:
+            return ProviderController._map_service_to_provider_response(service)
+
+        previous_status = (
+            service.status.value
+            if isinstance(service.status, ServiceStatus)
+            else service.status
+        )
+        service.status = ServiceStatus.ON_ROUTE
+
+        history_entry = ServiceStatusHistory(
+            service_id=service.id,
+            from_status=previous_status,
+            to_status=ServiceStatus.ON_ROUTE.value,
+            changed_by=user_id,
+        )
+        db.add(history_entry)
+
+        await db.commit()
+
+        refreshed_result = await db.execute(stmt)
+        refreshed_service = refreshed_result.scalar_one()
+        return ProviderController._map_service_to_provider_response(refreshed_service)
+
+    @staticmethod
+    @error_handler(logger)
+    async def mark_service_in_progress(
+        db: AsyncSession, user_id: int, service_id: int
+    ) -> ProviderServiceResponse:
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proveedor no encontrado",
+            )
+
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            profile = await ProviderController._ensure_provider_profile(db, user_id)
+
+        stmt = (
+            select(Service)
+            .options(
+                selectinload(Service.request).selectinload(ServiceRequest.images),
+                selectinload(Service.request),
+                selectinload(Service.proposal),
+                selectinload(Service.status_history),
+                selectinload(Service.reviews),
+                selectinload(Service.client),
+            )
+            .where(
+                Service.id == service_id,
+                Service.provider_profile_id == profile.id,
+            )
+        )
+
+        result = await db.execute(stmt)
+        service = result.scalar_one_or_none()
+
+        if service is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Servicio no encontrado para este proveedor",
+            )
+
+        normalized_status = (
+            service.status.value
+            if isinstance(service.status, ServiceStatus)
+            else service.status
+        )
+
+        allowed_statuses = {
+            ServiceStatus.CONFIRMED.value,
+            ServiceStatus.ON_ROUTE.value,
+            ServiceStatus.IN_PROGRESS.value,
+        }
+
+        if normalized_status not in allowed_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Este servicio no puede marcarse como en progreso",
+            )
+
+        if normalized_status == ServiceStatus.IN_PROGRESS.value:
+            return ProviderController._map_service_to_provider_response(service)
+
+        scheduled_start = service.scheduled_start_at
+        if scheduled_start is not None:
+            if scheduled_start.tzinfo is not None:
+                scheduled_start = scheduled_start.astimezone(timezone.utc).replace(
+                    tzinfo=None
+                )
+            current_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+            if scheduled_start > current_utc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El servicio aún no alcanzó la fecha de inicio",
+                )
+
+        previous_status = normalized_status
+        service.status = ServiceStatus.IN_PROGRESS
+
+        history_entry = ServiceStatusHistory(
+            service_id=service.id,
+            from_status=previous_status,
+            to_status=ServiceStatus.IN_PROGRESS.value,
+            changed_by=user_id,
+        )
+        db.add(history_entry)
+
+        await db.commit()
+
+        refreshed_result = await db.execute(stmt)
+        refreshed_service = refreshed_result.scalar_one()
+        return ProviderController._map_service_to_provider_response(refreshed_service)
+
+    @staticmethod
+    @error_handler(logger)
+    async def mark_service_completed(
+        db: AsyncSession, user_id: int, service_id: int
+    ) -> ProviderServiceResponse:
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proveedor no encontrado",
+            )
+
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            profile = await ProviderController._ensure_provider_profile(db, user_id)
+
+        stmt = (
+            select(Service)
+            .options(
+                selectinload(Service.request).selectinload(ServiceRequest.images),
+                selectinload(Service.request),
+                selectinload(Service.proposal),
+                selectinload(Service.status_history),
+                selectinload(Service.reviews),
+                selectinload(Service.client),
+            )
+            .where(
+                Service.id == service_id,
+                Service.provider_profile_id == profile.id,
+            )
+        )
+
+        result = await db.execute(stmt)
+        service = result.scalar_one_or_none()
+
+        if service is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Servicio no encontrado para este proveedor",
+            )
+
+        normalized_status = (
+            service.status.value
+            if isinstance(service.status, ServiceStatus)
+            else service.status
+        )
+
+        allowed_statuses = {
+            ServiceStatus.IN_PROGRESS.value,
+            ServiceStatus.COMPLETED.value,
+        }
+
+        if normalized_status not in allowed_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Este servicio no puede marcarse como completado",
+            )
+
+        if normalized_status == ServiceStatus.COMPLETED.value:
+            return ProviderController._map_service_to_provider_response(service)
+
+        previous_status = normalized_status
+        service.status = ServiceStatus.COMPLETED
+
+        history_entry = ServiceStatusHistory(
+            service_id=service.id,
+            from_status=previous_status,
+            to_status=ServiceStatus.COMPLETED.value,
+            changed_by=user_id,
+        )
+        db.add(history_entry)
+
+        await db.commit()
+
+        refreshed_result = await db.execute(stmt)
+        refreshed_service = refreshed_result.scalar_one()
+        return ProviderController._map_service_to_provider_response(refreshed_service)
 
     @staticmethod
     @error_handler(logger)
@@ -769,6 +1020,9 @@ class ProviderController:
                 " ".join(part for part in [first, last] if part).strip() or None
             )
             client_phone = getattr(client, "phone", None)
+            client_avatar_url = getattr(client, "profile_image_url", None)
+        else:
+            client_avatar_url = None
 
         status_history = []
         for change in sorted(
@@ -786,6 +1040,17 @@ class ProviderController:
                 )
             )
 
+        client_review_payload: ServiceReviewResponse | None = None
+        for review in list(getattr(service, "reviews", []) or []):
+            if review.rater_user_id == service.client_id:
+                client_review_payload = ServiceReviewResponse(
+                    id=review.id,
+                    rating=review.rating,
+                    comment=review.comment,
+                    created_at=review.created_at,
+                )
+                break
+
         return ProviderServiceResponse(
             id=service.id,
             status=service.status,
@@ -800,10 +1065,12 @@ class ProviderController:
             client_id=service.client_id,
             client_name=client_name,
             client_phone=client_phone,
+            client_avatar_url=client_avatar_url,
             address_snapshot=getattr(service, "address_snapshot", None),
             created_at=service.created_at,
             updated_at=service.updated_at,
             status_history=status_history,
+            client_review=client_review_payload,
         )
 
 

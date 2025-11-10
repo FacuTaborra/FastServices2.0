@@ -55,6 +55,45 @@ export async function getProviderServices() {
     }
 }
 
+export async function markProviderServiceOnRoute(serviceId) {
+    try {
+        console.log('🚗 Marcando servicio en camino...', { serviceId });
+        const response = await api.post(`/providers/me/services/${serviceId}/mark-on-route`);
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error actualizando servicio a ON_ROUTE:', { status, message });
+        throw error;
+    }
+}
+
+export async function markProviderServiceInProgress(serviceId) {
+    try {
+        console.log('🛠️ Marcando servicio en progreso...', { serviceId });
+        const response = await api.post(`/providers/me/services/${serviceId}/mark-in-progress`);
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error actualizando servicio a IN_PROGRESS:', { status, message });
+        throw error;
+    }
+}
+
+export async function markProviderServiceCompleted(serviceId) {
+    try {
+        console.log('✅ Marcando servicio completado...', { serviceId });
+        const response = await api.post(`/providers/me/services/${serviceId}/mark-completed`);
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error actualizando servicio a COMPLETED:', { status, message });
+        throw error;
+    }
+}
+
 export async function createProviderProposal(payload) {
     try {
         const response = await api.post('/providers/me/proposals', payload);

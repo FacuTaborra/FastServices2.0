@@ -206,7 +206,7 @@ export default function FastMatchScreen() {
 
         const hint =
             remainingSeconds > 0
-                ? 'Mientras esté activo el Fast Match los prestadores tienen prioridad para cotizar.'
+                ? 'Mientras esté activo el Fast los prestadores tienen prioridad para cotizar.'
                 : 'Podés pasar a licitación para seguir recibiendo propuestas hasta 72 horas.';
 
         return {
@@ -630,12 +630,20 @@ export default function FastMatchScreen() {
                 <View style={styles.header}>
                     <TouchableOpacity
                         style={styles.backButton}
-                        onPress={() => navigation.goBack()}
+                        onPress={() => {
+                            if (navigation.canGoBack()) {
+                                navigation.goBack();
+                                return;
+                            }
+                            navigation.navigate('Main', {
+                                screen: 'HomePage',
+                            });
+                        }}
                     >
                         <Ionicons name="arrow-back" size={22} color="#111" />
                     </TouchableOpacity>
                     <View style={styles.headerTitleWrapper}>
-                        <Text style={styles.headerTitle}>FAST MATCH</Text>
+                        <Text style={styles.headerTitle}>Fast</Text>
                         <Text style={styles.headerSubtitle} numberOfLines={2}>
                             {requestTitle}
                         </Text>
@@ -651,7 +659,7 @@ export default function FastMatchScreen() {
                                 color="#0369a1"
                                 style={styles.statusBadgeIcon}
                             />
-                            <Text style={styles.statusBadgeText}>Fast Match</Text>
+                            <Text style={styles.statusBadgeText}>Fast</Text>
                         </View>
                         <View style={styles.countdownWrapper}>
                             <Text

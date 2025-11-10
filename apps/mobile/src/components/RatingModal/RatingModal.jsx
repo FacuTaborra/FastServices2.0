@@ -1,28 +1,32 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, TouchableOpacity, TextInput, BackHandler } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Modal, View, Text, TouchableOpacity, TextInput, BackHandler, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from './RatingModal.styles';
 
-const RatingModal = ({ visible, onClose, onSubmit }) => {
+const RatingModal = ({ visible, onClose, onSubmit, submitting = false }) => {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const inputRef = useRef(null);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
+    if (submitting) {
+      return;
+    }
     setRating(0);
     setComment('');
     onClose && onClose();
-  };
+  }, [onClose, submitting]);
 
   const handleSubmit = () => {
+    if (rating < 1 || submitting) {
+      return;
+    }
     onSubmit && onSubmit(rating, comment);
-    handleClose();
-    // TODO: llamar a la API del backend para persistir la calificación
   };
 
   useEffect(() => {
     const backAction = () => {
-      if (visible) {
+      if (visible && !submitting) {
         handleClose();
         return true;
       }
@@ -30,11 +34,18 @@ const RatingModal = ({ visible, onClose, onSubmit }) => {
     };
     const subscription = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => subscription.remove();
-  }, [visible]);
+  }, [visible, submitting, handleClose]);
 
   useEffect(() => {
     if (visible && inputRef.current) {
       inputRef.current.focus();
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) {
+      setRating(0);
+      setComment('');
     }
   }, [visible]);
 
@@ -82,19 +93,27 @@ const RatingModal = ({ visible, onClose, onSubmit }) => {
             onChangeText={setComment}
           />
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleClose}>
+            <TouchableOpacity
+              style={[styles.button, styles.cancelButton, submitting && styles.buttonDisabled]}
+              onPress={handleClose}
+              disabled={submitting}
+            >
               <Text style={[styles.buttonText, styles.cancelButtonText]}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.button,
                 styles.submitButton,
-                rating < 1 && styles.buttonDisabled,
+                (rating < 1 || submitting) && styles.buttonDisabled,
               ]}
-              disabled={rating < 1}
+              disabled={rating < 1 || submitting}
               onPress={handleSubmit}
             >
-              <Text style={styles.buttonText}>Enviar</Text>
+              {submitting ? (
+                <ActivityIndicator size="small" color="#fef9c3" />
+              ) : (
+                <Text style={styles.buttonText}>Enviar</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>

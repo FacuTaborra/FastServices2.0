@@ -20,6 +20,7 @@ const brandIcon = require('../../../assets/icon.png');
 
 const STATUS_LABELS = {
   CONFIRMED: 'Confirmado',
+  ON_ROUTE: 'En camino',
   IN_PROGRESS: 'En progreso',
   COMPLETED: 'Completado',
   CANCELED: 'Cancelado',
@@ -55,6 +56,7 @@ function formatDateTime(value) {
       month: 'short',
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
     });
   } catch (error) {
     return parsed.toISOString();
@@ -109,6 +111,18 @@ function getClientName(service) {
   return service?.client_name || CLIENT_FALLBACK;
 }
 
+function getClientAvatarUrl(service) {
+  const direct = typeof service?.client_avatar_url === 'string' ? service.client_avatar_url.trim() : '';
+  if (direct) {
+    return direct;
+  }
+
+  const nested = typeof service?.client?.profile_image_url === 'string'
+    ? service.client.profile_image_url.trim()
+    : '';
+  return nested || null;
+}
+
 function getCityLabel(service) {
   return (
     service?.request?.city_snapshot ||
@@ -117,19 +131,23 @@ function getCityLabel(service) {
   );
 }
 
-function getPrimaryBadgeText(status) {
+function getStatusIconName(status) {
   if (status === 'IN_PROGRESS') {
-    return 'Servicio en curso';
+    return 'flash-outline';
+  }
+  if (status === 'ON_ROUTE') {
+    return 'walk-outline';
   }
   if (status === 'CONFIRMED') {
-    return 'Próximo servicio';
+    return 'calendar-outline';
   }
-  return 'Servicio asignado';
+  return 'briefcase-outline';
 }
 
 function getOrderTimestamp(service) {
   const priority = {
     IN_PROGRESS: 0,
+    ON_ROUTE: 0,
     CONFIRMED: 1,
     COMPLETED: 2,
     CANCELED: 3,
@@ -168,47 +186,10 @@ export default function MyServicesScreen() {
     });
   }, [services]);
 
-  const inProgressServices = useMemo(
-    () => orderedServices.filter((service) => service?.status === 'IN_PROGRESS'),
+  const activeServices = useMemo(
+    () => orderedServices.filter((service) => ['IN_PROGRESS', 'ON_ROUTE', 'CONFIRMED'].includes(service?.status)),
     [orderedServices],
   );
-
-  const confirmedServices = useMemo(
-    () => orderedServices.filter((service) => service?.status === 'CONFIRMED'),
-    [orderedServices],
-  );
-
-  const nextConfirmed = useMemo(() => {
-    if (!confirmedServices.length) {
-      return null;
-    }
-
-    const now = Date.now();
-    const upcoming = [...confirmedServices].sort((a, b) => {
-      const timeA = parseDate(a?.scheduled_start_at)?.getTime() ?? parseDate(a?.request?.preferred_start_at)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      const timeB = parseDate(b?.scheduled_start_at)?.getTime() ?? parseDate(b?.request?.preferred_start_at)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      return timeA - timeB;
-    });
-
-    const firstInFuture = upcoming.find((service) => {
-      const start = parseDate(service?.scheduled_start_at) || parseDate(service?.request?.preferred_start_at);
-      if (!start) {
-        return false;
-      }
-      return start.getTime() >= now;
-    });
-
-    return firstInFuture || upcoming[0];
-  }, [confirmedServices]);
-
-  const primaryService = inProgressServices[0] || nextConfirmed || null;
-  const primaryServiceId = primaryService?.id ?? null;
-
-  const upcomingServices = useMemo(() => {
-    const remainingInProgress = inProgressServices.filter((service) => service.id !== primaryServiceId);
-    const remainingConfirmed = confirmedServices.filter((service) => service.id !== primaryServiceId);
-    return [...remainingInProgress, ...remainingConfirmed];
-  }, [confirmedServices, inProgressServices, primaryServiceId]);
 
   const completedServices = useMemo(
     () => orderedServices.filter((service) => service?.status === 'COMPLETED'),
@@ -220,9 +201,10 @@ export default function MyServicesScreen() {
       return;
     }
 
-    navigation.navigate('ServiceDetail', {
-      requestId: service.request?.id ?? service.request_id,
+    navigation.navigate('ProviderServiceDetail', {
       serviceId: service.id,
+      requestId: service.request?.id ?? service.request_id,
+      serviceSnapshot: service,
     });
   };
 
@@ -234,6 +216,8 @@ export default function MyServicesScreen() {
     const colors = getStatusColors(service.status);
     const statusLabel = STATUS_LABELS[service.status] || service.status || 'Sin estado';
     const priceLabel = formatPriceLabel(service);
+    const clientAvatarUrl = getClientAvatarUrl(service);
+    const clientAvatarSource = clientAvatarUrl ? { uri: clientAvatarUrl } : brandIcon;
 
     return (
       <TouchableOpacity
@@ -266,6 +250,16 @@ export default function MyServicesScreen() {
           </View>
         </View>
 
+        <View style={styles.clientRow}>
+          <Image source={clientAvatarSource} style={styles.clientAvatar} />
+          <View style={styles.clientInfo}>
+            <Text style={styles.clientLabel}>Cliente</Text>
+            <Text style={styles.clientName} numberOfLines={1}>
+              {getClientName(service)}
+            </Text>
+          </View>
+        </View>
+
         <View style={styles.serviceMetaRow}>
           <Ionicons name="calendar-outline" size={16} style={styles.serviceMetaIcon} />
           <Text style={styles.serviceMetaText} numberOfLines={2}>
@@ -276,12 +270,6 @@ export default function MyServicesScreen() {
           <Ionicons name="location-outline" size={16} style={styles.serviceMetaIcon} />
           <Text style={styles.serviceMetaText} numberOfLines={1}>
             {getCityLabel(service)}
-          </Text>
-        </View>
-        <View style={styles.serviceMetaRow}>
-          <Ionicons name="person-outline" size={16} style={styles.serviceMetaIcon} />
-          <Text style={styles.serviceMetaText} numberOfLines={1}>
-            {getClientName(service)}
           </Text>
         </View>
         {service.client_phone ? (
@@ -296,6 +284,73 @@ export default function MyServicesScreen() {
           <View style={styles.serviceMetaRow}>
             <Ionicons name="cash-outline" size={16} style={styles.serviceMetaIcon} />
             <Text style={styles.serviceMetaText} numberOfLines={1}>
+              {priceLabel}
+            </Text>
+          </View>
+        ) : null}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderActiveServiceCard = (service, index) => {
+    if (!service) {
+      return null;
+    }
+
+    const colors = getStatusColors(service.status);
+    const statusLabel = STATUS_LABELS[service.status] || service.status || 'Sin estado';
+    const marginStyle = index === activeServices.length - 1 ? styles.activeCardLast : null;
+    const priceLabel = formatPriceLabel(service);
+
+    return (
+      <TouchableOpacity
+        key={service.id}
+        style={[
+          styles.activeCard,
+          { backgroundColor: colors.background, borderColor: colors.pill },
+          marginStyle,
+        ]}
+        activeOpacity={0.92}
+        onPress={() => handleOpenServiceDetail(service)}
+      >
+        <View style={styles.activeStatusRow}>
+          <View style={[styles.activeStatusPill, { backgroundColor: colors.pill }]}>
+            <Ionicons
+              name={getStatusIconName(service.status)}
+              size={14}
+              style={[styles.activeStatusIcon, { color: colors.text }]}
+            />
+            <Text style={[styles.activeStatusText, { color: colors.text }]}>{statusLabel}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} style={styles.activeChevron} />
+        </View>
+
+        <Text style={styles.activeCardTitle} numberOfLines={2}>
+          {getServiceTitle(service)}
+        </Text>
+
+        <View style={styles.activeCardMetaRow}>
+          <Ionicons name="calendar-outline" size={15} style={styles.activeCardMetaIcon} />
+          <Text style={styles.activeCardMetaText} numberOfLines={2}>
+            {formatScheduleRange(service)}
+          </Text>
+        </View>
+        <View style={styles.activeCardMetaRow}>
+          <Ionicons name="location-outline" size={15} style={styles.activeCardMetaIcon} />
+          <Text style={styles.activeCardMetaText} numberOfLines={1}>
+            {getCityLabel(service)}
+          </Text>
+        </View>
+        <View style={styles.activeCardMetaRow}>
+          <Ionicons name="person-outline" size={15} style={styles.activeCardMetaIcon} />
+          <Text style={styles.activeCardMetaText} numberOfLines={1}>
+            {getClientName(service)}
+          </Text>
+        </View>
+        {priceLabel ? (
+          <View style={styles.activeCardMetaRow}>
+            <Ionicons name="cash-outline" size={15} style={styles.activeCardMetaIcon} />
+            <Text style={styles.activeCardMetaText} numberOfLines={1}>
               {priceLabel}
             </Text>
           </View>
@@ -345,7 +400,7 @@ export default function MyServicesScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingWrapper}>
           <ActivityIndicator size="large" color={PALETTE.primary} />
-          <Text style={styles.primaryMetaText}>Cargando servicios...</Text>
+          <Text style={styles.loadingText}>Cargando servicios...</Text>
         </View>
       </SafeAreaView>
     );
@@ -381,88 +436,33 @@ export default function MyServicesScreen() {
           </Text>
         ) : null}
 
-        <View style={styles.primarySection}>
-          <View style={styles.primaryCard}>
-            {primaryService ? (
-              <>
-                <View style={styles.primaryBadge}>
-                  <Ionicons
-                    name={primaryService.status === 'IN_PROGRESS' ? 'flash-outline' : 'calendar-outline'}
-                    size={16}
-                    style={styles.primaryBadgeIcon}
-                  />
-                  <Text style={styles.primaryBadgeText}>
-                    {getPrimaryBadgeText(primaryService.status)}
-                  </Text>
-                </View>
-                <Text style={styles.primaryTitle} numberOfLines={2}>
-                  {getServiceTitle(primaryService)}
-                </Text>
-                <View style={styles.primaryMetaRow}>
-                  <Ionicons name="location-outline" size={18} style={styles.primaryMetaIcon} />
-                  <Text style={styles.primaryMetaText} numberOfLines={1}>
-                    {getCityLabel(primaryService)}
-                  </Text>
-                </View>
-                <View style={styles.primaryMetaRow}>
-                  <Ionicons name="calendar-outline" size={18} style={styles.primaryMetaIcon} />
-                  <Text style={styles.primaryMetaText} numberOfLines={2}>
-                    {formatScheduleRange(primaryService)}
-                  </Text>
-                </View>
-                {primaryService.client_phone ? (
-                  <View style={styles.primaryMetaRow}>
-                    <Ionicons name="call-outline" size={18} style={styles.primaryMetaIcon} />
-                    <Text style={styles.primaryMetaText} numberOfLines={1}>
-                      {primaryService.client_phone}
-                    </Text>
-                  </View>
-                ) : null}
-
-                <View style={styles.primaryDivider} />
-
-                <View style={styles.primaryActionRow}>
-                  <View style={styles.primaryClientBlock}>
-                    <Text style={styles.primaryClientLabel}>Cliente</Text>
-                    <Text style={styles.primaryClientValue} numberOfLines={1}>
-                      {getClientName(primaryService)}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.secondaryButton}
-                    activeOpacity={0.9}
-                    onPress={() => handleOpenServiceDetail(primaryService)}
-                  >
-                    <Ionicons name="chevron-forward" size={18} color={PALETTE.white} />
-                    <Text style={styles.secondaryButtonText}>Ver detalle</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <>
-                <View style={styles.primaryBadge}>
-                  <Ionicons name="briefcase-outline" size={16} style={styles.primaryBadgeIcon} />
-                  <Text style={styles.primaryBadgeText}>Sin servicios asignados</Text>
-                </View>
-                <Text style={styles.primaryTitle}>
-                  Aún no tenés servicios activos
-                </Text>
-                <Text style={styles.primaryMetaText}>
-                  Cuando aceptes un presupuesto y el cliente confirme, vas a ver el siguiente servicio en este espacio.
-                </Text>
-              </>
-            )}
+        <View style={styles.activeSection}>
+          <View style={styles.activeHeader}>
+            <Text style={styles.activeTitle}>Servicios activos</Text>
+            {activeServices.length ? (
+              <View style={styles.activeCounter}>
+                <Text style={styles.activeCounterText}>{activeServices.length}</Text>
+              </View>
+            ) : null}
           </View>
-        </View>
 
-        {renderServiceGroup({
-          title: 'Próximos servicios',
-          icon: 'calendar-outline',
-          palette: HOME_STATUS_COLORS.upcoming,
-          services: upcomingServices,
-          emptyIcon: 'calendar-clear-outline',
-          emptyMessage: 'Cuando tengas servicios confirmados los vas a ver acá.',
-        })}
+          {activeServices.length ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.activeCarousel}
+            >
+              {activeServices.map((service, index) => renderActiveServiceCard(service, index))}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="briefcase-outline" size={28} color={PALETTE.textSecondary} />
+              <Text style={styles.emptyStateText}>
+                Todavía no tenés servicios activos.
+              </Text>
+            </View>
+          )}
+        </View>
 
         {renderServiceGroup({
           title: 'Servicios completados',

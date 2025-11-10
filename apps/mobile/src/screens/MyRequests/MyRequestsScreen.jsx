@@ -14,7 +14,6 @@ import { useNavigation } from '@react-navigation/native';
 import TodoRequestCard from '../../components/RequestCards/TodoRequestCard';
 import ProgressRequestCard from '../../components/RequestCards/ProgressRequestCard';
 import CompletedRequestCard from '../../components/RequestCards/CompletedRequestCard';
-import RatingModal from '../../components/RatingModal/RatingModal';
 import { useAllServiceRequests } from '../../hooks/useServiceRequests';
 import styles from './MyRequestsScreen.styles';
 
@@ -93,9 +92,6 @@ const MyRequestsScreen = () => {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState('todos');
   const [searchText, setSearchText] = useState('');
-  const [ratingVisible, setRatingVisible] = useState(false);
-  const [selectedRequestId, setSelectedRequestId] = useState(null);
-  const [ratings, setRatings] = useState({});
 
   const {
     data: historyData,
@@ -136,7 +132,14 @@ const MyRequestsScreen = () => {
   const mapRequestToCardData = useCallback(
     (request) => {
       const statusInfo = resolveStatusInfo(request);
-      const ratingInfo = ratings?.[request.id];
+      const reviewData = request?.service?.client_review ?? null;
+      const ratingInfo = reviewData
+        ? {
+          rating: reviewData.rating,
+          comment: reviewData.comment,
+          createdAt: reviewData.created_at,
+        }
+        : null;
       const title = request?.title?.trim() || 'Solicitud sin título';
       const isLicitacion = request?.request_type === 'LICITACION';
       const requestTypeLabel = isLicitacion ? 'LICITACIÓN' : 'FAST';
@@ -170,7 +173,7 @@ const MyRequestsScreen = () => {
         raw: request,
       };
     },
-    [resolveStatusInfo, buildDateLabel, ratings]
+    [resolveStatusInfo, buildDateLabel]
   );
 
   const rawRequests = useMemo(
@@ -341,6 +344,19 @@ const MyRequestsScreen = () => {
     [buildRequestSummary, navigation]
   );
 
+  const handleRateRequest = useCallback(
+    (summaryItem) => {
+      if (!summaryItem?.raw) {
+        return;
+      }
+      navigation.navigate('ServiceDetail', {
+        requestId: summaryItem.raw.id,
+        autoOpenRating: true,
+      });
+    },
+    [navigation],
+  );
+
   const renderTodo = useCallback(
     ({ item }) => (
       <TodoRequestCard
@@ -361,16 +377,15 @@ const MyRequestsScreen = () => {
     [handleNavigateToRequest]
   );
 
-  const openModal = useCallback((requestId) => {
-    setSelectedRequestId(requestId);
-    setRatingVisible(true);
-  }, []);
-
   const renderCompleted = useCallback(
     ({ item }) => (
-      <CompletedRequestCard item={item} onRate={() => openModal(item.id)} />
+      <CompletedRequestCard
+        item={item}
+        onPress={() => handleNavigateToRequest(item)}
+        onRate={() => handleRateRequest(item)}
+      />
     ),
-    [openModal]
+    [handleNavigateToRequest, handleRateRequest]
   );
 
   const renderItemByTab = useMemo(
@@ -381,22 +396,6 @@ const MyRequestsScreen = () => {
     }),
     [renderTodo, renderProgress, renderCompleted]
   );
-
-  const handleSubmitRating = useCallback(
-    (rating, comment) => {
-      if (!selectedRequestId) return;
-      setRatings((prev) => ({
-        ...prev,
-        [selectedRequestId]: { rating, comment },
-      }));
-    },
-    [selectedRequestId]
-  );
-
-  const handleCloseModal = useCallback(() => {
-    setRatingVisible(false);
-    setSelectedRequestId(null);
-  }, []);
 
   const isRefreshing = isFetching && !isLoading;
   const searchActive = normalizedSearch.length > 0;
@@ -554,12 +553,6 @@ const MyRequestsScreen = () => {
             <ActivityIndicator size="large" color="#6366f1" />
           </View>
         ) : null}
-
-        <RatingModal
-          visible={ratingVisible}
-          onClose={handleCloseModal}
-          onSubmit={handleSubmitRating}
-        />
       </View>
     </SafeAreaView>
   );

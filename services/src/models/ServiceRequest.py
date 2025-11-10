@@ -55,6 +55,7 @@ class ServiceStatus(str, Enum):
     """Estados del servicio una vez confirmada la contratación."""
 
     CONFIRMED = "CONFIRMED"
+    ON_ROUTE = "ON_ROUTE"
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
     CANCELED = "CANCELED"

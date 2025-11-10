@@ -219,6 +219,75 @@ async def list_provider_services(
 
 
 @router.post(
+    "/me/services/{service_id}/mark-on-route",
+    response_model=ProviderServiceResponse,
+    summary="Marcar servicio como en camino",
+    description="Actualiza el estado de un servicio confirmado a en camino",
+)
+async def mark_service_on_route_for_provider(
+    service_id: int,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    return await ProviderController.mark_service_on_route(
+        db, current_user.id, service_id
+    )
+
+
+@router.post(
+    "/me/services/{service_id}/mark-in-progress",
+    response_model=ProviderServiceResponse,
+    summary="Marcar servicio en progreso",
+    description="Actualiza el estado de un servicio a en progreso",
+)
+async def mark_service_in_progress_for_provider(
+    service_id: int,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    return await ProviderController.mark_service_in_progress(
+        db, current_user.id, service_id
+    )
+
+
+@router.post(
+    "/me/services/{service_id}/mark-completed",
+    response_model=ProviderServiceResponse,
+    summary="Marcar servicio completado",
+    description="Actualiza el estado de un servicio a completado",
+)
+async def mark_service_completed_for_provider(
+    service_id: int,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    return await ProviderController.mark_service_completed(
+        db, current_user.id, service_id
+    )
+
+
+@router.post(
     "/me/proposals",
     response_model=ProviderProposalResponse,
     status_code=status.HTTP_201_CREATED,

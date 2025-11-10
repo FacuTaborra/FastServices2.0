@@ -24,16 +24,12 @@ import RequestSummaryCard from '../ProviderRequests/components/RequestSummaryCar
 
 const DEFAULT_CURRENCY = 'ARS';
 const REQUEST_TYPE_LABELS = {
-    FAST: 'FAST ⚡',
-    FAST_MATCH: 'FAST ⚡',
-    LICITACION: 'Licitación ⏰',
-    BUDGET: 'Licitación ⏰',
+    FAST: 'FAST',
+    LICITACION: 'Licitación',
 };
 const REQUEST_TYPE_ICONS = {
     FAST: 'flash',
-    FAST_MATCH: 'flash',
     LICITACION: 'hammer',
-    BUDGET: 'hammer',
 };
 
 function formatCurrencyPreview(value, currencyCode = DEFAULT_CURRENCY) {
@@ -131,7 +127,7 @@ export default function CreateProposalScreen() {
     const navigation = useNavigation();
     const route = useRoute();
     const initialData = useInitialData(route.params);
-    const isFastRequest = initialData.type === 'FAST' || initialData.type === 'FAST_MATCH';
+    const isFastRequest = initialData.type === 'FAST'
     const shouldRenderScheduling = !isFastRequest;
     const shouldRenderValidity = !isFastRequest;
     const requestTypeLabel = useMemo(

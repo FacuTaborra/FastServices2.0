@@ -27,7 +27,7 @@ from .ServiceRequest import (
     ServiceStatus,
     ProposalStatus,
 )
-from .ServiceRequestSchemas import ServiceRequestImageResponse
+from .ServiceRequestSchemas import ServiceRequestImageResponse, ServiceReviewResponse
 
 
 class ProviderProfile(Base):
@@ -410,7 +410,9 @@ class ProviderServiceResponse(BaseModel):
     client_id: Optional[int] = None
     client_name: Optional[str] = None
     client_phone: Optional[str] = None
+    client_avatar_url: Optional[str] = None
     address_snapshot: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
     status_history: List[ProviderServiceStatusHistory] = Field(default_factory=list)
+    client_review: Optional[ServiceReviewResponse] = None

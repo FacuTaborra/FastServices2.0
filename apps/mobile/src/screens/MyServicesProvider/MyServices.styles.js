@@ -7,6 +7,11 @@ export const SERVICE_STATUS_COLORS = {
     pill: '#38BDF8',
     text: '#0369A1',
   },
+  ON_ROUTE: {
+    background: '#DBEAFE',
+    pill: '#60A5FA',
+    text: '#1D4ED8',
+  },
   IN_PROGRESS: {
     background: '#FEF3C7',
     pill: '#FBBF24',
@@ -64,102 +69,94 @@ export default StyleSheet.create({
     color: PALETTE.textSecondary,
     marginTop: 2,
   },
-  primarySection: {
-    marginBottom: 24,
+  activeSection: {
+    marginBottom: 32,
   },
-  primaryCard: {
-    borderRadius: 20,
-    padding: 20,
-    backgroundColor: PALETTE.cardLight,
-    borderWidth: 1,
-    borderColor: PALETTE.borderSubtle,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 16,
-    elevation: 2,
-  },
-  primaryBadge: {
+  activeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(59,130,246,0.12)',
+    justifyContent: 'space-between',
     marginBottom: 14,
   },
-  primaryBadgeIcon: {
-    color: PALETTE.primary,
-    marginRight: 6,
+  activeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
   },
-  primaryBadgeText: {
-    color: PALETTE.primary,
+  activeCounter: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: PALETTE.primary,
+  },
+  activeCounterText: {
+    color: PALETTE.white,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  primaryTitle: {
-    fontSize: 20,
+  activeCarousel: {
+    paddingBottom: 4,
+    paddingRight: 8,
+  },
+  activeCard: {
+    width: 260,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    marginRight: 16,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  activeCardLast: {
+    marginRight: 0,
+  },
+  activeStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  activeStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  activeStatusIcon: {
+    marginRight: 6,
+  },
+  activeStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  activeChevron: {
+    color: PALETTE.textSecondary,
+  },
+  activeCardTitle: {
+    fontSize: 17,
     fontWeight: '700',
     color: PALETTE.textPrimary,
     marginBottom: 10,
   },
-  primaryMetaRow: {
+  activeCardMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginBottom: 6,
   },
-  primaryMetaIcon: {
+  activeCardMetaIcon: {
     color: PALETTE.textSecondary,
     marginRight: 6,
   },
-  primaryMetaText: {
+  activeCardMetaText: {
     color: PALETTE.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
     flex: 1,
-  },
-  primaryDivider: {
-    height: 1,
-    backgroundColor: PALETTE.borderSubtle,
-    marginVertical: 16,
-  },
-  primaryActionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  primaryClientBlock: {
-    flex: 1,
-    marginRight: 12,
-  },
-  primaryClientLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  primaryClientValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: PALETTE.textPrimary,
-    marginTop: 2,
-  },
-  secondaryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: PALETTE.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: PALETTE.white,
-    fontSize: 14,
-    fontWeight: '700',
-    marginLeft: 6,
   },
   sectionCard: {
     marginBottom: 32,
@@ -215,6 +212,30 @@ export default StyleSheet.create({
     borderWidth: 1,
     borderColor: PALETTE.borderSubtle,
     marginBottom: 12,
+  },
+  clientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  clientAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  clientInfo: {
+    flex: 1,
+  },
+  clientLabel: {
+    fontSize: 12,
+    color: PALETTE.textSecondary,
+    marginBottom: 2,
+  },
+  clientName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: PALETTE.textPrimary,
   },
   serviceCardHeader: {
     flexDirection: 'row',
@@ -272,6 +293,11 @@ export default StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: PALETTE.textSecondary,
   },
   errorText: {
     color: PALETTE.danger,

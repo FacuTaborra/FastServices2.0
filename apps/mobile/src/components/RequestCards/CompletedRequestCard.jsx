@@ -14,7 +14,7 @@ const VARIANT_STYLES = {
   },
 };
 
-const CompletedRequestCard = ({ item, onRate }) => {
+const CompletedRequestCard = ({ item, onRate, onPress }) => {
   const title = item?.title ?? item?.titulo ?? 'Servicio finalizado';
   const statusLabel = item?.statusLabel ?? item?.estado ?? 'Completado';
   const dateLabel = item?.dateLabel ?? item?.fecha ?? '';
@@ -42,8 +42,8 @@ const CompletedRequestCard = ({ item, onRate }) => {
     typeStyles.push(styles.typeLabelLicitacion);
   }
 
-  return (
-    <View style={styles.card}>
+  const cardBody = (
+    <>
       <View style={styles.headerRow}>
         <View style={styles.titleBlock}>
           {typeLabel ? <Text style={typeStyles}>{typeLabel}</Text> : null}
@@ -81,13 +81,33 @@ const CompletedRequestCard = ({ item, onRate }) => {
           {ratingComment ? <Text style={styles.comment} numberOfLines={2}>{ratingComment}</Text> : null}
         </View>
       ) : (
-        <TouchableOpacity style={styles.rateButton} onPress={onRate} activeOpacity={0.9}>
+        <TouchableOpacity
+          style={styles.rateButton}
+          onPress={onRate}
+          activeOpacity={0.9}
+          disabled={!onRate}
+        >
           <Ionicons name="star" size={16} color="#ffffff" style={styles.rateIcon} />
           <Text style={styles.rateButtonText}>Calificar</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={onPress}
+        activeOpacity={0.9}
+        accessibilityRole="button"
+      >
+        {cardBody}
+      </TouchableOpacity>
+    );
+  }
+
+  return <View style={styles.card}>{cardBody}</View>;
 };
 
 export default CompletedRequestCard;
