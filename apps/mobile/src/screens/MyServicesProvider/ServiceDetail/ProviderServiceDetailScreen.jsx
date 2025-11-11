@@ -426,6 +426,7 @@ function buildTimelineEntries(service) {
 
     const finalStatus = service.status;
     const normalizedFinalStatus = typeof finalStatus === 'string' ? finalStatus : String(finalStatus);
+    const completedReached = historyByStatus.has('COMPLETED') || normalizedFinalStatus === 'COMPLETED';
 
     const flow = [...BASE_STATUS_FLOW];
     if (normalizedFinalStatus === 'CANCELED') {
@@ -452,13 +453,18 @@ function buildTimelineEntries(service) {
         const label = STATUS_LABELS[status] || status;
         const description = STATUS_DESCRIPTIONS[status] || null;
 
-        const paletteKey = status === 'CANCELED'
-            ? 'canceled'
-            : index < currentIndex
-                ? 'done'
-                : status === normalizedFinalStatus
-                    ? 'active'
-                    : 'pending';
+        let paletteKey;
+        if (status === 'CANCELED') {
+            paletteKey = 'canceled';
+        } else if (status === 'COMPLETED' && completedReached) {
+            paletteKey = 'done';
+        } else if (index < currentIndex) {
+            paletteKey = 'done';
+        } else if (status === normalizedFinalStatus) {
+            paletteKey = 'active';
+        } else {
+            paletteKey = 'pending';
+        }
         const paletteColor = TIMELINE_COLORS[paletteKey] || TIMELINE_COLORS.pending;
         const isCanceled = status === 'CANCELED';
         const isCurrent = status === normalizedFinalStatus;
@@ -480,7 +486,7 @@ function buildTimelineEntries(service) {
             isFirst: index === 0,
             isLast: index === uniqueFlow.length - 1,
             isActive: status === normalizedFinalStatus,
-            isDone: index < currentIndex && status !== 'CANCELED',
+            isDone: (index < currentIndex || (status === 'COMPLETED' && completedReached)) && status !== 'CANCELED',
         };
     });
 

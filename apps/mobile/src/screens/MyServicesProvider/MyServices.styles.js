@@ -40,7 +40,7 @@ export default StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingBottom: 28,
   },
   headerRow: {
     flexDirection: 'row',
@@ -69,160 +69,88 @@ export default StyleSheet.create({
     color: PALETTE.textSecondary,
     marginTop: 2,
   },
-  activeSection: {
-    marginBottom: 32,
-  },
-  activeHeader: {
+  sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  activeTitle: {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: PALETTE.textPrimary,
   },
-  activeCounter: {
+  sectionCounter: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
     backgroundColor: PALETTE.primary,
   },
-  activeCounterText: {
+  sectionCounterText: {
     color: PALETTE.white,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  activeCarousel: {
-    paddingBottom: 4,
-    paddingRight: 8,
+  activeList: {
+    marginBottom: 28,
   },
   activeCard: {
-    width: 260,
     borderRadius: 18,
-    padding: 16,
+    padding: 18,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    marginRight: 16,
+    borderColor: PALETTE.borderSubtle,
     shadowColor: '#0F172A',
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 10,
+    shadowRadius: 12,
     elevation: 2,
+    marginBottom: 16,
   },
-  activeCardLast: {
-    marginRight: 0,
-  },
-  activeStatusRow: {
+  activeHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  activeStatusPill: {
+  statusChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 999,
+    backgroundColor: '#E2E8F0',
   },
-  activeStatusIcon: {
+  statusChipIcon: {
     marginRight: 6,
   },
-  activeStatusText: {
+  statusChipText: {
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  activeChevron: {
+  updateLabel: {
+    fontSize: 12,
     color: PALETTE.textSecondary,
   },
-  activeCardTitle: {
-    fontSize: 17,
+  activeTitle: {
+    fontSize: 18,
     fontWeight: '700',
     color: PALETTE.textPrimary,
-    marginBottom: 10,
-  },
-  activeCardMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  activeCardMetaIcon: {
-    color: PALETTE.textSecondary,
-    marginRight: 6,
-  },
-  activeCardMetaText: {
-    color: PALETTE.textSecondary,
-    fontSize: 13,
-    flex: 1,
-  },
-  sectionCard: {
-    marginBottom: 32,
-  },
-  sectionPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
     marginBottom: 14,
-  },
-  sectionPillIcon: {
-    color: '#FFFFFF',
-    marginRight: 6,
-  },
-  sectionPillText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  sectionCounterBubble: {
-    marginLeft: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-  },
-  sectionCounterText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  sectionBody: {
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  sectionBodyContent: {
-    marginTop: 4,
-  },
-  serviceCard: {
-    borderRadius: 16,
-    padding: 16,
-    backgroundColor: PALETTE.cardLight,
-    borderWidth: 1,
-    borderColor: PALETTE.borderSubtle,
-    marginBottom: 12,
   },
   clientRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   clientAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     marginRight: 12,
+    backgroundColor: '#E2E8F0',
   },
   clientInfo: {
     flex: 1,
@@ -230,56 +158,162 @@ export default StyleSheet.create({
   clientLabel: {
     fontSize: 12,
     color: PALETTE.textSecondary,
-    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   clientName: {
-    fontSize: 15,
+    marginTop: 4,
+    fontSize: 16,
     fontWeight: '600',
     color: PALETTE.textPrimary,
   },
-  serviceCardHeader: {
+  metaRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  serviceTitle: {
+  metaIcon: {
+    marginRight: 8,
+    color: PALETTE.textSecondary,
+  },
+  metaText: {
+    flex: 1,
+    color: PALETTE.textSecondary,
+    fontSize: 13,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    marginTop: 16,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 14,
+    marginRight: 12,
+  },
+  actionButtonLast: {
+    marginRight: 0,
+  },
+  actionPrimary: {
+    backgroundColor: PALETTE.primary,
+  },
+  actionSecondary: {
+    backgroundColor: '#0EA5E9',
+  },
+  actionDisabled: {
+    backgroundColor: '#CBD5F5',
+  },
+  actionIcon: {
+    marginRight: 6,
+    color: '#FFFFFF',
+  },
+  actionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  completedToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: PALETTE.borderSubtle,
+    marginTop: 12,
+  },
+  completedToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  completedToggleText: {
     fontSize: 16,
     fontWeight: '700',
+    color: PALETTE.textPrimary,
+    marginLeft: 12,
+  },
+  completedToggleRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  completedCount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PALETTE.textSecondary,
+    marginRight: 8,
+  },
+  completedChevron: {
+    color: PALETTE.textSecondary,
+  },
+  completedBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completedList: {
+    marginTop: 16,
+  },
+  completedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: PALETTE.borderSubtle,
+    marginBottom: 12,
+  },
+  completedTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  completedTitle: {
+    fontSize: 15,
+    fontWeight: '600',
     color: PALETTE.textPrimary,
     flex: 1,
     marginRight: 12,
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  statusBadgeText: {
+  completedMeta: {
     fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    color: PALETTE.textSecondary,
+    marginTop: 2,
   },
-  serviceMetaRow: {
+  completedReviewSection: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: PALETTE.borderSubtle,
+  },
+  ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
   },
-  serviceMetaIcon: {
-    color: PALETTE.textSecondary,
-    marginRight: 8,
+  ratingStar: {
+    marginRight: 3,
   },
-  serviceMetaText: {
+  ratingLabel: {
+    marginLeft: 4,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#92400E',
+  },
+  ratingComment: {
+    marginTop: 6,
+    fontSize: 12,
     color: PALETTE.textSecondary,
-    fontSize: 13,
-    flex: 1,
+    lineHeight: 18,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
+    paddingVertical: 28,
     backgroundColor: 'transparent',
   },
   emptyStateText: {
@@ -304,5 +338,6 @@ export default StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 8,
+    marginBottom: 12,
   },
 });

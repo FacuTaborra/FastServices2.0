@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -61,6 +63,36 @@ function formatDateTime(value) {
   } catch (error) {
     return parsed.toISOString();
   }
+}
+
+function formatRelativeUpdate(timestamp) {
+  if (!timestamp) {
+    return 'Actualizado recientemente';
+  }
+
+  const diff = Date.now() - timestamp;
+  if (!Number.isFinite(diff) || diff < 0) {
+    return 'Actualizado recientemente';
+  }
+
+  const minute = 60000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diff < minute) {
+    return 'Hace instantes';
+  }
+  if (diff < hour) {
+    const minutes = Math.round(diff / minute);
+    return minutes === 1 ? 'Hace 1 minuto' : `Hace ${minutes} minutos`;
+  }
+  if (diff < day) {
+    const hours = Math.round(diff / hour);
+    return hours === 1 ? 'Hace 1 hora' : `Hace ${hours} horas`;
+  }
+
+  const days = Math.round(diff / day);
+  return days === 1 ? 'Hace 1 día' : `Hace ${days} días`;
 }
 
 function formatScheduleRange(service) {
@@ -161,6 +193,83 @@ function getOrderTimestamp(service) {
   return { statusWeight, timestamp };
 }
 
+function getLatestHistoryTimestamp(service) {
+  if (!service) {
+    return 0;
+  }
+
+  let latest = 0;
+
+  const historyItems = Array.isArray(service.status_history) ? service.status_history : [];
+  historyItems.forEach((item) => {
+    const parsed = parseDate(item?.changed_at);
+    if (parsed) {
+      const time = parsed.getTime();
+      if (Number.isFinite(time) && time > latest) {
+        latest = time;
+      }
+    }
+  });
+
+  const fallbackCandidates = [
+    service.status_changed_at,
+    service.updated_at,
+    service.completed_at,
+    service.created_at,
+    service.request?.updated_at,
+    service.request?.preferred_start_at,
+  ];
+
+  fallbackCandidates.forEach((value) => {
+    const parsed = parseDate(value);
+    if (parsed) {
+      const time = parsed.getTime();
+      if (Number.isFinite(time) && time > latest) {
+        latest = time;
+      }
+    }
+  });
+
+  return latest;
+}
+
+function normalizePhone(raw) {
+  if (!raw) {
+    return null;
+  }
+
+  const cleaned = String(raw).replace(/\s+/g, '');
+  return cleaned.length ? cleaned : null;
+}
+
+function resolveCompletedLabel(service) {
+  const timestamp = service?.completed_at || service?.updated_at || service?.status_changed_at;
+  return formatDateTime(timestamp);
+}
+function getClientReview(service) {
+  if (!service) {
+    return null;
+  }
+
+  if (service.client_review) {
+    return service.client_review;
+  }
+
+  const reviews = Array.isArray(service.reviews) ? service.reviews : [];
+  if (!reviews.length) {
+    return null;
+  }
+
+  if (service.client_id !== undefined && service.client_id !== null) {
+    const match = reviews.find((review) => review?.rater_user_id === service.client_id);
+    if (match) {
+      return match;
+    }
+  }
+
+  return reviews[0] || null;
+}
+
 export default function MyServicesScreen() {
   const navigation = useNavigation();
   const {
@@ -171,10 +280,19 @@ export default function MyServicesScreen() {
     refetch,
   } = useProviderServices();
 
+  const [showCompleted, setShowCompleted] = useState(false);
+
   const services = Array.isArray(data) ? data : [];
 
   const orderedServices = useMemo(() => {
     return [...services].sort((a, b) => {
+      const recentA = getLatestHistoryTimestamp(a);
+      const recentB = getLatestHistoryTimestamp(b);
+
+      if (recentA !== recentB) {
+        return recentB - recentA;
+      }
+
       const orderA = getOrderTimestamp(a);
       const orderB = getOrderTimestamp(b);
 
@@ -196,7 +314,7 @@ export default function MyServicesScreen() {
     [orderedServices],
   );
 
-  const handleOpenServiceDetail = (service) => {
+  const handleOpenServiceDetail = useCallback((service) => {
     if (!service) {
       return;
     }
@@ -206,9 +324,21 @@ export default function MyServicesScreen() {
       requestId: service.request?.id ?? service.request_id,
       serviceSnapshot: service,
     });
-  };
+  }, [navigation]);
 
-  const renderServiceCard = (service) => {
+  const handleCallClient = useCallback((service) => {
+    const phone = normalizePhone(service?.client_phone);
+    if (!phone) {
+      Alert.alert('Sin teléfono disponible', 'Pedile al cliente que actualice sus datos de contacto.');
+      return;
+    }
+
+    Linking.openURL(`tel:${phone}`).catch(() => {
+      Alert.alert('No se pudo iniciar la llamada', 'Intentá llamar de forma manual.');
+    });
+  }, []);
+
+  const renderActiveServiceCard = useCallback((service) => {
     if (!service) {
       return null;
     }
@@ -218,37 +348,22 @@ export default function MyServicesScreen() {
     const priceLabel = formatPriceLabel(service);
     const clientAvatarUrl = getClientAvatarUrl(service);
     const clientAvatarSource = clientAvatarUrl ? { uri: clientAvatarUrl } : brandIcon;
+    const latestTimestamp = getLatestHistoryTimestamp(service);
+    const updateLabel = formatRelativeUpdate(latestTimestamp);
 
     return (
-      <TouchableOpacity
-        key={service.id}
-        style={[
-          styles.serviceCard,
-          { backgroundColor: colors.background, borderColor: colors.pill },
-        ]}
-        activeOpacity={0.92}
-        onPress={() => handleOpenServiceDetail(service)}
-      >
-        <View style={styles.serviceCardHeader}>
-          <Text style={styles.serviceTitle} numberOfLines={2}>
-            {getServiceTitle(service)}
-          </Text>
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: colors.pill },
-            ]}
-          >
-            <Text
-              style={[
-                styles.statusBadgeText,
-                { color: colors.text },
-              ]}
-            >
-              {statusLabel}
-            </Text>
+      <View key={service.id} style={[styles.activeCard, { borderColor: colors.pill }]}>
+        <View style={styles.activeHeaderRow}>
+          <View style={[styles.statusChip, { backgroundColor: colors.pill }]}>
+            <Ionicons name={getStatusIconName(service.status)} size={14} style={[styles.statusChipIcon, { color: colors.text }]} />
+            <Text style={[styles.statusChipText, { color: colors.text }]}>{statusLabel}</Text>
           </View>
+          <Text style={styles.updateLabel}>{updateLabel}</Text>
         </View>
+
+        <Text style={styles.activeTitle} numberOfLines={2}>
+          {getServiceTitle(service)}
+        </Text>
 
         <View style={styles.clientRow}>
           <Image source={clientAvatarSource} style={styles.clientAvatar} />
@@ -260,140 +375,105 @@ export default function MyServicesScreen() {
           </View>
         </View>
 
-        <View style={styles.serviceMetaRow}>
-          <Ionicons name="calendar-outline" size={16} style={styles.serviceMetaIcon} />
-          <Text style={styles.serviceMetaText} numberOfLines={2}>
+        <View style={styles.metaRow}>
+          <Ionicons name="calendar-outline" size={16} style={styles.metaIcon} />
+          <Text style={styles.metaText} numberOfLines={2}>
             {formatScheduleRange(service)}
           </Text>
         </View>
-        <View style={styles.serviceMetaRow}>
-          <Ionicons name="location-outline" size={16} style={styles.serviceMetaIcon} />
-          <Text style={styles.serviceMetaText} numberOfLines={1}>
+
+        <View style={styles.metaRow}>
+          <Ionicons name="location-outline" size={16} style={styles.metaIcon} />
+          <Text style={styles.metaText} numberOfLines={1}>
             {getCityLabel(service)}
           </Text>
         </View>
-        {service.client_phone ? (
-          <View style={styles.serviceMetaRow}>
-            <Ionicons name="call-outline" size={16} style={styles.serviceMetaIcon} />
-            <Text style={styles.serviceMetaText} numberOfLines={1}>
-              {service.client_phone}
-            </Text>
-          </View>
-        ) : null}
+
         {priceLabel ? (
-          <View style={styles.serviceMetaRow}>
-            <Ionicons name="cash-outline" size={16} style={styles.serviceMetaIcon} />
-            <Text style={styles.serviceMetaText} numberOfLines={1}>
+          <View style={styles.metaRow}>
+            <Ionicons name="cash-outline" size={16} style={styles.metaIcon} />
+            <Text style={styles.metaText} numberOfLines={1}>
               {priceLabel}
             </Text>
           </View>
         ) : null}
-      </TouchableOpacity>
-    );
-  };
 
-  const renderActiveServiceCard = (service, index) => {
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.actionPrimary]}
+            onPress={() => handleOpenServiceDetail(service)}
+            activeOpacity={0.9}
+          >
+            <Ionicons name="eye-outline" size={16} style={styles.actionIcon} />
+            <Text style={styles.actionLabel}>Ver detalle</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.actionButtonLast, styles.actionSecondary, !service?.client_phone && styles.actionDisabled]}
+            onPress={() => handleCallClient(service)}
+            activeOpacity={service?.client_phone ? 0.9 : 1}
+            disabled={!service?.client_phone}
+          >
+            <Ionicons name="call-outline" size={16} style={styles.actionIcon} />
+            <Text style={styles.actionLabel}>{service?.client_phone ? 'Llamar' : 'Sin teléfono'}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }, [handleCallClient, handleOpenServiceDetail]);
+
+  const renderCompletedService = useCallback((service) => {
     if (!service) {
       return null;
     }
 
-    const colors = getStatusColors(service.status);
-    const statusLabel = STATUS_LABELS[service.status] || service.status || 'Sin estado';
-    const marginStyle = index === activeServices.length - 1 ? styles.activeCardLast : null;
     const priceLabel = formatPriceLabel(service);
+    const review = getClientReview(service);
+    const ratingValue = Number.isFinite(Number(review?.rating)) ? Math.max(0, Math.min(5, Number(review.rating))) : null;
 
     return (
       <TouchableOpacity
         key={service.id}
-        style={[
-          styles.activeCard,
-          { backgroundColor: colors.background, borderColor: colors.pill },
-          marginStyle,
-        ]}
-        activeOpacity={0.92}
+        style={styles.completedCard}
+        activeOpacity={0.88}
         onPress={() => handleOpenServiceDetail(service)}
       >
-        <View style={styles.activeStatusRow}>
-          <View style={[styles.activeStatusPill, { backgroundColor: colors.pill }]}>
-            <Ionicons
-              name={getStatusIconName(service.status)}
-              size={14}
-              style={[styles.activeStatusIcon, { color: colors.text }]}
-            />
-            <Text style={[styles.activeStatusText, { color: colors.text }]}>{statusLabel}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} style={styles.activeChevron} />
-        </View>
-
-        <Text style={styles.activeCardTitle} numberOfLines={2}>
-          {getServiceTitle(service)}
-        </Text>
-
-        <View style={styles.activeCardMetaRow}>
-          <Ionicons name="calendar-outline" size={15} style={styles.activeCardMetaIcon} />
-          <Text style={styles.activeCardMetaText} numberOfLines={2}>
-            {formatScheduleRange(service)}
+        <View style={styles.completedTitleRow}>
+          <Text style={styles.completedTitle} numberOfLines={1}>
+            {getServiceTitle(service)}
           </Text>
+          <Ionicons name="chevron-forward" size={16} style={styles.completedChevron} />
         </View>
-        <View style={styles.activeCardMetaRow}>
-          <Ionicons name="location-outline" size={15} style={styles.activeCardMetaIcon} />
-          <Text style={styles.activeCardMetaText} numberOfLines={1}>
-            {getCityLabel(service)}
-          </Text>
-        </View>
-        <View style={styles.activeCardMetaRow}>
-          <Ionicons name="person-outline" size={15} style={styles.activeCardMetaIcon} />
-          <Text style={styles.activeCardMetaText} numberOfLines={1}>
-            {getClientName(service)}
-          </Text>
-        </View>
-        {priceLabel ? (
-          <View style={styles.activeCardMetaRow}>
-            <Ionicons name="cash-outline" size={15} style={styles.activeCardMetaIcon} />
-            <Text style={styles.activeCardMetaText} numberOfLines={1}>
-              {priceLabel}
-            </Text>
+        <Text style={styles.completedMeta}>{resolveCompletedLabel(service)}</Text>
+        {priceLabel ? <Text style={styles.completedMeta}>{priceLabel}</Text> : null}
+        {ratingValue ? (
+          <View style={styles.completedReviewSection}>
+            <View style={styles.ratingRow}>
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Ionicons
+                  key={`completed-review-${service.id}-${index}`}
+                  name={index < ratingValue ? 'star' : 'star-outline'}
+                  size={14}
+                  style={styles.ratingStar}
+                  color="#F59E0B"
+                />
+              ))}
+              <Text style={styles.ratingLabel}>{`${ratingValue}/5`}</Text>
+            </View>
+            {review?.comment ? (
+              <Text style={styles.ratingComment} numberOfLines={2}>
+                {review.comment}
+              </Text>
+            ) : null}
           </View>
         ) : null}
       </TouchableOpacity>
     );
-  };
+  }, [handleOpenServiceDetail]);
 
-  const renderServiceGroup = ({
-    title,
-    icon,
-    palette,
-    services: groupServices = [],
-    emptyIcon,
-    emptyMessage,
-  }) => (
-    <View style={styles.sectionCard}>
-      <View style={[styles.sectionPill, { backgroundColor: palette.pill }]}>
-        <Ionicons name={icon} size={16} style={styles.sectionPillIcon} />
-        <Text style={styles.sectionPillText}>{title}</Text>
-        <View style={styles.sectionCounterBubble}>
-          <Text style={styles.sectionCounterText}>{groupServices.length}</Text>
-        </View>
-      </View>
-      <View
-        style={[styles.sectionBody, {
-          backgroundColor: palette.background,
-          borderColor: palette.pill,
-        }]}
-      >
-        {groupServices.length ? (
-          <View style={styles.sectionBodyContent}>
-            {groupServices.map((service) => renderServiceCard(service))}
-          </View>
-        ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name={emptyIcon} size={28} color={PALETTE.textSecondary} />
-            <Text style={styles.emptyStateText}>{emptyMessage}</Text>
-          </View>
-        )}
-      </View>
-    </View>
-  );
+  const toggleCompleted = useCallback(() => {
+    setShowCompleted((prev) => !prev);
+  }, []);
 
   if (isLoading) {
     return (
@@ -436,42 +516,55 @@ export default function MyServicesScreen() {
           </Text>
         ) : null}
 
-        <View style={styles.activeSection}>
-          <View style={styles.activeHeader}>
-            <Text style={styles.activeTitle}>Servicios activos</Text>
-            {activeServices.length ? (
-              <View style={styles.activeCounter}>
-                <Text style={styles.activeCounterText}>{activeServices.length}</Text>
-              </View>
-            ) : null}
-          </View>
-
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Servicios en progreso</Text>
           {activeServices.length ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.activeCarousel}
-            >
-              {activeServices.map((service, index) => renderActiveServiceCard(service, index))}
-            </ScrollView>
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="briefcase-outline" size={28} color={PALETTE.textSecondary} />
-              <Text style={styles.emptyStateText}>
-                Todavía no tenés servicios activos.
-              </Text>
+            <View style={styles.sectionCounter}>
+              <Text style={styles.sectionCounterText}>{activeServices.length}</Text>
             </View>
-          )}
+          ) : null}
         </View>
 
-        {renderServiceGroup({
-          title: 'Servicios completados',
-          icon: 'checkmark-done-outline',
-          palette: HOME_STATUS_COLORS.completed,
-          services: completedServices,
-          emptyIcon: 'checkmark-done-outline',
-          emptyMessage: 'Todavía no registraste servicios completados.',
-        })}
+        {activeServices.length ? (
+          <View style={styles.activeList}>
+            {activeServices.map((service) => renderActiveServiceCard(service))}
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="briefcase-outline" size={28} color={PALETTE.textSecondary} />
+            <Text style={styles.emptyStateText}>Todavía no tenés servicios en curso.</Text>
+          </View>
+        )}
+
+        <TouchableOpacity style={styles.completedToggle} onPress={toggleCompleted} activeOpacity={0.85}>
+          <View style={styles.completedToggleLeft}>
+            <View style={[styles.completedBadge, { backgroundColor: HOME_STATUS_COLORS.completed.pill }]}>
+              <Ionicons name="checkmark-done" size={14} color="#FFFFFF" />
+            </View>
+            <Text style={styles.completedToggleText}>Servicios completados</Text>
+          </View>
+          <View style={styles.completedToggleRight}>
+            <Text style={styles.completedCount}>{completedServices.length}</Text>
+            <Ionicons
+              name={showCompleted ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              style={styles.completedChevron}
+            />
+          </View>
+        </TouchableOpacity>
+
+        {showCompleted ? (
+          completedServices.length ? (
+            <View style={styles.completedList}>
+              {completedServices.map((service) => renderCompletedService(service))}
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="checkmark-done-outline" size={26} color={PALETTE.textSecondary} />
+              <Text style={styles.emptyStateText}>Todavía no registraste servicios completados.</Text>
+            </View>
+          )
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

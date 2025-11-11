@@ -20,11 +20,12 @@ import styles from './MyRequestsScreen.styles';
 const brandLogo = require('../../../assets/icon.png');
 
 const TODO_REQUEST_STATUSES = new Set(['DRAFT', 'PUBLISHED', 'CANCELLED']);
-const PROGRESS_SERVICE_STATUSES = new Set(['CONFIRMED', 'IN_PROGRESS', 'CANCELED']);
+const PROGRESS_SERVICE_STATUSES = new Set(['CONFIRMED', 'ON_ROUTE', 'IN_PROGRESS', 'CANCELED']);
 const COMPLETED_SERVICE_STATUSES = new Set(['COMPLETED']);
 
 const SERVICE_STATUS_MAP = {
   CONFIRMED: { label: 'Servicio confirmado', variant: 'progress' },
+  ON_ROUTE: { label: 'En camino', variant: 'progress' },
   IN_PROGRESS: { label: 'En progreso', variant: 'progress' },
   COMPLETED: { label: 'Servicio completado', variant: 'completed' },
   CANCELED: { label: 'Servicio cancelado', variant: 'cancelled' },
@@ -86,6 +87,78 @@ const buildDescriptionSnippet = (description) => {
     return normalized;
   }
   return `${normalized.slice(0, 137)}...`;
+};
+
+const parseDateSafe = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getLatestServiceActivityTimestamp = (request) => {
+  if (!request) {
+    return 0;
+  }
+
+  const service = request.service ?? null;
+  let latest = 0;
+
+  if (service) {
+    const historyItems = Array.isArray(service.status_history)
+      ? service.status_history
+      : [];
+
+    historyItems.forEach((item) => {
+      const parsed = parseDateSafe(item?.changed_at);
+      if (!parsed) {
+        return;
+      }
+      const timestamp = parsed.getTime();
+      if (Number.isFinite(timestamp) && timestamp > latest) {
+        latest = timestamp;
+      }
+    });
+
+    const serviceCandidates = [
+      service.status_changed_at,
+      service.updated_at,
+      service.completed_at,
+      service.created_at,
+    ];
+
+    serviceCandidates.forEach((value) => {
+      const parsed = parseDateSafe(value);
+      if (!parsed) {
+        return;
+      }
+      const timestamp = parsed.getTime();
+      if (Number.isFinite(timestamp) && timestamp > latest) {
+        latest = timestamp;
+      }
+    });
+  }
+
+  const requestCandidates = [
+    request.updated_at,
+    request.created_at,
+    request.preferred_start_at,
+  ];
+
+  requestCandidates.forEach((value) => {
+    const parsed = parseDateSafe(value);
+    if (!parsed) {
+      return;
+    }
+    const timestamp = parsed.getTime();
+    if (Number.isFinite(timestamp) && timestamp > latest) {
+      latest = timestamp;
+    }
+  });
+
+  return latest;
 };
 
 const MyRequestsScreen = () => {
@@ -183,15 +256,22 @@ const MyRequestsScreen = () => {
 
   const formattedRequests = useMemo(() => {
     const prioritized = [...rawRequests].sort((a, b) => {
+      const recentA = getLatestServiceActivityTimestamp(a);
+      const recentB = getLatestServiceActivityTimestamp(b);
+
+      if (recentA !== recentB) {
+        return recentB - recentA;
+      }
+
       const aStatus = a?.service?.status;
       const bStatus = b?.service?.status;
-      const aPriority = aStatus === 'IN_PROGRESS' ? 0 : 1;
-      const bPriority = bStatus === 'IN_PROGRESS' ? 0 : 1;
-      if (aPriority !== bPriority) {
-        return aPriority - bPriority;
+
+      if (aStatus !== bStatus) {
+        return String(aStatus || '').localeCompare(String(bStatus || ''));
       }
-      const aCreated = a?.created_at ? new Date(a.created_at).getTime() : 0;
-      const bCreated = b?.created_at ? new Date(b.created_at).getTime() : 0;
+
+      const aCreated = parseDateSafe(a?.created_at)?.getTime() ?? 0;
+      const bCreated = parseDateSafe(b?.created_at)?.getTime() ?? 0;
       return bCreated - aCreated;
     });
     return prioritized.map((request) => mapRequestToCardData(request));

@@ -153,6 +153,8 @@ const buildTimelineEntries = (service, pendingReview = null) => {
     const uniqueFlow = flow.filter((status, index, array) => array.indexOf(status) === index);
     const currentIndex = Math.max(uniqueFlow.indexOf(finalStatus), 0);
 
+    const completedReached = finalStatus === 'COMPLETED';
+
     const entries = uniqueFlow.map((status, index) => {
         const record = historyByStatus.get(status);
         let timestampLabel = null;
@@ -167,14 +169,16 @@ const buildTimelineEntries = (service, pendingReview = null) => {
         const badge = resolveStatusBadge(status);
         const description = STATUS_DESCRIPTIONS[status] || null;
 
+        const isCurrent = status === finalStatus;
+
         let paletteKey;
         if (status === 'CANCELED') {
             paletteKey = 'canceled';
-        } else if (status === 'COMPLETED') {
+        } else if (status === 'COMPLETED' && completedReached) {
             paletteKey = 'done';
         } else if (index < currentIndex) {
             paletteKey = 'done';
-        } else if (status === finalStatus) {
+        } else if (isCurrent) {
             paletteKey = 'active';
         } else {
             paletteKey = 'pending';
@@ -195,8 +199,8 @@ const buildTimelineEntries = (service, pendingReview = null) => {
             connectorColor,
             isFirst: index === 0,
             isLast: index === uniqueFlow.length - 1,
-            isActive: status === finalStatus,
-            isDone: (index < currentIndex || status === 'COMPLETED') && status !== 'CANCELED',
+            isActive: isCurrent,
+            isDone: (index < currentIndex || (status === 'COMPLETED' && completedReached)) && status !== 'CANCELED',
         };
     });
     const review = service.client_review || pendingReview;
