@@ -500,12 +500,14 @@ export default function MyServicesScreen() {
           />
         )}
       >
-        <View style={styles.headerRow}>
-          <View style={styles.brandRow}>
-            <Image source={brandIcon} style={styles.brandIcon} />
-            <View>
-              <Text style={styles.brandTitle}>Fast Services</Text>
-              <Text style={styles.brandSubtitle}>Mis servicios</Text>
+        <View style={styles.headerContainer}>
+          <View style={styles.headerRow}>
+            <View style={styles.brandRow}>
+              <Image source={brandIcon} style={styles.brandIcon} />
+              <View>
+                <Text style={styles.brandTitle}>Fast Services</Text>
+                <Text style={styles.brandSubtitle}>Mis servicios</Text>
+              </View>
             </View>
           </View>
         </View>

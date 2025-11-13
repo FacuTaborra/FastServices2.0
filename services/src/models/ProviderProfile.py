@@ -416,3 +416,62 @@ class ProviderServiceResponse(BaseModel):
     updated_at: datetime
     status_history: List[ProviderServiceStatusHistory] = Field(default_factory=list)
     client_review: Optional[ServiceReviewResponse] = None
+
+
+class ProviderOverviewKpisResponse(BaseModel):
+    """Métricas generales para el tablero del proveedor."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    total_services: int = Field(
+        0, description="Cantidad de servicios gestionados (no cancelados)"
+    )
+    completed_services: int = Field(0, description="Servicios finalizados con éxito")
+    acceptance_rate: Optional[Decimal] = Field(
+        None, description="Porcentaje de propuestas aceptadas respecto del total"
+    )
+    total_proposals: int = Field(0, description="Cantidad total de propuestas enviadas")
+    accepted_proposals: int = Field(0, description="Propuestas aceptadas por clientes")
+    average_rating: Optional[Decimal] = Field(
+        None, description="Calificación promedio recibida por el proveedor"
+    )
+    total_reviews: int = Field(0, description="Total de reseñas recibidas")
+    total_revenue: Decimal = Field(
+        Decimal("0"), description="Facturación acumulada para servicios completados"
+    )
+    revenue_previous_month: Decimal = Field(
+        Decimal("0"), description="Facturación del mes calendario anterior"
+    )
+    revenue_change_percentage: Optional[Decimal] = Field(
+        None, description="Variación porcentual frente al mes anterior"
+    )
+    currency: str = Field(
+        "ARS", description="Moneda utilizada en los montos de facturación"
+    )
+
+
+class ProviderRevenuePoint(BaseModel):
+    """Valor mensual de facturación y ticket promedio."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    month: str = Field(..., description="Mes representado en formato YYYY-MM-01")
+    total_revenue: Decimal = Field(
+        Decimal("0"), description="Facturación total del mes"
+    )
+    avg_ticket: Optional[Decimal] = Field(None, description="Ticket promedio del mes")
+    completed_services: int = Field(
+        0, description="Cantidad de servicios completados en el mes"
+    )
+
+
+class ProviderRevenueStatsResponse(BaseModel):
+    """Serie temporal de ingresos por mes."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    range_months: int = Field(..., description="Cantidad de meses considerados")
+    currency: str = Field("ARS", description="Moneda de los montos")
+    points: List[ProviderRevenuePoint] = Field(
+        default_factory=list, description="Datos mensuales de facturación"
+    )

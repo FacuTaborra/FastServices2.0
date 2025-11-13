@@ -23,6 +23,9 @@ from .ProviderProfile import (
     ProviderLicenseCreate,
     ProviderLicenseResponse,
     ProviderLicenseBulkCreate,
+    ProviderOverviewKpisResponse,
+    ProviderRevenuePoint,
+    ProviderRevenueStatsResponse,
 )
 from .Address import (
     Address,
@@ -104,6 +107,9 @@ __all__ = [
     "ProviderLicenseCreate",
     "ProviderLicenseResponse",
     "ProviderLicenseBulkCreate",
+    "ProviderOverviewKpisResponse",
+    "ProviderRevenuePoint",
+    "ProviderRevenueStatsResponse",
     "ProviderLicenseCreate",
     "ProviderLicenseResponse",
     "ProviderLicenseBulkCreate",

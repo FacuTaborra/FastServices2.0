@@ -42,12 +42,14 @@ export default StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 28,
   },
+  headerContainer: {
+    marginTop: 16,
+    marginBottom: 24,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 24,
   },
   brandRow: {
     flexDirection: 'row',

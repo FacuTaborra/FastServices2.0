@@ -1,8 +1,9 @@
 import logging
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, case, or_, and_
+from sqlalchemy import select, case, or_, and_, func
 from sqlalchemy.orm import selectinload, aliased
 from fastapi import HTTPException, status
 from models.User import User, UserRole
@@ -20,6 +21,9 @@ from models.ProviderProfile import (
     ProviderServiceResponse,
     ProviderServiceRequestPreview,
     ProviderServiceStatusHistory,
+    ProviderOverviewKpisResponse,
+    ProviderRevenuePoint,
+    ProviderRevenueStatsResponse,
 )
 from models.Tag import ProviderLicenseTag, ProviderLicenseTagResponse, TagResponse
 from models.ServiceRequest import (
@@ -32,6 +36,7 @@ from models.ServiceRequest import (
     ServiceStatusHistory,
     ProposalStatus,
     Currency,
+    ServiceReview,
 )
 from models.Tag import ServiceRequestTag
 from models.ServiceRequestSchemas import (
@@ -1071,6 +1076,338 @@ class ProviderController:
             updated_at=service.updated_at,
             status_history=status_history,
             client_review=client_review_payload,
+        )
+
+    @staticmethod
+    @error_handler(logger)
+    async def get_provider_overview_stats(
+        db: AsyncSession, user_id: int
+    ) -> ProviderOverviewKpisResponse:
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proveedor no encontrado",
+            )
+
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            profile = await ProviderController._ensure_provider_profile(db, user_id)
+
+        profile_id = profile.id
+
+        services_stmt = select(
+            func.sum(
+                case(
+                    (Service.status != ServiceStatus.CANCELED, 1),
+                    else_=0,
+                )
+            ).label("total_services"),
+            func.sum(
+                case(
+                    (Service.status == ServiceStatus.COMPLETED, 1),
+                    else_=0,
+                )
+            ).label("completed_services"),
+        ).where(Service.provider_profile_id == profile_id)
+
+        proposal_stmt = select(
+            func.count(ServiceRequestProposal.id).label("total"),
+            func.sum(
+                case(
+                    (ServiceRequestProposal.status == ProposalStatus.ACCEPTED, 1),
+                    else_=0,
+                )
+            ).label("accepted"),
+        ).where(ServiceRequestProposal.provider_profile_id == profile_id)
+
+        reviews_stmt = select(
+            func.count(ServiceReview.id).label("total_reviews"),
+            func.avg(ServiceReview.rating).label("avg_rating"),
+        ).where(ServiceReview.ratee_provider_profile_id == profile_id)
+
+        completed_history_subq = (
+            select(
+                ServiceStatusHistory.service_id.label("service_id"),
+                func.min(ServiceStatusHistory.changed_at).label("completed_at"),
+            )
+            .where(ServiceStatusHistory.to_status == ServiceStatus.COMPLETED.value)
+            .group_by(ServiceStatusHistory.service_id)
+            .subquery()
+        )
+
+        revenue_base = (
+            select(func.coalesce(func.sum(Service.total_price), 0).label("amount"))
+            .join(
+                completed_history_subq,
+                completed_history_subq.c.service_id == Service.id,
+            )
+            .where(
+                Service.provider_profile_id == profile_id,
+                Service.total_price.isnot(None),
+            )
+        )
+
+        now_utc = datetime.now(timezone.utc)
+        current_month_start = now_utc.replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        current_month_start = current_month_start.replace(tzinfo=timezone.utc)
+
+        if current_month_start.month == 1:
+            previous_month_start = current_month_start.replace(
+                year=current_month_start.year - 1, month=12
+            )
+        else:
+            previous_month_start = current_month_start.replace(
+                month=current_month_start.month - 1
+            )
+
+        if current_month_start.month == 12:
+            next_month_start = current_month_start.replace(
+                year=current_month_start.year + 1, month=1
+            )
+        else:
+            next_month_start = current_month_start.replace(
+                month=current_month_start.month + 1
+            )
+
+        current_month_start_naive = current_month_start.replace(tzinfo=None)
+        previous_month_start_naive = previous_month_start.replace(tzinfo=None)
+        next_month_start_naive = next_month_start.replace(tzinfo=None)
+
+        revenue_total_stmt = revenue_base
+
+        revenue_current_stmt = revenue_base.where(
+            completed_history_subq.c.completed_at >= current_month_start_naive,
+            completed_history_subq.c.completed_at < next_month_start_naive,
+        )
+
+        revenue_previous_stmt = revenue_base.where(
+            completed_history_subq.c.completed_at >= previous_month_start_naive,
+            completed_history_subq.c.completed_at < current_month_start_naive,
+        )
+
+        services_result = await db.execute(services_stmt)
+        services_row = services_result.one()
+        total_services = int(services_row.total_services or 0)
+        completed_services = int(services_row.completed_services or 0)
+
+        proposals_result = await db.execute(proposal_stmt)
+        proposals_row = proposals_result.one()
+        total_proposals = int(proposals_row.total or 0)
+        accepted_proposals = int(proposals_row.accepted or 0)
+
+        reviews_result = await db.execute(reviews_stmt)
+        reviews_row = reviews_result.one()
+        total_reviews = int(reviews_row.total_reviews or 0)
+        avg_rating_raw = reviews_row.avg_rating
+
+        revenue_total_result = await db.execute(revenue_total_stmt)
+        total_revenue_raw = revenue_total_result.scalar() or 0
+
+        revenue_current_result = await db.execute(revenue_current_stmt)
+        current_revenue_raw = revenue_current_result.scalar() or 0
+
+        revenue_previous_result = await db.execute(revenue_previous_stmt)
+        previous_revenue_raw = revenue_previous_result.scalar() or 0
+
+        def to_decimal(value: object) -> Decimal:
+            if value is None:
+                return Decimal("0")
+            if isinstance(value, Decimal):
+                return value
+            return Decimal(str(value))
+
+        def quantize_optional(value: Optional[Decimal]) -> Optional[Decimal]:
+            if value is None:
+                return None
+            return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        total_revenue = to_decimal(total_revenue_raw)
+        current_revenue = to_decimal(current_revenue_raw)
+        previous_revenue = to_decimal(previous_revenue_raw)
+
+        acceptance_rate: Optional[Decimal]
+        if total_proposals > 0:
+            raw_rate = (Decimal(accepted_proposals) * Decimal("100")) / Decimal(
+                total_proposals
+            )
+            acceptance_rate = quantize_optional(raw_rate)
+        else:
+            acceptance_rate = None
+
+        average_rating = (
+            quantize_optional(Decimal(str(avg_rating_raw)))
+            if avg_rating_raw is not None
+            else None
+        )
+
+        if previous_revenue > 0:
+            change = (
+                (current_revenue - previous_revenue) * Decimal("100")
+            ) / previous_revenue
+            revenue_change = quantize_optional(change)
+        elif current_revenue > 0:
+            revenue_change = quantize_optional(Decimal("100"))
+        else:
+            revenue_change = None
+
+        return ProviderOverviewKpisResponse(
+            total_services=total_services,
+            completed_services=completed_services,
+            acceptance_rate=acceptance_rate,
+            total_proposals=total_proposals,
+            accepted_proposals=accepted_proposals,
+            average_rating=average_rating,
+            total_reviews=total_reviews,
+            total_revenue=total_revenue.quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            ),
+            revenue_previous_month=previous_revenue.quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            ),
+            revenue_change_percentage=revenue_change,
+            currency="ARS",
+        )
+
+    @staticmethod
+    @error_handler(logger)
+    async def get_provider_revenue_stats(
+        db: AsyncSession, user_id: int, months: int
+    ) -> ProviderRevenueStatsResponse:
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proveedor no encontrado",
+            )
+
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            profile = await ProviderController._ensure_provider_profile(db, user_id)
+
+        profile_id = profile.id
+
+        normalized_months = max(1, min(months, 12))
+
+        now_utc = datetime.now(timezone.utc).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+
+        def _add_months(date_value: datetime, offset: int) -> datetime:
+            year = date_value.year
+            month = date_value.month + offset
+            while month > 12:
+                month -= 12
+                year += 1
+            while month <= 0:
+                month += 12
+                year -= 1
+            return date_value.replace(year=year, month=month, day=1)
+
+        start_month = _add_months(now_utc, -(normalized_months - 1))
+        start_month_naive = start_month.replace(tzinfo=None)
+
+        completed_history_subq = (
+            select(
+                ServiceStatusHistory.service_id.label("service_id"),
+                func.min(ServiceStatusHistory.changed_at).label("completed_at"),
+            )
+            .where(ServiceStatusHistory.to_status == ServiceStatus.COMPLETED.value)
+            .group_by(ServiceStatusHistory.service_id)
+            .subquery()
+        )
+
+        period_expr = func.date_format(
+            completed_history_subq.c.completed_at, "%Y-%m-01"
+        )
+
+        revenue_stmt = (
+            select(
+                period_expr.label("period"),
+                func.count(Service.id).label("completed_services"),
+                func.coalesce(func.sum(Service.total_price), 0).label("total_revenue"),
+                func.avg(Service.total_price).label("avg_ticket"),
+            )
+            .select_from(Service)
+            .join(
+                completed_history_subq,
+                completed_history_subq.c.service_id == Service.id,
+            )
+            .where(
+                Service.provider_profile_id == profile_id,
+                Service.total_price.isnot(None),
+                completed_history_subq.c.completed_at >= start_month_naive,
+            )
+            .group_by(period_expr)
+            .order_by(period_expr)
+        )
+
+        revenue_result = await db.execute(revenue_stmt)
+        revenue_rows = revenue_result.fetchall()
+
+        points_map: dict[str, dict[str, object]] = {}
+        for row in revenue_rows:
+            period = row.period
+            if period is None:
+                continue
+            period_str = str(period)
+            points_map[period_str] = {
+                "total_revenue": row.total_revenue,
+                "avg_ticket": row.avg_ticket,
+                "completed_services": int(row.completed_services or 0),
+            }
+
+        points: List[ProviderRevenuePoint] = []
+        month_cursor = start_month
+
+        for _ in range(normalized_months):
+            month_key = month_cursor.replace(tzinfo=None).strftime("%Y-%m-01")
+            data = points_map.get(month_key, None)
+
+            total_revenue_raw = data["total_revenue"] if data else 0
+            avg_ticket_raw = data["avg_ticket"] if data else None
+            completed_services = data["completed_services"] if data else 0
+
+            total_revenue_decimal = (
+                total_revenue_raw
+                if isinstance(total_revenue_raw, Decimal)
+                else Decimal(str(total_revenue_raw or 0))
+            )
+            total_revenue = total_revenue_decimal.quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+
+            if avg_ticket_raw is None:
+                avg_ticket = None
+            else:
+                avg_ticket_decimal = (
+                    avg_ticket_raw
+                    if isinstance(avg_ticket_raw, Decimal)
+                    else Decimal(str(avg_ticket_raw))
+                )
+                avg_ticket = avg_ticket_decimal.quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+
+            points.append(
+                ProviderRevenuePoint(
+                    month=month_key,
+                    total_revenue=total_revenue,
+                    avg_ticket=avg_ticket,
+                    completed_services=completed_services,
+                )
+            )
+
+            month_cursor = _add_months(month_cursor, 1)
+
+        return ProviderRevenueStatsResponse(
+            range_months=normalized_months,
+            currency="ARS",
+            points=points,
         )
 
 

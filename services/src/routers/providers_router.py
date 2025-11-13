@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.database import get_db
 from models.ProviderProfile import (
@@ -10,6 +10,8 @@ from models.ProviderProfile import (
     ProviderProposalResponse,
     ProviderProposalCreate,
     ProviderServiceResponse,
+    ProviderOverviewKpisResponse,
+    ProviderRevenueStatsResponse,
 )
 from models.User import UserRole
 from models.ServiceRequestSchemas import ServiceRequestResponse, CurrencyResponse
@@ -216,6 +218,54 @@ async def list_provider_services(
         )
 
     return await ProviderController.list_provider_services(db, current_user.id)
+
+
+@router.get(
+    "/me/stats/overview",
+    response_model=ProviderOverviewKpisResponse,
+    summary="Obtener KPIs generales del proveedor",
+    description=(
+        "Devuelve métricas rápidas sobre servicios, aceptación de propuestas y facturación"
+        " para el panel del proveedor."
+    ),
+)
+async def get_provider_overview_stats(
+    current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    return await ProviderController.get_provider_overview_stats(db, current_user.id)
+
+
+@router.get(
+    "/me/stats/revenue",
+    response_model=ProviderRevenueStatsResponse,
+    summary="Obtener ingresos por mes",
+    description=(
+        "Devuelve la facturación mensual y el ticket promedio para un rango de meses"
+        " configurable."
+    ),
+)
+async def get_provider_revenue_stats_endpoint(
+    months: int = Query(6, ge=1, le=12, description="Cantidad de meses a consultar"),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    return await ProviderController.get_provider_revenue_stats(
+        db, current_user.id, months
+    )
 
 
 @router.post(

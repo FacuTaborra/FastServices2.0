@@ -55,6 +55,28 @@ export async function getProviderServices() {
     }
 }
 
+export async function getProviderOverviewStats() {
+    try {
+        const response = await api.get('/providers/me/stats/overview');
+        return response.data;
+    } catch (error) {
+        console.error('❌ Error obteniendo KPIs del proveedor:', error.message || error);
+        throw error;
+    }
+}
+
+export async function getProviderRevenueStats(months = 6) {
+    try {
+        const response = await api.get('/providers/me/stats/revenue', {
+            params: { months },
+        });
+        return response.data;
+    } catch (error) {
+        console.error('❌ Error obteniendo ingresos del proveedor:', error.message || error);
+        throw error;
+    }
+}
+
 export async function markProviderServiceOnRoute(serviceId) {
     try {
         console.log('🚗 Marcando servicio en camino...', { serviceId });
