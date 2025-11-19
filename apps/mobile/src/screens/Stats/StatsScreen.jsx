@@ -7,9 +7,10 @@ import {
   RefreshControl,
   TouchableOpacity,
   Image,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useProviderOverviewStats, useProviderRevenueStats } from '../../hooks/useProviderStats';
+import { useProviderOverviewStats, useProviderRevenueStats, useProviderRatingDistribution } from '../../hooks/useProviderStats';
 import styles from './StatsScreen.styles';
 
 const toNumber = (value) => {
@@ -21,7 +22,18 @@ const toNumber = (value) => {
 };
 
 const RANGE_MONTH_OPTIONS = [3, 6, 12];
+const RATING_COLORS = {
+  5: '#15803d',
+  4: '#22c55e',
+  3: '#facc15',
+  2: '#f97316',
+  1: '#ef4444',
+};
 const brandIcon = require('../../../assets/icon.png');
+
+const WINDOW_WIDTH = Dimensions.get('window').width;
+const OVERVIEW_CARD_WIDTH = Math.max(240, WINDOW_WIDTH - 80);
+const OVERVIEW_CARD_GAP = 12;
 
 export default function StatsScreen() {
   const {
@@ -42,12 +54,24 @@ export default function StatsScreen() {
     refetch: refetchRevenue,
   } = useProviderRevenueStats(selectedRange);
 
+  const {
+    data: ratingData,
+    isLoading: ratingLoading,
+    isFetching: ratingFetching,
+    error: ratingError,
+    refetch: refetchRatings,
+  } = useProviderRatingDistribution(selectedRange);
+
   const handleRefresh = useCallback(() => {
     refetch();
     refetchRevenue();
-  }, [refetch, refetchRevenue]);
+    refetchRatings();
+  }, [refetch, refetchRatings, refetchRevenue]);
 
-  const isRefreshing = (isFetching && !isLoading) || (revenueFetching && !revenueLoading);
+  const isRefreshing =
+    (isFetching && !isLoading)
+    || (revenueFetching && !revenueLoading)
+    || (ratingFetching && !ratingLoading);
 
   const overviewCurrency = typeof data?.currency === 'string' && data.currency
     ? data.currency
@@ -94,6 +118,16 @@ export default function StatsScreen() {
   const revenuePoints = useMemo(
     () => (Array.isArray(revenueData?.points) ? revenueData.points : []),
     [revenueData],
+  );
+
+  const ratingPoints = useMemo(
+    () => (Array.isArray(ratingData?.points) ? ratingData.points : []),
+    [ratingData],
+  );
+
+  const hasRatingActivity = useMemo(
+    () => ratingPoints.some((point) => Number(point?.total_reviews) > 0),
+    [ratingPoints],
   );
 
   const totalRevenueWindow = useMemo(
@@ -190,6 +224,27 @@ export default function StatsScreen() {
       ? styles.trendPositive
       : styles.trendNegative;
 
+  const overviewMetrics = [
+    {
+      key: 'services',
+      label: 'Servicios atendidos',
+      value: totalServices,
+      helper: `${completedServices} completados`,
+    },
+    {
+      key: 'acceptance',
+      label: 'Tasa de aceptación',
+      value: acceptanceDisplay,
+      helper: proposalsBreakdown,
+    },
+    {
+      key: 'rating',
+      label: 'Calificación promedio',
+      value: ratingDisplay,
+      helper: reviewsSubtitle,
+    },
+  ];
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -220,32 +275,43 @@ export default function StatsScreen() {
         </View>
 
         <View style={styles.kpiCard}>
-          <Text style={styles.kpiLabel}>Servicios atendidos</Text>
-          <Text style={styles.kpiValue}>{totalServices}</Text>
-          <Text style={styles.kpiHelper}>
-            {completedServices} completados
-          </Text>
-        </View>
-
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiLabel}>Tasa de aceptación</Text>
-          <Text style={styles.kpiValue}>{acceptanceDisplay}</Text>
-          <Text style={styles.kpiHelper}>{proposalsBreakdown}</Text>
-        </View>
-
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiLabel}>Calificación promedio</Text>
-          <Text style={styles.kpiValue}>{ratingDisplay}</Text>
-          <Text style={styles.kpiHelper}>{reviewsSubtitle}</Text>
-        </View>
-
-        <View style={styles.kpiCard}>
           <Text style={styles.kpiLabel}>Facturación acumulada</Text>
           <Text style={styles.kpiValue}>{revenueDisplay}</Text>
           <Text style={[styles.trendText, revenueTrendStyle]}>
             Variación vs. mes anterior: {revenueTrendLabel}
           </Text>
           <Text style={styles.kpiHelper}>Mes anterior: {previousRevenueDisplay}</Text>
+        </View>
+
+        <View style={styles.overviewRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={OVERVIEW_CARD_WIDTH + OVERVIEW_CARD_GAP}
+            decelerationRate="fast"
+            snapToAlignment="start"
+            contentContainerStyle={styles.overviewCarouselContent}
+          >
+            {overviewMetrics.map((metric, index) => (
+              <View
+                key={metric.key}
+                style={[
+                  styles.overviewCardWrapper,
+                  {
+                    width: OVERVIEW_CARD_WIDTH,
+                    marginRight:
+                      index === overviewMetrics.length - 1 ? 0 : OVERVIEW_CARD_GAP,
+                  },
+                ]}
+              >
+                <View style={[styles.kpiCard, styles.kpiCardCompact]}>
+                  <Text style={styles.kpiLabel}>{metric.label}</Text>
+                  <Text style={styles.kpiValueCompact}>{metric.value}</Text>
+                  <Text style={styles.kpiHelper}>{metric.helper}</Text>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -346,6 +412,124 @@ export default function StatsScreen() {
                 );
               })}
             </>
+          )}
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Satisfacción de clientes</Text>
+          {ratingFetching ? <ActivityIndicator size="small" color="#6366f1" /> : null}
+        </View>
+
+        <View style={[styles.kpiCard, styles.ratingCard]}>
+          {ratingLoading && !ratingData ? (
+            <View style={styles.ratingLoading}>
+              <ActivityIndicator size="small" color="#6366f1" />
+              <Text style={styles.ratingLoadingLabel}>Cargando calificaciones...</Text>
+            </View>
+          ) : ratingError ? (
+            <View style={styles.ratingError}>
+              <Text style={styles.ratingErrorText}>
+                No pudimos cargar la distribución de reseñas para este período.
+              </Text>
+              <TouchableOpacity
+                style={styles.retryButtonSecondary}
+                onPress={refetchRatings}
+              >
+                <Text style={styles.retryButtonSecondaryText}>Reintentar</Text>
+              </TouchableOpacity>
+            </View>
+          ) : !hasRatingActivity ? (
+            <View style={styles.ratingEmpty}>
+              <Text style={styles.ratingEmptyText}>
+                Aún no registramos reseñas en este rango.
+              </Text>
+            </View>
+          ) : (
+            ratingPoints.map((point, index) => {
+              const totalReviews = Number(point?.total_reviews) || 0;
+              const averageRatingValue = toNumber(point?.average_rating);
+              const buckets = Array.isArray(point?.buckets) ? point.buckets : [];
+              const orderedBuckets = [5, 4, 3, 2, 1].map((rating) => {
+                const match = buckets.find((bucket) => Number(bucket.rating) === rating);
+                return {
+                  rating,
+                  count: match ? Number(match.count) || 0 : 0,
+                };
+              });
+              const segments = orderedBuckets.filter((bucket) => bucket.count > 0);
+
+              return (
+                <View
+                  key={point.month}
+                  style={[
+                    styles.ratingItem,
+                    index === ratingPoints.length - 1 ? styles.ratingItemLast : null,
+                  ]}
+                >
+                  <View style={styles.ratingItemHeader}>
+                    <View>
+                      <Text style={styles.ratingMonth}>{formatMonthLabel(point.month)}</Text>
+                      <Text style={styles.ratingTotal}>
+                        {totalReviews === 1 ? '1 reseña' : `${totalReviews} reseñas`}
+                      </Text>
+                    </View>
+                    <View style={styles.ratingAverageBadge}>
+                      <Text style={styles.ratingAverageBadgeText}>
+                        {averageRatingValue !== null
+                          ? `${averageRatingValue.toFixed(2)} / 5`
+                          : 'Sin datos'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {totalReviews === 0 ? (
+                    <Text style={styles.ratingEmptyMonth}>Sin reseñas en este mes.</Text>
+                  ) : (
+                    <>
+                      <View style={styles.ratingBarTrack}>
+                        {segments.map((bucket) => (
+                          <View
+                            key={`${point.month}-${bucket.rating}`}
+                            style={[
+                              styles.ratingBarSegment,
+                              {
+                                flex: bucket.count,
+                                backgroundColor: RATING_COLORS[bucket.rating] || '#94a3b8',
+                              },
+                            ]}
+                          />
+                        ))}
+                      </View>
+
+                      <View style={styles.ratingLegendRow}>
+                        {orderedBuckets.map((bucket) => {
+                          if (!bucket.count) {
+                            return null;
+                          }
+
+                          return (
+                            <View
+                              key={`legend-${point.month}-${bucket.rating}`}
+                              style={styles.ratingLegendItem}
+                            >
+                              <View
+                                style={[
+                                  styles.ratingLegendSwatch,
+                                  { backgroundColor: RATING_COLORS[bucket.rating] || '#94a3b8' },
+                                ]}
+                              />
+                              <Text style={styles.ratingLegendLabel}>
+                                {`${bucket.rating} estrellas: ${bucket.count}`}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </>
+                  )}
+                </View>
+              );
+            })
           )}
         </View>
       </ScrollView>

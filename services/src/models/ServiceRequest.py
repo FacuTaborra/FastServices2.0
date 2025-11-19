@@ -247,6 +247,11 @@ class Service(Base):
         default=ServiceStatus.CONFIRMED,
     )
     total_price = Column(Numeric(12, 2), nullable=True)
+    currency = Column(
+        String(3),
+        ForeignKey("currencies.code", ondelete="RESTRICT"),
+        nullable=True,
+    )
 
     created_at = Column(DateTime, server_default=func.current_timestamp())
     updated_at = Column(
@@ -259,6 +264,7 @@ class Service(Base):
     proposal = relationship("ServiceRequestProposal", back_populates="service")
     client = relationship("User", back_populates="services_as_client")
     provider = relationship("ProviderProfile", back_populates="services")
+    currency_ref = relationship("Currency")
     status_history = relationship(
         "ServiceStatusHistory",
         back_populates="service",

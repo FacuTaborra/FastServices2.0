@@ -330,8 +330,8 @@ class ServiceRequestController:
                 " ".join(part for part in [first, last] if part).strip() or None
             )
 
-        currency = None
-        if service.proposal is not None:
+        currency = getattr(service, "currency", None)
+        if currency is None and service.proposal is not None:
             currency = service.proposal.currency
 
         history_items = sorted(

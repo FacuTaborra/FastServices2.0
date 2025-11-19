@@ -33,6 +33,17 @@ export default StyleSheet.create({
     fontWeight: '700',
     color: '#0f172a',
   },
+  overviewRow: {
+    marginHorizontal: -20,
+    paddingLeft: 20,
+    marginBottom: 16,
+  },
+  overviewCarouselContent: {
+    paddingRight: 20,
+  },
+  overviewCardWrapper: {
+    height: '100%',
+  },
   brandSubtitle: {
     fontSize: 14,
     color: '#64748b',
@@ -93,6 +104,14 @@ export default StyleSheet.create({
     elevation: 3,
     marginBottom: 16,
   },
+  kpiCardCompact: {
+    flex: 1,
+    marginHorizontal: 6,
+    marginBottom: 0,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    minHeight: 112,
+  },
   kpiLabel: {
     fontSize: 14,
     fontWeight: '500',
@@ -104,6 +123,12 @@ export default StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     marginBottom: 8,
+  },
+  kpiValueCompact: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
   },
   kpiHelper: {
     fontSize: 13,
@@ -204,6 +229,106 @@ export default StyleSheet.create({
     marginTop: 6,
     fontSize: 12,
     color: '#64748b',
+  },
+  ratingCard: {
+    paddingBottom: 12,
+  },
+  ratingLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  ratingLoadingLabel: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#475569',
+  },
+  ratingError: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  ratingErrorText: {
+    fontSize: 14,
+    color: '#dc2626',
+    textAlign: 'center',
+  },
+  ratingEmpty: {
+    paddingVertical: 16,
+  },
+  ratingEmptyText: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  ratingItem: {
+    marginBottom: 18,
+  },
+  ratingItemLast: {
+    marginBottom: 0,
+  },
+  ratingItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  ratingMonth: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0f172a',
+    textTransform: 'capitalize',
+  },
+  ratingTotal: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  ratingAverageBadge: {
+    backgroundColor: '#e0e7ff',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  ratingAverageBadgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1d4ed8',
+  },
+  ratingBarTrack: {
+    height: 10,
+    borderRadius: 6,
+    backgroundColor: '#e2e8f0',
+    overflow: 'hidden',
+    flexDirection: 'row',
+  },
+  ratingBarSegment: {
+    height: '100%',
+  },
+  ratingLegendRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 10,
+  },
+  ratingLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+    marginBottom: 6,
+  },
+  ratingLegendSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 6,
+  },
+  ratingLegendLabel: {
+    fontSize: 12,
+    color: '#475569',
+  },
+  ratingEmptyMonth: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginTop: 4,
   },
   loadingContainer: {
     flex: 1,

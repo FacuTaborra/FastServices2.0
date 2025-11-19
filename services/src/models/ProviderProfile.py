@@ -475,3 +475,40 @@ class ProviderRevenueStatsResponse(BaseModel):
     points: List[ProviderRevenuePoint] = Field(
         default_factory=list, description="Datos mensuales de facturación"
     )
+
+
+class ProviderRatingBucket(BaseModel):
+    """Cantidad de reseñas para un puntaje específico."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    rating: int = Field(..., ge=1, le=5, description="Valor de la calificación")
+    count: int = Field(0, ge=0, description="Cantidad de reseñas con el puntaje")
+
+
+class ProviderRatingDistributionPoint(BaseModel):
+    """Distribución de calificaciones por mes."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    month: str = Field(..., description="Mes representado en formato YYYY-MM-01")
+    total_reviews: int = Field(
+        0, description="Cantidad total de reseñas recibidas en el mes"
+    )
+    average_rating: Optional[Decimal] = Field(
+        None, description="Calificación promedio ponderada del mes"
+    )
+    buckets: List[ProviderRatingBucket] = Field(
+        default_factory=list, description="Distribución por puntaje"
+    )
+
+
+class ProviderRatingDistributionResponse(BaseModel):
+    """Serie temporal de satisfacción del cliente medida por reseñas."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    range_months: int = Field(..., description="Cantidad de meses considerados")
+    points: List[ProviderRatingDistributionPoint] = Field(
+        default_factory=list, description="Distribución mensual de calificaciones"
+    )

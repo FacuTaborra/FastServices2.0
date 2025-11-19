@@ -77,6 +77,18 @@ export async function getProviderRevenueStats(months = 6) {
     }
 }
 
+export async function getProviderRatingDistribution(months = 6) {
+    try {
+        const response = await api.get('/providers/me/stats/ratings', {
+            params: { months },
+        });
+        return response.data;
+    } catch (error) {
+        console.error('❌ Error obteniendo distribución de calificaciones:', error.message || error);
+        throw error;
+    }
+}
+
 export async function markProviderServiceOnRoute(serviceId) {
     try {
         console.log('🚗 Marcando servicio en camino...', { serviceId });

@@ -12,6 +12,7 @@ from models.ProviderProfile import (
     ProviderServiceResponse,
     ProviderOverviewKpisResponse,
     ProviderRevenueStatsResponse,
+    ProviderRatingDistributionResponse,
 )
 from models.User import UserRole
 from models.ServiceRequestSchemas import ServiceRequestResponse, CurrencyResponse
@@ -264,6 +265,32 @@ async def get_provider_revenue_stats_endpoint(
         )
 
     return await ProviderController.get_provider_revenue_stats(
+        db, current_user.id, months
+    )
+
+
+@router.get(
+    "/me/stats/ratings",
+    response_model=ProviderRatingDistributionResponse,
+    summary="Obtener distribución de calificaciones",
+    description=(
+        "Devuelve la evolución mensual de reseñas recibidas por puntaje para"
+        " el panel de satisfacción del proveedor."
+    ),
+)
+async def get_provider_rating_distribution_endpoint(
+    months: int = Query(6, ge=1, le=12, description="Cantidad de meses a consultar"),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    return await ProviderController.get_provider_rating_distribution(
         db, current_user.id, months
     )
 

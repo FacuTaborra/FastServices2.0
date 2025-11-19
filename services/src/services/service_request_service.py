@@ -584,6 +584,7 @@ class ServiceRequestService:
             provider_profile_id=selected_proposal.provider_profile_id,
             status=ServiceStatus.CONFIRMED,
             total_price=total_with_fee,
+            currency=selected_proposal.currency,
         )
 
         # Adjuntar snapshot de dirección si está disponible

@@ -24,6 +24,9 @@ from models.ProviderProfile import (
     ProviderOverviewKpisResponse,
     ProviderRevenuePoint,
     ProviderRevenueStatsResponse,
+    ProviderRatingBucket,
+    ProviderRatingDistributionPoint,
+    ProviderRatingDistributionResponse,
 )
 from models.Tag import ProviderLicenseTag, ProviderLicenseTagResponse, TagResponse
 from models.ServiceRequest import (
@@ -1012,7 +1015,9 @@ class ProviderController:
             )
 
         proposal = getattr(service, "proposal", None)
-        currency = getattr(proposal, "currency", None) if proposal else None
+        currency = getattr(service, "currency", None)
+        if not currency and proposal is not None:
+            currency = getattr(proposal, "currency", None)
         quoted_price = getattr(proposal, "quoted_price", None) if proposal else None
 
         client = getattr(service, "client", None)
@@ -1149,6 +1154,29 @@ class ProviderController:
             )
         )
 
+        currency_stmt = (
+            select(Service.currency)
+            .join(
+                completed_history_subq,
+                completed_history_subq.c.service_id == Service.id,
+            )
+            .where(
+                Service.provider_profile_id == profile_id,
+                Service.total_price.isnot(None),
+                Service.currency.isnot(None),
+            )
+            .order_by(completed_history_subq.c.completed_at.desc())
+            .limit(1)
+        )
+
+        currency_result = await db.execute(currency_stmt)
+        db_currency = currency_result.scalar_one_or_none()
+
+        if db_currency:
+            revenue_base = revenue_base.where(Service.currency == db_currency)
+
+        currency_code = db_currency or getattr(profile, "currency", None) or "ARS"
+
         now_utc = datetime.now(timezone.utc)
         current_month_start = now_utc.replace(
             day=1, hour=0, minute=0, second=0, microsecond=0
@@ -1269,7 +1297,7 @@ class ProviderController:
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             ),
             revenue_change_percentage=revenue_change,
-            currency="ARS",
+            currency=currency_code,
         )
 
     @staticmethod
@@ -1325,6 +1353,26 @@ class ProviderController:
             completed_history_subq.c.completed_at, "%Y-%m-01"
         )
 
+        currency_stmt = (
+            select(Service.currency)
+            .join(
+                completed_history_subq,
+                completed_history_subq.c.service_id == Service.id,
+            )
+            .where(
+                Service.provider_profile_id == profile_id,
+                Service.total_price.isnot(None),
+                Service.currency.isnot(None),
+            )
+            .order_by(completed_history_subq.c.completed_at.desc())
+            .limit(1)
+        )
+
+        currency_result = await db.execute(currency_stmt)
+        db_currency = currency_result.scalar_one_or_none()
+
+        currency_code = db_currency or getattr(profile, "currency", None) or "ARS"
+
         revenue_stmt = (
             select(
                 period_expr.label("period"),
@@ -1345,6 +1393,9 @@ class ProviderController:
             .group_by(period_expr)
             .order_by(period_expr)
         )
+
+        if db_currency:
+            revenue_stmt = revenue_stmt.where(Service.currency == db_currency)
 
         revenue_result = await db.execute(revenue_stmt)
         revenue_rows = revenue_result.fetchall()
@@ -1406,7 +1457,140 @@ class ProviderController:
 
         return ProviderRevenueStatsResponse(
             range_months=normalized_months,
-            currency="ARS",
+            currency=currency_code,
+            points=points,
+        )
+
+    @staticmethod
+    @error_handler(logger)
+    async def get_provider_rating_distribution(
+        db: AsyncSession, user_id: int, months: int
+    ) -> ProviderRatingDistributionResponse:
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proveedor no encontrado",
+            )
+
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            profile = await ProviderController._ensure_provider_profile(db, user_id)
+
+        profile_id = profile.id
+
+        normalized_months = max(1, min(months, 12))
+
+        now_utc = datetime.now(timezone.utc).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+
+        def _add_months(date_value: datetime, offset: int) -> datetime:
+            year = date_value.year
+            month = date_value.month + offset
+            while month > 12:
+                month -= 12
+                year += 1
+            while month <= 0:
+                month += 12
+                year -= 1
+            return date_value.replace(year=year, month=month, day=1)
+
+        start_month = _add_months(now_utc, -(normalized_months - 1))
+        start_month_naive = start_month.replace(tzinfo=None)
+
+        period_expr = func.date_format(ServiceReview.created_at, "%Y-%m-01")
+
+        ratings_stmt = (
+            select(
+                period_expr.label("period"),
+                ServiceReview.rating.label("rating"),
+                func.count(ServiceReview.id).label("count"),
+            )
+            .where(
+                ServiceReview.ratee_provider_profile_id == profile_id,
+                ServiceReview.created_at >= start_month_naive,
+            )
+            .group_by(period_expr, ServiceReview.rating)
+            .order_by(period_expr, ServiceReview.rating)
+        )
+
+        ratings_result = await db.execute(ratings_stmt)
+        ratings_rows = ratings_result.fetchall()
+
+        distribution_map: dict[str, dict[str, object]] = {}
+
+        for row in ratings_rows:
+            period = row.period
+            rating_value = row.rating
+
+            if period is None or rating_value is None:
+                continue
+
+            rating_int = int(rating_value)
+            if rating_int < 1 or rating_int > 5:
+                continue
+
+            period_str = str(period)
+
+            entry = distribution_map.get(period_str)
+            if entry is None:
+                entry = {
+                    "counts": {score: 0 for score in range(1, 6)},
+                    "total": 0,
+                    "sum": Decimal("0"),
+                }
+                distribution_map[period_str] = entry
+
+            count = int(row.count or 0)
+            entry_counts: dict[int, int] = entry["counts"]  # type: ignore[assignment]
+            entry_counts[rating_int] = entry_counts.get(rating_int, 0) + count
+            entry["total"] = int(entry["total"]) + count  # type: ignore[index]
+            entry["sum"] = entry["sum"] + (Decimal(str(rating_int)) * Decimal(count))  # type: ignore[index]
+
+        points: List[ProviderRatingDistributionPoint] = []
+        month_cursor = start_month
+
+        for _ in range(normalized_months):
+            month_key = month_cursor.replace(tzinfo=None).strftime("%Y-%m-01")
+            entry = distribution_map.get(month_key)
+
+            if entry is None:
+                counts = {score: 0 for score in range(1, 6)}
+                total_reviews = 0
+                rating_sum = Decimal("0")
+            else:
+                counts = dict(entry["counts"])  # type: ignore[assignment]
+                total_reviews = int(entry["total"])  # type: ignore[arg-type]
+                rating_sum = entry["sum"]  # type: ignore[assignment]
+
+            buckets = [
+                ProviderRatingBucket(rating=score, count=counts.get(score, 0))
+                for score in range(5, 0, -1)
+            ]
+
+            if total_reviews > 0:
+                average_decimal = (rating_sum / Decimal(total_reviews)).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+                average_rating: Optional[Decimal] = average_decimal
+            else:
+                average_rating = None
+
+            points.append(
+                ProviderRatingDistributionPoint(
+                    month=month_key,
+                    total_reviews=total_reviews,
+                    average_rating=average_rating,
+                    buckets=buckets,
+                )
+            )
+
+            month_cursor = _add_months(month_cursor, 1)
+
+        return ProviderRatingDistributionResponse(
+            range_months=normalized_months,
             points=points,
         )
 
