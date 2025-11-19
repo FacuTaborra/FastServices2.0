@@ -226,10 +226,10 @@ export default function StatsScreen() {
 
   const overviewMetrics = [
     {
-      key: 'services',
-      label: 'Servicios atendidos',
-      value: totalServices,
-      helper: `${completedServices} completados`,
+      key: 'rating',
+      label: 'Calificación promedio',
+      value: ratingDisplay,
+      helper: reviewsSubtitle,
     },
     {
       key: 'acceptance',
@@ -238,10 +238,10 @@ export default function StatsScreen() {
       helper: proposalsBreakdown,
     },
     {
-      key: 'rating',
-      label: 'Calificación promedio',
-      value: ratingDisplay,
-      helper: reviewsSubtitle,
+      key: 'services',
+      label: 'Servicios atendidos',
+      value: totalServices,
+      helper: `${completedServices} completados`,
     },
   ];
 

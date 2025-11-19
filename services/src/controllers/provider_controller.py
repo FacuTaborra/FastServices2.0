@@ -42,6 +42,7 @@ from models.ServiceRequest import (
     ServiceReview,
 )
 from models.Tag import ServiceRequestTag
+from models.Address import Address
 from models.ServiceRequestSchemas import (
     ServiceRequestResponse,
     CurrencyResponse,
@@ -384,6 +385,23 @@ class ProviderController:
         if not profile:
             profile = await ProviderController._ensure_provider_profile(db, user_id)
 
+        provider_city = None
+        provider_state = None
+
+        address_stmt = (
+            select(Address)
+            .where(Address.user_id == user.id, Address.is_active.is_(True))
+            .order_by(Address.is_default.desc(), Address.created_at.desc())
+            .limit(1)
+        )
+        provider_address_result = await db.execute(address_stmt)
+        provider_address = provider_address_result.scalar_one_or_none()
+        if provider_address:
+            if provider_address.city:
+                provider_city = provider_address.city.strip() or None
+            if provider_address.state:
+                provider_state = provider_address.state.strip() or None
+
         licenses = getattr(profile, "licenses", []) or []
         tag_ids = {
             link.tag_id
@@ -396,6 +414,7 @@ class ProviderController:
             return []
 
         provider_proposal_alias = aliased(ServiceRequestProposal)
+        request_address_alias = aliased(Address)
 
         stmt = (
             select(ServiceRequest)
@@ -409,6 +428,10 @@ class ProviderController:
                     provider_proposal_alias.request_id == ServiceRequest.id,
                     provider_proposal_alias.provider_profile_id == profile.id,
                 ),
+            )
+            .outerjoin(
+                request_address_alias,
+                request_address_alias.id == ServiceRequest.address_id,
             )
             .options(
                 selectinload(ServiceRequest.images),
@@ -447,6 +470,24 @@ class ProviderController:
                 ServiceRequest.created_at.asc(),
             )
         )
+
+        normalized_city = provider_city.lower() if provider_city else None
+        normalized_state = provider_state.lower() if provider_state else None
+
+        if normalized_city:
+            city_expr = func.lower(
+                func.coalesce(
+                    func.nullif(func.trim(request_address_alias.city), ""),
+                    func.nullif(func.trim(ServiceRequest.city_snapshot), ""),
+                )
+            )
+            stmt = stmt.where(city_expr == normalized_city)
+
+        if normalized_state:
+            state_expr = func.lower(
+                func.nullif(func.trim(request_address_alias.state), "")
+            )
+            stmt = stmt.where(state_expr == normalized_state)
 
         result = await db.execute(stmt)
         requests = list(result.scalars().unique().all())

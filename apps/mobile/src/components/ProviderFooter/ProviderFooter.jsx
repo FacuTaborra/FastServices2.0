@@ -22,11 +22,6 @@ export default function ProviderFooter({ state, descriptors, navigation }) {
           <View style={styles.button}>
             <Ionicons name="briefcase-outline" size={24} color={colorFor('ProviderRequests')} />
             <Text style={[styles.label, { color: colorFor('ProviderRequests') }]}>Solicitudes</Text>
-            {requestsBadge !== undefined && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{requestsBadge}</Text>
-              </View>
-            )}
           </View>
         </TouchableOpacity>
 

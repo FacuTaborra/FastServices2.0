@@ -417,7 +417,7 @@ const RequestDetailScreen = () => {
                   requestType === 'LICITACION' && styles.toggleButtonTextActive,
                 ]}
               >
-                Licitación ⏰
+                Prolongado ⏰
               </Text>
             </TouchableOpacity>
           </View>
@@ -426,7 +426,7 @@ const RequestDetailScreen = () => {
               FAST ⚡: Publicá y recibí ayuda lo antes posible.
             </Text>
             <Text style={styles.requestTypeHelperText}>
-              LICITACIÓN ⏰: Permití que varios prestadores te envíen propuestas antes de decidir.
+              PROLONGADO ⏰: Permití que varios prestadores te envíen propuestas antes de decidir.
             </Text>
           </View>
         </View>

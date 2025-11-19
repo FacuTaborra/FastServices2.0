@@ -163,6 +163,7 @@ export default function ProviderRequestsScreen() {
   const [proposals, setProposals] = useState([]);
   const [loadingMatching, setLoadingMatching] = useState(false);
   const [loadingProposals, setLoadingProposals] = useState(false);
+  const [hasFetchedProposals, setHasFetchedProposals] = useState(false);
 
   const providerProfileId = user?.provider_profile?.id ?? null;
 
@@ -211,6 +212,7 @@ export default function ProviderRequestsScreen() {
       console.error('❌ Error obteniendo presupuestos del proveedor:', error.message || error);
     } finally {
       setLoadingProposals(false);
+      setHasFetchedProposals(true);
     }
   }, []);
 
@@ -220,10 +222,14 @@ export default function ProviderRequestsScreen() {
   }, [loadMatchingRequests, loadProposals]);
 
   useEffect(() => {
-    if (activeTab === 'presupuestos' && proposals.length === 0 && !loadingProposals) {
+    if (
+      activeTab === 'presupuestos'
+      && !loadingProposals
+      && !hasFetchedProposals
+    ) {
       loadProposals();
     }
-  }, [activeTab, proposals.length, loadingProposals, loadProposals]);
+  }, [activeTab, hasFetchedProposals, loadingProposals, loadProposals]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
