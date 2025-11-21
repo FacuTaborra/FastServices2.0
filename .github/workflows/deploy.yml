@@ -56,7 +56,8 @@ jobs:
                   # Esperar unos segundos para asegurar que la DB esté lista
                   sleep 10
                   # Ejecutar migraciones dentro del contenedor de la API
-                  docker compose exec -T api uv run alembic -c src/alembic.ini upgrade head
+                  # Usamos -w /app/src para que alembic encuentre la carpeta migrations relativa a alembic.ini
+                  docker compose exec -w /app/src -T api uv run alembic upgrade head
 
             - name: Prune Docker Images
               shell: bash
