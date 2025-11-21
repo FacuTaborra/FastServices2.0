@@ -1,0 +1,16 @@
+node_modules/
+.expo/
+dist/
+web-build/
+.env
+.DS_Store
+*.log
+__pycache__/
+*.pyc
+.venv/
+env/
+venv/
+.idea/
+.vscode/
+*.jks
+*.keystore

@@ -18,17 +18,22 @@ export default {
             supportsTablet: true
         },
         android: {
+            package: "com.facutaborra.fastservices",
             adaptiveIcon: {
                 foregroundImage: "./assets/iconFastServices2.png",
                 backgroundColor: "#FFFFFF"
             }
         },
+        newArchEnabled: true,
         web: {
             favicon: "./assets/favicon.png"
         },
         extra: {
             URL_SERVER: process.env.URL_SERVER || 'http://localhost:8000',
             API_VERSION: process.env.API_VERSION || 'v1',
+            eas: {
+                projectId: "87d519b1-9fc7-450f-a9af-481a064391b2"
+            }
         },
     },
 };
