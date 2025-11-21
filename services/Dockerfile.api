@@ -9,6 +9,13 @@ WORKDIR /app
 # Copiar archivos de dependencias
 COPY pyproject.toml uv.lock ./
 
+# Instalar dependencias del sistema necesarias para compilar mysqlclient
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    default-libmysqlclient-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 # Instalar dependencias
 RUN uv sync --frozen --no-install-project
 
