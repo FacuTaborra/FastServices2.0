@@ -29,6 +29,12 @@ export default {
         web: {
             favicon: "./assets/favicon.png"
         },
+        updates: {
+            url: "https://u.expo.dev/87d519b1-9fc7-450f-a9af-481a064391b2"
+        },
+        runtimeVersion: {
+            policy: "appVersion"
+        },
         extra: {
             URL_SERVER: process.env.URL_SERVER || 'http://localhost:8000',
             API_VERSION: process.env.API_VERSION || 'v1',
