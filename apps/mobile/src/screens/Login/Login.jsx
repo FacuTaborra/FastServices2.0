@@ -109,6 +109,7 @@ export default function Login() {
       <Text style={styles.title}>Iniciar Sesión</Text>
       <TextInput
         style={styles.input}
+        placeholderTextColor="#6B7280"
         placeholder="Email"
         value={email}
         onChangeText={setEmail}
@@ -119,6 +120,7 @@ export default function Login() {
       />
       <TextInput
         style={styles.input}
+        placeholderTextColor="#6B7280"
         placeholder="Contraseña"
         value={password}
         onChangeText={setPassword}

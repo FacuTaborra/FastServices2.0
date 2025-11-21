@@ -284,6 +284,7 @@ export default function Register() {
 
           <TextInput
             style={styles.input}
+            placeholderTextColor="#6B7280"
             placeholder="Nombre"
             value={firstName}
             onChangeText={setFirstName}
@@ -293,6 +294,7 @@ export default function Register() {
 
           <TextInput
             style={styles.input}
+            placeholderTextColor="#6B7280"
             placeholder="Apellido"
             value={lastName}
             onChangeText={setLastName}
@@ -302,6 +304,7 @@ export default function Register() {
 
           <TextInput
             style={styles.input}
+            placeholderTextColor="#6B7280"
             placeholder="Email"
             value={email}
             onChangeText={setEmail}
@@ -313,6 +316,7 @@ export default function Register() {
 
           <TextInput
             style={styles.input}
+            placeholderTextColor="#6B7280"
             placeholder="Teléfono (ej: +541234567890)"
             value={phone}
             onChangeText={setPhone}
@@ -322,6 +326,7 @@ export default function Register() {
 
           <TextInput
             style={styles.input}
+            placeholderTextColor="#6B7280"
             placeholder="Fecha de nacimiento (DD/MM/YYYY)"
             value={dateOfBirth}
             onChangeText={(text) => {
@@ -342,6 +347,7 @@ export default function Register() {
 
           <TextInput
             style={styles.input}
+            placeholderTextColor="#6B7280"
             placeholder="Contraseña"
             value={password}
             onChangeText={setPassword}
@@ -351,6 +357,7 @@ export default function Register() {
 
           <TextInput
             style={styles.input}
+            placeholderTextColor="#6B7280"
             placeholder="Confirmar contraseña"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -364,6 +371,7 @@ export default function Register() {
 
             <TextInput
               style={styles.input}
+              placeholderTextColor="#6B7280"
               placeholder="Título (ej: Casa, Trabajo)"
               value={addressTitle}
               onChangeText={setAddressTitle}
@@ -373,6 +381,7 @@ export default function Register() {
 
             <TextInput
               style={styles.input}
+              placeholderTextColor="#6B7280"
               placeholder="Calle y número"
               value={street}
               onChangeText={setStreet}
@@ -382,6 +391,7 @@ export default function Register() {
 
             <TextInput
               style={styles.input}
+              placeholderTextColor="#6B7280"
               placeholder="Ciudad"
               value={city}
               onChangeText={setCity}
@@ -391,6 +401,7 @@ export default function Register() {
 
             <TextInput
               style={styles.input}
+              placeholderTextColor="#6B7280"
               placeholder="Provincia/Estado"
               value={state}
               onChangeText={setState}
@@ -400,6 +411,7 @@ export default function Register() {
 
             <TextInput
               style={styles.input}
+              placeholderTextColor="#6B7280"
               placeholder="Código postal (opcional)"
               value={postalCode}
               onChangeText={setPostalCode}
@@ -409,6 +421,7 @@ export default function Register() {
 
             <TextInput
               style={styles.input}
+              placeholderTextColor="#6B7280"
               placeholder="País"
               value={country}
               onChangeText={setCountry}
@@ -438,6 +451,7 @@ export default function Register() {
 
               <TextInput
                 style={[styles.input, styles.textArea]}
+                placeholderTextColor="#6B7280"
                 placeholder="Describe los servicios que ofreces"
                 value={bio}
                 onChangeText={setBio}

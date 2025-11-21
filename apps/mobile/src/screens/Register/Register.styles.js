@@ -29,12 +29,12 @@ export default StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#9CA3AF', // Gris más oscuro para que se vea bien en Android
+    borderColor: '#9CA3AF',
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
-    backgroundColor: '#F3F4F6', // Fondo ligeramente más gris
-    color: '#374151',
+    backgroundColor: '#F3F4F6',
+    color: '#111827', // Texto más oscuro
   },
   button: {
     backgroundColor: '#4776a6',

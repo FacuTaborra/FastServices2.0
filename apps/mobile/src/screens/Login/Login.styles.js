@@ -28,12 +28,12 @@ export default StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#9CA3AF', // Gris más oscuro
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
-    backgroundColor: '#F9FAFB',
-    color: '#374151',
+    backgroundColor: '#F3F4F6', // Fondo gris claro
+    color: '#111827', // Texto casi negro
   },
   button: {
     backgroundColor: '#4776a6',

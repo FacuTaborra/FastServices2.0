@@ -15,7 +15,8 @@ export default {
         },
         assetBundlePatterns: ["**/*"],
         ios: {
-            supportsTablet: true
+            supportsTablet: true,
+            bundleIdentifier: "com.facutaborra.fastservices"
         },
         android: {
             package: "com.facutaborra.fastservices",
