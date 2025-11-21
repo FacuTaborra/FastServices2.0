@@ -6,7 +6,7 @@ export default {
         slug: "fastservices",
         version: "1.0.0",
         orientation: "portrait",
-        icon: "./assets/iconFastServices2.png",
+        icon: "./assets/icon_adaptive.png",
         userInterfaceStyle: "light",
         splash: {
             image: "./assets/splash-icon.png",
@@ -20,7 +20,7 @@ export default {
         android: {
             package: "com.facutaborra.fastservices",
             adaptiveIcon: {
-                foregroundImage: "./assets/iconFastServices2.png",
+                foregroundImage: "./assets/icon_adaptive.png",
                 backgroundColor: "#FFFFFF"
             }
         },

@@ -29,11 +29,11 @@ export default StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#9CA3AF', // Gris más oscuro para que se vea bien en Android
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F3F4F6', // Fondo ligeramente más gris
     color: '#374151',
   },
   button: {
