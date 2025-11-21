@@ -1,0 +1,54 @@
+name: Deploy Backend with Compose
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - "services/**"
+
+jobs:
+    deploy:
+        runs-on: self-hosted
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  clean: false
+
+            - name: Make envfile
+              uses: SpicyPizza/create-envfile@v2.0
+              with:
+                  envkey_DB_USER: ${{ secrets.DB_USER }}
+                  envkey_DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+                  envkey_DB_HOST: db
+                  envkey_DB_PORT: 3306
+                  envkey_DB_NAME: ${{ secrets.DB_NAME }}
+                  envkey_JWT_EXPIRE_MINUTES: 3000
+                  envkey_JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+                  envkey_JWT_ALGORITHM: HS256
+                  envkey_LOG_LEVEL: INFO
+                  envkey_DEBUG: false
+                  envkey_S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+                  envkey_S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+                  envkey_S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+                  envkey_S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+                  envkey_S3_REGION: us-east-1
+                  envkey_S3_PUBLIC_URL_BASE: ${{ secrets.S3_PUBLIC_URL_BASE }}
+                  envkey_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+                  directory: services
+                  file_name: .env
+
+            - name: Docker Compose Down
+              working-directory: services
+              shell: bash
+              run: docker compose down || true
+
+            - name: Docker Compose Up
+              working-directory: services
+              shell: bash
+              run: docker compose up -d --build --remove-orphans
+
+            - name: Prune Docker Images
+              shell: bash
+              run: docker image prune -f

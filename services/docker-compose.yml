@@ -1,0 +1,41 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: fastservices-api
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+    networks:
+      - fastservices-network
+
+  db:
+    image: mysql:8.0
+    container_name: fastservices-db
+    restart: always
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-fastservices}
+      MYSQL_USER: ${DB_USER:-fs_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-Fs_user2*+}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - fastservices-network
+
+volumes:
+  db_data:
+
+networks:
+  fastservices-network:
+    driver: bridge

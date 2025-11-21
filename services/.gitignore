@@ -169,9 +169,6 @@ tmp/
 
 # Docker
 .dockerignore
-Dockerfile
-docker-compose.yml
-docker-compose.yaml
 
 # Node.js (para el frontend móvil)
 node_modules/

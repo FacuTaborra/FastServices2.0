@@ -1,0 +1,27 @@
+# services/Dockerfile
+FROM python:3.10-slim
+
+# Instalar uv (ya que veo que usas uv.lock)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+WORKDIR /app
+
+# Copiar archivos de dependencias
+COPY pyproject.toml uv.lock ./
+
+# Instalar dependencias
+RUN uv sync --frozen --no-install-project
+
+# Copiar el código fuente
+COPY src/ ./src/
+COPY README.md .
+
+# Configurar PYTHONPATH para que encuentre los módulos dentro de src/
+ENV PYTHONPATH=/app/src
+ENV PYTHONUNBUFFERED=1
+
+# Exponer el puerto
+EXPOSE 8000
+
+# Comando para correr la app
+CMD ["uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
