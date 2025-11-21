@@ -2,14 +2,14 @@ name: Deploy Backend with Compose
 
 on:
     push:
-        branches: [main]
+        branches:
+            - main
         paths:
             - "services/**"
 
 jobs:
-    deploy:
+    deploy-prod:
         runs-on: self-hosted
-
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -48,6 +48,15 @@ jobs:
               working-directory: services
               shell: bash
               run: docker compose up -d --build --remove-orphans
+
+            - name: Run Database Migrations
+              working-directory: services
+              shell: bash
+              run: |
+                  # Esperar unos segundos para asegurar que la DB esté lista
+                  sleep 10
+                  # Ejecutar migraciones dentro del contenedor de la API
+                  docker compose exec -T api uv run alembic -c src/alembic.ini upgrade head
 
             - name: Prune Docker Images
               shell: bash
