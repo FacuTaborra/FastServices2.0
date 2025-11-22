@@ -93,14 +93,15 @@ const parseIsoDate = (isoDate) => {
         return null;
     }
 
-    const trimmed = isoDate.trim();
+    const trimmed = isoDate.trim().replace(' ', 'T');
     if (!trimmed) {
         return null;
     }
 
-    // Si no tiene información de zona horaria (Z o +HH:MM), asumir UTC agregando Z
+    // Si no tiene información de zona horaria (Z o +HH:MM), asumir Local (no agregar Z)
+    // Esto corrige el problema si el backend envía hora local sin offset
     const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(trimmed);
-    const normalized = hasTimezone ? trimmed : `${trimmed}Z`;
+    const normalized = trimmed; // Usar el string original (ya con T en vez de espacio)
     const parsed = new Date(normalized);
 
     if (!Number.isNaN(parsed.getTime())) {

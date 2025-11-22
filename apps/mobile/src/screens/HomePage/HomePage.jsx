@@ -37,12 +37,12 @@ const parseIsoDate = (isoDate) => {
   if (!isoDate) return null;
   if (isoDate instanceof Date) return Number.isNaN(isoDate.getTime()) ? null : isoDate;
   if (typeof isoDate !== 'string') return null;
-  const trimmed = isoDate.trim();
+  const trimmed = isoDate.trim().replace(' ', 'T');
   if (!trimmed) return null;
-  
-  // Asumir UTC si falta zona horaria
+
+  // Si no tiene información de zona horaria (Z o +HH:MM), asumir Local (no agregar Z)
   const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(trimmed);
-  const normalized = hasTimezone ? trimmed : `${trimmed}Z`;
+  const normalized = trimmed;
   const parsed = new Date(normalized);
   return !Number.isNaN(parsed.getTime()) ? parsed : new Date(trimmed);
 };
