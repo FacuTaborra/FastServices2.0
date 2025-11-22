@@ -139,7 +139,8 @@ class TagsController:
     def _standardize_tag_name(value: str) -> str:
         if value is None:
             return ""
-        transformed = re.sub(r"[^A-Z0-9]+", "_", value.upper()).strip("_")
+        # Permitimos A-Z, 0-9 y Ñ. Todo lo demás se convierte en guión bajo.
+        transformed = re.sub(r"[^A-Z0-9Ñ]+", "_", value.upper()).strip("_")
         return transformed[:120]
 
     @staticmethod
@@ -264,5 +265,8 @@ class TagsController:
     def _slugify(value: str) -> str:
         if not value:
             return ""
-        slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+        # Convertimos a minúsculas, manteniendo la ñ
+        value = value.lower()
+        # Permitimos a-z, 0-9 y ñ en el slug
+        slug = re.sub(r"[^a-z0-9ñ]+", "-", value).strip("-")
         return slug[:120]
