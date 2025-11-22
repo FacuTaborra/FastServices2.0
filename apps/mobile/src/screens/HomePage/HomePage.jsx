@@ -33,14 +33,28 @@ const DEFAULT_STATUS_CARD = {
 const pickFirst = (items, predicate = () => true) =>
   items.find(predicate) ?? null;
 
+const parseIsoDate = (isoDate) => {
+  if (!isoDate) return null;
+  if (isoDate instanceof Date) return Number.isNaN(isoDate.getTime()) ? null : isoDate;
+  if (typeof isoDate !== 'string') return null;
+  const trimmed = isoDate.trim();
+  if (!trimmed) return null;
+  
+  // Asumir UTC si falta zona horaria
+  const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(trimmed);
+  const normalized = hasTimezone ? trimmed : `${trimmed}Z`;
+  const parsed = new Date(normalized);
+  return !Number.isNaN(parsed.getTime()) ? parsed : new Date(trimmed);
+};
+
 const formatPublishedDate = (isoString) => {
   if (!isoString) {
     return null;
   }
 
   try {
-    const date = new Date(isoString);
-    if (Number.isNaN(date.getTime())) {
+    const date = parseIsoDate(isoString);
+    if (!date || Number.isNaN(date.getTime())) {
       return null;
     }
 
@@ -105,7 +119,10 @@ const computeFastMetrics = (request, nowMs) => {
     return null;
   }
 
-  const createdAt = new Date(request.created_at);
+  const createdAt = parseIsoDate(request.created_at);
+  if (!createdAt) {
+    return null;
+  }
   const createdAtMs = createdAt.getTime();
   if (Number.isNaN(createdAtMs)) {
     return null;

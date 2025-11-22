@@ -37,7 +37,10 @@ const computeRemainingSeconds = (createdAtIso, nowMs) => {
         return MATCH_WINDOW_SECONDS;
     }
 
-    const createdAt = new Date(createdAtIso);
+    const createdAt = parseIsoDate(createdAtIso);
+    if (!createdAt) {
+        return MATCH_WINDOW_SECONDS;
+    }
     const createdAtMs = createdAt.getTime();
     if (Number.isNaN(createdAtMs)) {
         return MATCH_WINDOW_SECONDS;
@@ -95,7 +98,8 @@ const parseIsoDate = (isoDate) => {
         return null;
     }
 
-    const hasTimezone = /[zZ]|[+-]\d{2}:\d{2}$/.test(trimmed);
+    // Si no tiene información de zona horaria (Z o +HH:MM), asumir UTC agregando Z
+    const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(trimmed);
     const normalized = hasTimezone ? trimmed : `${trimmed}Z`;
     const parsed = new Date(normalized);
 
