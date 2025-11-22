@@ -13,6 +13,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { parseISO, differenceInSeconds, format, isValid, isAfter, isBefore, subDays, addDays } from 'date-fns';
+import { es } from 'date-fns/locale';
 import styles, { STATUS_CARD_COLORS, PALETTE } from './HomePage.styles';
 import { useActiveServiceRequests, useAllServiceRequests } from '../../hooks/useServiceRequests';
 
@@ -35,16 +37,11 @@ const pickFirst = (items, predicate = () => true) =>
 
 const parseIsoDate = (isoDate) => {
   if (!isoDate) return null;
-  if (isoDate instanceof Date) return Number.isNaN(isoDate.getTime()) ? null : isoDate;
+  if (isoDate instanceof Date) return isValid(isoDate) ? isoDate : null;
   if (typeof isoDate !== 'string') return null;
-  const trimmed = isoDate.trim().replace(' ', 'T');
-  if (!trimmed) return null;
 
-  // Si no tiene información de zona horaria (Z o +HH:MM), asumir Local (no agregar Z)
-  const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(trimmed);
-  const normalized = trimmed;
-  const parsed = new Date(normalized);
-  return !Number.isNaN(parsed.getTime()) ? parsed : new Date(trimmed);
+  const parsed = parseISO(isoDate);
+  return isValid(parsed) ? parsed : null;
 };
 
 const formatPublishedDate = (isoString) => {
@@ -54,18 +51,13 @@ const formatPublishedDate = (isoString) => {
 
   try {
     const date = parseIsoDate(isoString);
-    if (!date || Number.isNaN(date.getTime())) {
+    if (!date) {
       return null;
     }
 
-    return new Intl.DateTimeFormat('es-AR', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
+    // 'dd MMM HH:mm' -> 22 nov 14:30
+    return format(date, "dd MMM HH:mm", { locale: es });
   } catch (error) {
-    console.warn('No se pudo formatear la fecha', error);
     return null;
   }
 };
@@ -123,14 +115,12 @@ const computeFastMetrics = (request, nowMs) => {
   if (!createdAt) {
     return null;
   }
-  const createdAtMs = createdAt.getTime();
-  if (Number.isNaN(createdAtMs)) {
-    return null;
-  }
 
-  const elapsedSeconds = Math.max(0, Math.floor((nowMs - createdAtMs) / 1000));
-  const remainingSeconds = Math.max(0, FAST_WINDOW_SECONDS - elapsedSeconds);
-  const progressElapsed = Math.min(Math.max(elapsedSeconds / FAST_WINDOW_SECONDS, 0), 1);
+  const elapsedSeconds = differenceInSeconds(nowMs, createdAt);
+  const safeElapsed = Math.max(0, elapsedSeconds);
+
+  const remainingSeconds = Math.max(0, FAST_WINDOW_SECONDS - safeElapsed);
+  const progressElapsed = Math.min(Math.max(safeElapsed / FAST_WINDOW_SECONDS, 0), 1);
   const progressRemaining = 1 - progressElapsed;
 
   return {
@@ -159,18 +149,25 @@ const buildActiveDescriptionSnippet = (description) => {
 };
 
 
-// Helpers para filtrar servicios
+// Helpers para filtrar servicios con date-fns
 const isWithinNextDay = (dateString) => {
   if (!dateString) return false;
-  const now = Date.now();
-  const date = new Date(dateString).getTime();
-  return date > now && date - now <= 24 * 60 * 60 * 1000;
+  const date = parseIsoDate(dateString);
+  if (!date) return false;
+
+  const now = new Date();
+  const tomorrow = addDays(now, 1);
+  return isAfter(date, now) && isBefore(date, tomorrow);
 };
+
 const isWithinLastDay = (dateString) => {
   if (!dateString) return false;
-  const now = Date.now();
-  const date = new Date(dateString).getTime();
-  return now - date <= 24 * 60 * 60 * 1000 && date <= now;
+  const date = parseIsoDate(dateString);
+  if (!date) return false;
+
+  const now = new Date();
+  const yesterday = subDays(now, 1);
+  return isBefore(date, now) && isAfter(date, yesterday);
 };
 
 const buildSecondaryCards = (allRequests, navigation) => {

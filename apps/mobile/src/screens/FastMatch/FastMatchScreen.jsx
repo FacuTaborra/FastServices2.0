@@ -14,6 +14,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { parseISO, differenceInSeconds, format, differenceInCalendarDays, isValid } from 'date-fns';
+import { es } from 'date-fns/locale';
 import styles from './FastMatchScreen.styles';
 import { useServiceRequest, useUpdateServiceRequest } from '../../hooks/useServiceRequests';
 
@@ -37,17 +39,21 @@ const computeRemainingSeconds = (createdAtIso, nowMs) => {
         return MATCH_WINDOW_SECONDS;
     }
 
-    const createdAt = parseIsoDate(createdAtIso);
-    if (!createdAt) {
-        return MATCH_WINDOW_SECONDS;
-    }
-    const createdAtMs = createdAt.getTime();
-    if (Number.isNaN(createdAtMs)) {
+    // parseISO maneja correctamente ISO strings, incluso sin zona horaria (usa local)
+    // o con zona horaria (usa UTC). Es mucho más robusto que new Date().
+    const createdAt = parseISO(createdAtIso);
+    if (!isValid(createdAt)) {
         return MATCH_WINDOW_SECONDS;
     }
 
-    const elapsedSeconds = Math.max(0, Math.floor((nowMs - createdAtMs) / 1000));
-    return Math.max(0, MATCH_WINDOW_SECONDS - elapsedSeconds);
+    // differenceInSeconds retorna la diferencia en segundos entre dos fechas
+    // nowMs es un timestamp, date-fns acepta timestamps o Date objects
+    const elapsedSeconds = differenceInSeconds(nowMs, createdAt);
+
+    // Si elapsedSeconds es negativo (reloj del cliente atrasado), tratamos como 0
+    const safeElapsed = Math.max(0, elapsedSeconds);
+
+    return Math.max(0, MATCH_WINDOW_SECONDS - safeElapsed);
 };
 
 const formatPriceLabel = (price, currency = 'ARS') => {
@@ -81,59 +87,36 @@ const formatRatingLabel = (rating) => {
 };
 
 const parseIsoDate = (isoDate) => {
-    if (!isoDate) {
-        return null;
-    }
+    if (!isoDate) return null;
+    if (isoDate instanceof Date) return isValid(isoDate) ? isoDate : null;
+    if (typeof isoDate !== 'string') return null;
 
-    if (isoDate instanceof Date) {
-        return Number.isNaN(isoDate.getTime()) ? null : isoDate;
-    }
-
-    if (typeof isoDate !== 'string') {
-        return null;
-    }
-
-    const trimmed = isoDate.trim().replace(' ', 'T');
-    if (!trimmed) {
-        return null;
-    }
-
-    // Si no tiene información de zona horaria (Z o +HH:MM), asumir Local (no agregar Z)
-    // Esto corrige el problema si el backend envía hora local sin offset
-    const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(trimmed);
-    const normalized = trimmed; // Usar el string original (ya con T en vez de espacio)
-    const parsed = new Date(normalized);
-
-    if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-    }
-
-    const fallback = new Date(trimmed);
-    return Number.isNaN(fallback.getTime()) ? null : fallback;
+    const parsed = parseISO(isoDate);
+    return isValid(parsed) ? parsed : null;
 };
 
 const formatLongDate = (date) => {
-    if (!date) {
+    if (!date || !isValid(date)) {
         return null;
     }
 
-    return date.toLocaleDateString('es-AR', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'long',
-    });
+    try {
+        // 'EEE d \'de\' MMMM' -> mié 22 de noviembre
+        return format(date, "EEE d 'de' MMMM", { locale: es });
+    } catch (e) {
+        return null;
+    }
 };
 
 const describeDaysUntil = (targetDate, nowMs) => {
-    if (!targetDate) {
+    if (!targetDate || !isValid(targetDate)) {
         return null;
     }
 
-    const diffMs = targetDate.getTime() - nowMs;
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const diffDays = differenceInCalendarDays(targetDate, nowMs);
 
     if (diffDays <= 0) {
-        return null;
+        return null; // Hoy o pasado
     }
 
     if (diffDays === 1) {
