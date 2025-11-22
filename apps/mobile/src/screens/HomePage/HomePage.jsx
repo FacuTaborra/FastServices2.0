@@ -8,6 +8,7 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -234,6 +235,7 @@ const HomePage = () => {
     [allRequests, navigation]
   );
   const [nowMs, setNowMs] = React.useState(Date.now());
+  const intervalRef = React.useRef(null);
   const {
     data: activeRequests,
     isLoading: activeLoading,
@@ -256,13 +258,32 @@ const HomePage = () => {
       return undefined;
     }
 
+    // Actualizar inmediatamente al montar
     setNowMs(Date.now());
 
-    const intervalId = setInterval(() => {
+    const updateTimer = () => {
       setNowMs(Date.now());
-    }, 1000);
+    };
 
-    return () => clearInterval(intervalId);
+    // Iniciar el intervalo - mantenerlo corriendo siempre
+    intervalRef.current = setInterval(updateTimer, 1000);
+
+    // Manejar cambios de AppState (background/foreground)
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        // Cuando la app vuelve a primer plano, actualizar el tiempo inmediatamente
+        // para corregir cualquier desfase que pueda haber ocurrido
+        setNowMs(Date.now());
+      }
+    });
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      subscription?.remove();
+    };
   }, [hasFastRequests]);
 
 

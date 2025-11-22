@@ -271,6 +271,7 @@ export default function ProviderLicensesScreen({ navigation, route }) {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Título de la licencia o certificado *"
+                                placeholderTextColor="#6B7280"
                                 value={license.title}
                                 onChangeText={(text) => handleLicenseChange(index, 'title', text)}
                                 autoCapitalize="sentences"
@@ -279,6 +280,7 @@ export default function ProviderLicensesScreen({ navigation, route }) {
                             <TextInput
                                 style={[styles.input, styles.textArea]}
                                 placeholder="Describe lo mas claro posible tu licencia o certificado de idoneidad *"
+                                placeholderTextColor="#6B7280"
                                 value={license.description}
                                 onChangeText={(text) => handleLicenseChange(index, 'description', text)}
                                 multiline
@@ -289,6 +291,7 @@ export default function ProviderLicensesScreen({ navigation, route }) {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Número de licencia (opcional)"
+                                placeholderTextColor="#6B7280"
                                 value={license.license_number}
                                 onChangeText={(text) => handleLicenseChange(index, 'license_number', text)}
                                 autoCapitalize="characters"
@@ -297,6 +300,7 @@ export default function ProviderLicensesScreen({ navigation, route }) {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Entidad emisora (opcional)"
+                                placeholderTextColor="#6B7280"
                                 value={license.issued_by}
                                 onChangeText={(text) => handleLicenseChange(index, 'issued_by', text)}
                             />
@@ -305,12 +309,14 @@ export default function ProviderLicensesScreen({ navigation, route }) {
                                 <TextInput
                                     style={[styles.input, styles.inlineInput]}
                                     placeholder="Emitida (YYYY-MM-DD)"
+                                    placeholderTextColor="#6B7280"
                                     value={license.issued_at}
                                     onChangeText={(text) => handleLicenseChange(index, 'issued_at', text)}
                                 />
                                 <TextInput
                                     style={[styles.input, styles.inlineInput, styles.inlineInputSpacing]}
                                     placeholder="Vence (YYYY-MM-DD)"
+                                    placeholderTextColor="#6B7280"
                                     value={license.expires_at}
                                     onChangeText={(text) => handleLicenseChange(index, 'expires_at', text)}
                                 />

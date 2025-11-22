@@ -184,9 +184,12 @@ export default StyleSheet.create({
     paddingTop: 16,
   },
   label: {
+    fontSize: 15,
     marginBottom: 4,
     color: '#1A1A1A',
     fontWeight: '500',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   input: {
     backgroundColor: '#F4F4F4',

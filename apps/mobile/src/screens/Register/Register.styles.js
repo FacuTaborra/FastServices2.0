@@ -31,10 +31,14 @@ export default StyleSheet.create({
     borderWidth: 1,
     borderColor: '#9CA3AF',
     borderRadius: 8,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     marginBottom: 12,
     backgroundColor: '#F3F4F6',
     color: '#111827', // Texto más oscuro
+    fontSize: 16,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   button: {
     backgroundColor: '#4776a6',
@@ -160,9 +164,13 @@ export default StyleSheet.create({
     color: '#4A90E2',
     marginBottom: 15,
     textAlign: 'center',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   textArea: {
     height: 80,
     textAlignVertical: 'top',
+    includeFontPadding: false,
+    fontSize: 16,
   },
 });

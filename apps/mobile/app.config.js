@@ -25,6 +25,9 @@ export default {
                 backgroundColor: "#FFFFFF"
             }
         },
+        // NOTA: La nueva arquitectura puede causar problemas en producción
+        // Si experimentas problemas con timers, labels o renderizado,
+        // considera cambiar a: newArchEnabled: false
         newArchEnabled: true,
         web: {
             favicon: "./assets/favicon.png"

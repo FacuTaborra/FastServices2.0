@@ -43,6 +43,8 @@ export default StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 8,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   labelNoSpacing: {
     marginBottom: 0,

@@ -107,11 +107,13 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingHorizontal: 14,
         paddingVertical: 12,
-        fontSize: 14,
+        fontSize: 16,
         color: '#111827',
         borderWidth: 1,
         borderColor: '#E2E8F0',
         marginBottom: 12,
+        includeFontPadding: false,
+        textAlignVertical: 'center',
     },
     inlineRow: {
         flexDirection: 'row',
@@ -125,6 +127,8 @@ const styles = StyleSheet.create({
     },
     textArea: {
         minHeight: 90,
+        includeFontPadding: false,
+        textAlignVertical: 'top',
     },
     addButton: {
         flexDirection: 'row',

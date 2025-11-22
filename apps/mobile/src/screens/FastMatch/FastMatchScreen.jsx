@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
+    AppState,
     ActivityIndicator,
     Image,
     Modal,
@@ -147,6 +148,7 @@ export default function FastMatchScreen() {
     const [selectedProposal, setSelectedProposal] = useState(null);
     const updateRequestMutation = useUpdateServiceRequest();
     const requestSummaryParam = route.params?.requestSummary ?? null;
+    const intervalRef = useRef(null);
 
     const {
         data: requestDetail,
@@ -174,11 +176,32 @@ export default function FastMatchScreen() {
         : [];
 
     useEffect(() => {
-        const intervalId = setInterval(() => {
-            setNowMs(Date.now());
-        }, 1000);
+        // Actualizar inmediatamente al montar
+        setNowMs(Date.now());
 
-        return () => clearInterval(intervalId);
+        const updateTimer = () => {
+            setNowMs(Date.now());
+        };
+
+        // Iniciar el intervalo - mantenerlo corriendo siempre
+        intervalRef.current = setInterval(updateTimer, 1000);
+
+        // Manejar cambios de AppState (background/foreground)
+        const subscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active') {
+                // Cuando la app vuelve a primer plano, actualizar el tiempo inmediatamente
+                // para corregir cualquier desfase que pueda haber ocurrido
+                setNowMs(Date.now());
+            }
+        });
+
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            }
+            subscription?.remove();
+        };
     }, [createdAtIso]);
 
     const remainingSeconds = useMemo(

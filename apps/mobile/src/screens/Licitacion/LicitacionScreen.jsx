@@ -6,6 +6,7 @@ import React, {
 } from 'react';
 import {
     Alert,
+    AppState,
     Image,
     Modal,
     RefreshControl,
@@ -304,11 +305,25 @@ export default function LicitacionScreen() {
     const isUpdating = updateRequestMutation.isPending || cancelRequestMutation.isPending;
 
     useEffect(() => {
+        // Actualizar inmediatamente al montar
+        setNowMs(Date.now());
+
         const intervalId = setInterval(() => {
             setNowMs(Date.now());
         }, TIMER_TICK_INTERVAL_MS);
 
-        return () => clearInterval(intervalId);
+        // Manejar cambios de AppState (background/foreground)
+        const subscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active') {
+                // Cuando la app vuelve a primer plano, actualizar el tiempo inmediatamente
+                setNowMs(Date.now());
+            }
+        });
+
+        return () => {
+            clearInterval(intervalId);
+            subscription?.remove();
+        };
     }, []);
 
     const remainingMs = useMemo(

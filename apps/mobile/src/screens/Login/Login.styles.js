@@ -30,10 +30,14 @@ export default StyleSheet.create({
     borderWidth: 1,
     borderColor: '#9CA3AF', // Gris más oscuro
     borderRadius: 8,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     marginBottom: 12,
     backgroundColor: '#F3F4F6', // Fondo gris claro
     color: '#111827', // Texto casi negro
+    fontSize: 16,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   button: {
     backgroundColor: '#4776a6',
