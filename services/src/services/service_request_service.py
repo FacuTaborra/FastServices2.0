@@ -99,6 +99,9 @@ class ServiceRequestService:
             city_snapshot=city_snapshot,
             lat_snapshot=lat_snapshot,
             lon_snapshot=lon_snapshot,
+            # Guardar explícitamente con hora Argentina (UTC-3) para evitar conversiones en frontend
+            created_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
+            updated_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
         )
 
         db.add(new_request)
