@@ -1127,7 +1127,7 @@ class ProviderController:
     @staticmethod
     @error_handler(logger)
     async def get_provider_overview_stats(
-        db: AsyncSession, user_id: int
+        db: AsyncSession, user_id: int, currency: Optional[str] = None
     ) -> ProviderOverviewKpisResponse:
         user = await ProviderController._load_provider_with_relations(db, user_id)
 
@@ -1195,28 +1195,32 @@ class ProviderController:
             )
         )
 
-        currency_stmt = (
-            select(Service.currency)
-            .join(
-                completed_history_subq,
-                completed_history_subq.c.service_id == Service.id,
+        if currency:
+            currency_code = currency.upper()
+        else:
+            currency_stmt = (
+                select(Service.currency)
+                .join(
+                    completed_history_subq,
+                    completed_history_subq.c.service_id == Service.id,
+                )
+                .where(
+                    Service.provider_profile_id == profile_id,
+                    Service.total_price.isnot(None),
+                    Service.currency.isnot(None),
+                )
+                .order_by(completed_history_subq.c.completed_at.desc())
+                .limit(1)
             )
-            .where(
-                Service.provider_profile_id == profile_id,
-                Service.total_price.isnot(None),
-                Service.currency.isnot(None),
-            )
-            .order_by(completed_history_subq.c.completed_at.desc())
-            .limit(1)
-        )
 
-        currency_result = await db.execute(currency_stmt)
-        db_currency = currency_result.scalar_one_or_none()
+            currency_result = await db.execute(currency_stmt)
+            db_currency = currency_result.scalar_one_or_none()
+            currency_code = db_currency or getattr(profile, "currency", None) or "ARS"
 
-        if db_currency:
-            revenue_base = revenue_base.where(Service.currency == db_currency)
-
-        currency_code = db_currency or getattr(profile, "currency", None) or "ARS"
+        # Filter metrics by currency to ensure consistency
+        revenue_base = revenue_base.where(Service.currency == currency_code)
+        services_stmt = services_stmt.where(Service.currency == currency_code)
+        proposal_stmt = proposal_stmt.where(ServiceRequestProposal.currency == currency_code)
 
         now_utc = datetime.now(timezone.utc)
         current_month_start = now_utc.replace(
@@ -1344,7 +1348,7 @@ class ProviderController:
     @staticmethod
     @error_handler(logger)
     async def get_provider_revenue_stats(
-        db: AsyncSession, user_id: int, months: int
+        db: AsyncSession, user_id: int, months: int, currency: Optional[str] = None
     ) -> ProviderRevenueStatsResponse:
         user = await ProviderController._load_provider_with_relations(db, user_id)
 
@@ -1394,25 +1398,27 @@ class ProviderController:
             completed_history_subq.c.completed_at, "%Y-%m-01"
         )
 
-        currency_stmt = (
-            select(Service.currency)
-            .join(
-                completed_history_subq,
-                completed_history_subq.c.service_id == Service.id,
+        if currency:
+            currency_code = currency.upper()
+        else:
+            currency_stmt = (
+                select(Service.currency)
+                .join(
+                    completed_history_subq,
+                    completed_history_subq.c.service_id == Service.id,
+                )
+                .where(
+                    Service.provider_profile_id == profile_id,
+                    Service.total_price.isnot(None),
+                    Service.currency.isnot(None),
+                )
+                .order_by(completed_history_subq.c.completed_at.desc())
+                .limit(1)
             )
-            .where(
-                Service.provider_profile_id == profile_id,
-                Service.total_price.isnot(None),
-                Service.currency.isnot(None),
-            )
-            .order_by(completed_history_subq.c.completed_at.desc())
-            .limit(1)
-        )
 
-        currency_result = await db.execute(currency_stmt)
-        db_currency = currency_result.scalar_one_or_none()
-
-        currency_code = db_currency or getattr(profile, "currency", None) or "ARS"
+            currency_result = await db.execute(currency_stmt)
+            db_currency = currency_result.scalar_one_or_none()
+            currency_code = db_currency or getattr(profile, "currency", None) or "ARS"
 
         revenue_stmt = (
             select(
@@ -1430,13 +1436,11 @@ class ProviderController:
                 Service.provider_profile_id == profile_id,
                 Service.total_price.isnot(None),
                 completed_history_subq.c.completed_at >= start_month_naive,
+                Service.currency == currency_code,
             )
             .group_by(period_expr)
             .order_by(period_expr)
         )
-
-        if db_currency:
-            revenue_stmt = revenue_stmt.where(Service.currency == db_currency)
 
         revenue_result = await db.execute(revenue_stmt)
         revenue_rows = revenue_result.fetchall()

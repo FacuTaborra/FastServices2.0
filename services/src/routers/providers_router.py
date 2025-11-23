@@ -231,7 +231,9 @@ async def list_provider_services(
     ),
 )
 async def get_provider_overview_stats(
-    current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    currency: str = Query(None, description="Moneda para filtrar las estadísticas"),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     current_role = getattr(current_user.role, "value", current_user.role)
     if current_role != UserRole.PROVIDER.value:
@@ -240,7 +242,9 @@ async def get_provider_overview_stats(
             detail="Acceso denegado: Solo para proveedores de servicios",
         )
 
-    return await ProviderController.get_provider_overview_stats(db, current_user.id)
+    return await ProviderController.get_provider_overview_stats(
+        db, current_user.id, currency
+    )
 
 
 @router.get(
@@ -254,6 +258,7 @@ async def get_provider_overview_stats(
 )
 async def get_provider_revenue_stats_endpoint(
     months: int = Query(6, ge=1, le=12, description="Cantidad de meses a consultar"),
+    currency: str = Query(None, description="Moneda para filtrar las estadísticas"),
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -265,7 +270,7 @@ async def get_provider_revenue_stats_endpoint(
         )
 
     return await ProviderController.get_provider_revenue_stats(
-        db, current_user.id, months
+        db, current_user.id, months, currency
     )
 
 

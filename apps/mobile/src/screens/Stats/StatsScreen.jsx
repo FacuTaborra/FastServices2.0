@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,12 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useProviderOverviewStats, useProviderRevenueStats, useProviderRatingDistribution } from '../../hooks/useProviderStats';
+import {
+  useProviderOverviewStats,
+  useProviderRevenueStats,
+  useProviderRatingDistribution,
+  useProviderCurrencies,
+} from '../../hooks/useProviderStats';
 import styles from './StatsScreen.styles';
 
 const toNumber = (value) => {
@@ -36,13 +41,23 @@ const OVERVIEW_CARD_WIDTH = Math.max(240, WINDOW_WIDTH - 80);
 const OVERVIEW_CARD_GAP = 12;
 
 export default function StatsScreen() {
+  const { data: currenciesData } = useProviderCurrencies();
+  const [selectedCurrency, setSelectedCurrency] = useState(null);
+
+  useEffect(() => {
+    if (currenciesData?.length > 0 && !selectedCurrency) {
+      const hasArs = currenciesData.find((c) => c.code === 'ARS');
+      setSelectedCurrency(hasArs ? 'ARS' : currenciesData[0].code);
+    }
+  }, [currenciesData]);
+
   const {
     data,
     isLoading,
     isFetching,
     error,
     refetch,
-  } = useProviderOverviewStats();
+  } = useProviderOverviewStats(selectedCurrency);
 
   const [selectedRange, setSelectedRange] = useState(6);
 
@@ -52,7 +67,7 @@ export default function StatsScreen() {
     isFetching: revenueFetching,
     error: revenueError,
     refetch: refetchRevenue,
-  } = useProviderRevenueStats(selectedRange);
+  } = useProviderRevenueStats(selectedRange, selectedCurrency);
 
   const {
     data: ratingData,
@@ -268,6 +283,35 @@ export default function StatsScreen() {
             </View>
           </View>
         </View>
+
+        {currenciesData?.length > 0 && (
+          <View style={[styles.rangeToggleRow, { marginBottom: 20, marginTop: 0 }]}>
+            {currenciesData.map((curr) => {
+              const isActive = selectedCurrency === curr.code;
+              return (
+                <TouchableOpacity
+                  key={curr.code}
+                  style={[
+                    styles.rangeToggleButton,
+                    isActive && styles.rangeToggleButtonActive,
+                  ]}
+                  onPress={() => setSelectedCurrency(curr.code)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
+                >
+                  <Text
+                    style={[
+                      styles.rangeToggleText,
+                      isActive && styles.rangeToggleTextActive,
+                    ]}
+                  >
+                    {curr.code}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Panorama general</Text>

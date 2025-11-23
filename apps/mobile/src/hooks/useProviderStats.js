@@ -1,26 +1,27 @@
 import { useQuery } from '@tanstack/react-query';
-import { getProviderOverviewStats, getProviderRevenueStats, getProviderRatingDistribution } from '../services/providers.service';
+import { getProviderOverviewStats, getProviderRevenueStats, getProviderRatingDistribution, getProviderCurrencies } from '../services/providers.service';
 
 export const providerStatsKeys = {
-    overview: ['provider', 'stats', 'overview'],
-    revenue: (months) => ['provider', 'stats', 'revenue', months],
+    overview: (currency) => ['provider', 'stats', 'overview', currency],
+    revenue: (months, currency) => ['provider', 'stats', 'revenue', months, currency],
     rating: (months) => ['provider', 'stats', 'ratings', months],
+    currencies: ['provider', 'currencies'],
 };
 
-export function useProviderOverviewStats(options = {}) {
+export function useProviderOverviewStats(currency, options = {}) {
     return useQuery({
-        queryKey: providerStatsKeys.overview,
-        queryFn: getProviderOverviewStats,
+        queryKey: providerStatsKeys.overview(currency),
+        queryFn: () => getProviderOverviewStats(currency),
         staleTime: 60 * 1000,
         gcTime: 5 * 60 * 1000,
         ...options,
     });
 }
 
-export function useProviderRevenueStats(months = 6, options = {}) {
+export function useProviderRevenueStats(months = 6, currency, options = {}) {
     return useQuery({
-        queryKey: providerStatsKeys.revenue(months),
-        queryFn: () => getProviderRevenueStats(months),
+        queryKey: providerStatsKeys.revenue(months, currency),
+        queryFn: () => getProviderRevenueStats(months, currency),
         staleTime: 60 * 1000,
         gcTime: 5 * 60 * 1000,
         keepPreviousData: true,
@@ -35,6 +36,15 @@ export function useProviderRatingDistribution(months = 6, options = {}) {
         staleTime: 60 * 1000,
         gcTime: 5 * 60 * 1000,
         keepPreviousData: true,
+        ...options,
+    });
+}
+
+export function useProviderCurrencies(options = {}) {
+    return useQuery({
+        queryKey: providerStatsKeys.currencies,
+        queryFn: getProviderCurrencies,
+        staleTime: 24 * 60 * 60 * 1000, // Monedas no cambian seguido
         ...options,
     });
 }

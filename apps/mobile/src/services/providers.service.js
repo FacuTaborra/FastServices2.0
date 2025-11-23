@@ -55,9 +55,11 @@ export async function getProviderServices() {
     }
 }
 
-export async function getProviderOverviewStats() {
+export async function getProviderOverviewStats(currency) {
     try {
-        const response = await api.get('/providers/me/stats/overview');
+        const response = await api.get('/providers/me/stats/overview', {
+            params: { currency },
+        });
         return response.data;
     } catch (error) {
         console.error('❌ Error obteniendo KPIs del proveedor:', error.message || error);
@@ -65,10 +67,10 @@ export async function getProviderOverviewStats() {
     }
 }
 
-export async function getProviderRevenueStats(months = 6) {
+export async function getProviderRevenueStats(months = 6, currency) {
     try {
         const response = await api.get('/providers/me/stats/revenue', {
-            params: { months },
+            params: { months, currency },
         });
         return response.data;
     } catch (error) {
