@@ -40,7 +40,12 @@ const parseIsoDate = (isoDate) => {
   if (isoDate instanceof Date) return isValid(isoDate) ? isoDate : null;
   if (typeof isoDate !== 'string') return null;
 
-  const parsed = parseISO(isoDate);
+  let stringToParse = isoDate.trim();
+  if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(stringToParse)) {
+    stringToParse += 'Z';
+  }
+
+  const parsed = parseISO(stringToParse);
   return isValid(parsed) ? parsed : null;
 };
 
