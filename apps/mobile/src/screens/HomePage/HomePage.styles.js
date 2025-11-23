@@ -20,24 +20,24 @@ export const PALETTE = {
 
 export const STATUS_CARD_COLORS = {
   active: {
-    pill: '#F87171', // rojo más suave
+    pill: '#F87171',
     background: '#FFF1F2',
     icon: '#B91C1C',
   },
   inProgress: {
-    pill: '#FBBF24', // amarillo suave
+    pill: '#FBBF24',
     background: '#FFFBEB',
-    icon: '#B45309',
+    icon: '#D97706', // Darker amber for icon
   },
   upcoming: {
-    pill: '#60A5FA', // azul suave
+    pill: '#60A5FA',
     background: '#EFF6FF',
-    icon: '#1D4ED8',
+    icon: '#2563EB', // Darker blue for icon
   },
   completed: {
-    pill: '#34D399', // verde suave
+    pill: '#34D399',
     background: '#ECFDF5',
-    icon: '#047857',
+    icon: '#059669', // Darker green for icon
   },
 };
 
@@ -48,7 +48,7 @@ export default StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 10,
+    paddingBottom: 30,
   },
   headerRow: {
     flexDirection: 'row',
@@ -139,7 +139,7 @@ export default StyleSheet.create({
     marginRight: 10,
   },
   sectionTitleStandalone: {
-    fontSize: 25,
+    fontSize: 22,
     fontWeight: '700',
     color: PALETTE.textPrimary,
     marginTop: 4,
@@ -332,67 +332,73 @@ export default StyleSheet.create({
     textAlign: 'center',
     fontSize: 13,
   },
-  statusList: {
+  
+  // --- New Services Section Styles ---
+  servicesContainer: {
     marginTop: 8,
   },
-  statusCard: {
-    marginBottom: 16,
+  serviceGroup: {
+    marginBottom: 20,
   },
-  statusPill: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginBottom: 10,
-  },
-  statusPillText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+  serviceSectionTitle: {
+    fontSize: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    color: PALETTE.textSecondary,
+    marginBottom: 12,
+    marginLeft: 4,
   },
-  statusBody: {
-    borderRadius: 20,
-    padding: 18,
+  serviceCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 0,
-    // Sombra sutil para destacar la card
+    backgroundColor: PALETTE.white,
+    borderRadius: 16,
+    marginBottom: 12,
+    overflow: 'hidden',
+    // Shadow
     shadowColor: '#000',
-    shadowOpacity: 0.06,
     shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
   },
-  statusTextBlock: {
+  serviceCardLeftStrip: {
+    width: 6,
+    height: '100%',
+  },
+  serviceCardContent: {
     flex: 1,
-    marginRight: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
-  statusTitle: {
+  serviceCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  serviceCardTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: PALETTE.textPrimary,
-    marginBottom: 6,
+    flex: 1,
+    marginRight: 8,
   },
-  statusDescription: {
+  serviceCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  serviceCardDate: {
     fontSize: 13,
     color: PALETTE.textSecondary,
   },
-  statusIconBubble: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F3F4F6', // gris muy claro para contraste
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  statusIcon: {
-    color: PALETTE.primary,
+  serviceCardAddress: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+    flex: 1,
   },
 });
+

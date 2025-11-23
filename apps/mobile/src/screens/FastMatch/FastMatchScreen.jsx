@@ -91,11 +91,8 @@ const parseIsoDate = (isoDate) => {
     if (isoDate instanceof Date) return isValid(isoDate) ? isoDate : null;
     if (typeof isoDate !== 'string') return null;
 
-    let stringToParse = isoDate.trim();
-    if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(stringToParse)) {
-        stringToParse += 'Z';
-    }
-
+    const stringToParse = isoDate.trim();
+    // Asumir local si no hay TZ (backend envía hora ARG)
     const parsed = parseISO(stringToParse);
     return isValid(parsed) ? parsed : null;
 };

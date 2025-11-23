@@ -13,7 +13,18 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { parseISO, differenceInSeconds, format, isValid, isAfter, isBefore, subDays, addDays } from 'date-fns';
+import {
+  parseISO,
+  differenceInSeconds,
+  format,
+  isValid,
+  isAfter,
+  isBefore,
+  subDays,
+  addDays,
+  startOfDay,
+  endOfDay,
+} from 'date-fns';
 import { es } from 'date-fns/locale';
 import styles, { STATUS_CARD_COLORS, PALETTE } from './HomePage.styles';
 import { useActiveServiceRequests, useAllServiceRequests } from '../../hooks/useServiceRequests';
@@ -21,30 +32,18 @@ import { useActiveServiceRequests, useAllServiceRequests } from '../../hooks/use
 const heroIcon = require('../../../assets/icon.png');
 const FAST_WINDOW_SECONDS = 5 * 60;
 
-const ICON_BY_STATUS = {
-  Confirmado: 'checkmark-done-outline',
-  Progreso: 'time-outline',
-  Cancelado: 'close-circle-outline',
-};
-
 const DEFAULT_STATUS_CARD = {
   title: 'Sin información disponible',
   description: 'Creá una nueva solicitud para comenzar.',
 };
-
-const pickFirst = (items, predicate = () => true) =>
-  items.find(predicate) ?? null;
 
 const parseIsoDate = (isoDate) => {
   if (!isoDate) return null;
   if (isoDate instanceof Date) return isValid(isoDate) ? isoDate : null;
   if (typeof isoDate !== 'string') return null;
 
-  let stringToParse = isoDate.trim();
-  if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(stringToParse)) {
-    stringToParse += 'Z';
-  }
-
+  const stringToParse = isoDate.trim();
+  // Asumir local si no hay TZ (backend envía hora ARG)
   const parsed = parseISO(stringToParse);
   return isValid(parsed) ? parsed : null;
 };
@@ -153,90 +152,117 @@ const buildActiveDescriptionSnippet = (description) => {
     : trimmed;
 };
 
+// --- NUEVA LÓGICA DE FILTRADO ---
 
-// Helpers para filtrar servicios con date-fns
-const isWithinNextDay = (dateString) => {
-  if (!dateString) return false;
-  const date = parseIsoDate(dateString);
-  if (!date) return false;
+const groupServiceRequests = (allRequests) => {
+  const result = {
+    inProgress: [],
+    upcoming: [],
+    completed: [],
+  };
 
-  const now = new Date();
-  const tomorrow = addDays(now, 1);
-  return isAfter(date, now) && isBefore(date, tomorrow);
-};
-
-const isWithinLastDay = (dateString) => {
-  if (!dateString) return false;
-  const date = parseIsoDate(dateString);
-  if (!date) return false;
-
-  const now = new Date();
-  const yesterday = subDays(now, 1);
-  return isBefore(date, now) && isAfter(date, yesterday);
-};
-
-const buildSecondaryCards = (allRequests, navigation) => {
-  // allRequests: array de requests con .service
-  let inProgress = null;
-  let upcoming = null;
-  let completed = null;
-
-  if (Array.isArray(allRequests)) {
-    // En Proceso: status IN_PROGRESS
-    inProgress = allRequests.find(
-      (req) => req?.service?.status === 'IN_PROGRESS'
-    );
-    // Próximo: status CONFIRMED y scheduled_start_at en menos de 1 día
-    upcoming = allRequests.find(
-      (req) => req?.service?.status === 'CONFIRMED' && isWithinNextDay(req?.service?.scheduled_start_at)
-    );
-    // Completado: status COMPLETED y scheduled_end_at hace menos de 1 día
-    completed = allRequests.find(
-      (req) => req?.service?.status === 'COMPLETED' && isWithinLastDay(req?.service?.scheduled_end_at)
-    );
+  if (!Array.isArray(allRequests)) {
+    return result;
   }
 
-  return [
-    {
-      id: inProgress?.id || 'in-progress',
-      category: 'En Proceso',
-      palette: STATUS_CARD_COLORS.inProgress,
-      icon: 'time-outline',
-      title: inProgress?.title || 'Sin información disponible',
-      description: inProgress?.service?.scheduled_start_at
-        ? `Inició: ${formatPublishedDate(inProgress.service.scheduled_start_at)}`
-        : 'Sin fecha de inicio',
-      onPress: inProgress?.id
-        ? () => navigation.navigate('ServiceDetail', { requestId: inProgress.id })
-        : null,
-    },
-    {
-      id: upcoming?.id || 'upcoming',
-      category: 'Próximo',
-      palette: STATUS_CARD_COLORS.upcoming,
-      icon: 'calendar-outline',
-      title: upcoming?.title || 'Sin información disponible',
-      description: upcoming?.service?.scheduled_start_at
-        ? `Empieza: ${formatPublishedDate(upcoming.service.scheduled_start_at)}`
-        : 'Sin fecha programada',
-      onPress: upcoming?.id
-        ? () => navigation.navigate('ServiceDetail', { requestId: upcoming.id })
-        : null,
-    },
-    {
-      id: completed?.id || 'completed',
-      category: 'Completado',
-      palette: STATUS_CARD_COLORS.completed,
-      icon: 'construct-outline',
-      title: completed?.title || 'Sin información disponible',
-      description: completed?.service?.scheduled_end_at
-        ? `Finalizó: ${formatPublishedDate(completed.service.scheduled_end_at)}`
-        : 'Sin fecha de finalización',
-      onPress: completed?.id
-        ? () => navigation.navigate('ServiceDetail', { requestId: completed.id })
-        : null,
-    },
-  ];
+  const now = new Date();
+  const startOfYesterday = startOfDay(subDays(now, 1));
+  const endOfToday = endOfDay(now);
+  const threeDaysFromNow = endOfDay(addDays(now, 3));
+
+  allRequests.forEach((req) => {
+    const status = req?.service?.status;
+
+    // 1. En Progreso: status IN_PROGRESS (Todos)
+    if (status === 'IN_PROGRESS') {
+      result.inProgress.push(req);
+      return;
+    }
+
+    // 2. Próximos: status CONFIRMED y fecha inicio en [ahora, ahora + 3 días]
+    if (status === 'CONFIRMED') {
+      const startDate = parseIsoDate(req?.service?.scheduled_start_at);
+      if (startDate && isAfter(startDate, now) && isBefore(startDate, threeDaysFromNow)) {
+        result.upcoming.push(req);
+      }
+      return;
+    }
+
+    // 3. Completados: status COMPLETED y fecha fin en [ayer inicio, hoy fin]
+    if (status === 'COMPLETED') {
+      const endDate = parseIsoDate(req?.service?.scheduled_end_at);
+      if (endDate && isAfter(endDate, startOfYesterday) && isBefore(endDate, endOfToday)) {
+        result.completed.push(req);
+      }
+    }
+  });
+
+  // Ordenar por fecha (opcional, pero recomendado)
+  // Upcoming: más cercano primero
+  result.upcoming.sort((a, b) => {
+    const dateA = parseIsoDate(a.service?.scheduled_start_at) || 0;
+    const dateB = parseIsoDate(b.service?.scheduled_start_at) || 0;
+    return dateA - dateB;
+  });
+
+  // Completed: más reciente primero
+  result.completed.sort((a, b) => {
+    const dateA = parseIsoDate(a.service?.scheduled_end_at) || 0;
+    const dateB = parseIsoDate(b.service?.scheduled_end_at) || 0;
+    return dateB - dateA;
+  });
+
+  return result;
+};
+
+const ServiceCard = ({ request, category, color, icon, navigation }) => {
+  const title = request.title?.trim() || 'Servicio sin título';
+
+  let dateLabel = '';
+  let dateValue = null;
+
+  if (category === 'inProgress') {
+    dateLabel = 'Inició';
+    dateValue = request.service?.scheduled_start_at;
+  } else if (category === 'upcoming') {
+    dateLabel = 'Programado';
+    dateValue = request.service?.scheduled_start_at;
+  } else {
+    dateLabel = 'Finalizó';
+    dateValue = request.service?.scheduled_end_at;
+  }
+
+  const formattedDate = dateValue ? formatPublishedDate(dateValue) : 'Sin fecha';
+
+  return (
+    <TouchableOpacity
+      style={styles.serviceCard}
+      onPress={() => navigation.navigate('ServiceDetail', { requestId: request.id })}
+      activeOpacity={0.9}
+    >
+      <View style={[styles.serviceCardLeftStrip, { backgroundColor: color }]} />
+      <View style={styles.serviceCardContent}>
+        <View style={styles.serviceCardHeader}>
+          <Text style={styles.serviceCardTitle} numberOfLines={1}>{title}</Text>
+          <Ionicons name={icon} size={20} color={color} />
+        </View>
+
+        <View style={styles.serviceCardRow}>
+          <Ionicons name="calendar-outline" size={14} color={PALETTE.textSecondary} style={{ marginRight: 4 }} />
+          <Text style={styles.serviceCardDate}>
+            {dateLabel}: <Text style={{ fontWeight: '600' }}>{formattedDate}</Text>
+          </Text>
+        </View>
+
+        {request.city_snapshot ? (
+          <View style={styles.serviceCardRow}>
+            <Ionicons name="location-outline" size={14} color={PALETTE.textSecondary} style={{ marginRight: 4 }} />
+            <Text style={styles.serviceCardAddress} numberOfLines={1}>{request.city_snapshot}</Text>
+          </View>
+        ) : null}
+      </View>
+    </TouchableOpacity>
+  );
 };
 
 const HomePage = () => {
@@ -249,10 +275,11 @@ const HomePage = () => {
     isRefetching: isRefetchingAll,
   } = useAllServiceRequests();
 
-  const secondaryCards = React.useMemo(
-    () => buildSecondaryCards(allRequests, navigation),
-    [allRequests, navigation]
+  const groupedServices = React.useMemo(
+    () => groupServiceRequests(allRequests),
+    [allRequests]
   );
+
   const [nowMs, setNowMs] = React.useState(Date.now());
   const intervalRef = React.useRef(null);
   const {
@@ -262,6 +289,7 @@ const HomePage = () => {
     refetch: refetchActive,
     isRefetching,
   } = useActiveServiceRequests();
+
   const activeRequestsSafe = Array.isArray(activeRequests) ? activeRequests : [];
   const showLoading = activeLoading && !activeRequestsSafe.length && !isRefetching;
   const showError = activeError && !activeRequestsSafe.length;
@@ -277,21 +305,14 @@ const HomePage = () => {
       return undefined;
     }
 
-    // Actualizar inmediatamente al montar
     setNowMs(Date.now());
-
     const updateTimer = () => {
       setNowMs(Date.now());
     };
 
-    // Iniciar el intervalo - mantenerlo corriendo siempre
     intervalRef.current = setInterval(updateTimer, 1000);
-
-    // Manejar cambios de AppState (background/foreground)
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        // Cuando la app vuelve a primer plano, actualizar el tiempo inmediatamente
-        // para corregir cualquier desfase que pueda haber ocurrido
         setNowMs(Date.now());
       }
     });
@@ -304,9 +325,6 @@ const HomePage = () => {
       subscription?.remove();
     };
   }, [hasFastRequests]);
-
-
-  const statusCards = secondaryCards;
 
   const handleCreateRequest = () => {
     navigation.navigate('RequestDetail', { showButton: true });
@@ -346,6 +364,11 @@ const HomePage = () => {
     }
   }, [buildRequestSummary, navigation]);
 
+  const hasAnyService =
+    groupedServices.inProgress.length > 0 ||
+    groupedServices.upcoming.length > 0 ||
+    groupedServices.completed.length > 0;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -353,8 +376,11 @@ const HomePage = () => {
         showsVerticalScrollIndicator={false}
         refreshControl={(
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetchActive}
+            refreshing={isRefetching || isRefetchingAll}
+            onRefresh={() => {
+              refetchActive();
+              refetchAll();
+            }}
             colors={['#0B3C82']}
             tintColor="#0B3C82"
           />
@@ -494,33 +520,66 @@ const HomePage = () => {
 
         <Text style={styles.sectionTitleStandalone}>Mis Servicios</Text>
 
-        <View style={styles.statusList}>
-          {statusCards.map((card) => (
-            <TouchableOpacity
-              key={card.id}
-              style={styles.statusCard}
-              onPress={card.onPress}
-              activeOpacity={card.onPress ? 0.92 : 1}
-              disabled={!card.onPress}
-            >
-              <View style={[styles.statusPill, { backgroundColor: card.palette.pill }]}>
-                <Text style={styles.statusPillText}>{card.category}</Text>
-              </View>
-              <View style={[styles.statusBody, { backgroundColor: card.palette.background }]}>
-                <View style={styles.statusTextBlock}>
-                  <Text style={styles.statusTitle}>{card.title}</Text>
-                  <Text style={styles.statusDescription}>{card.description}</Text>
-                </View>
-                <View style={styles.statusIconBubble}>
-                  <Ionicons
-                    name={card.icon}
-                    size={24}
-                    style={[styles.statusIcon, { color: card.palette.icon }]}
-                  />
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+        {!hasAnyService && !allLoading && (
+          <View style={styles.activeEmptyBox}>
+            <Ionicons name="calendar-clear-outline" size={22} style={styles.activeEmptyIcon} />
+            <Text style={styles.activeEmptyText}>
+              No tenés servicios programados ni recientes.
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.servicesContainer}>
+          {/* En Proceso */}
+          {groupedServices.inProgress.length > 0 && (
+            <View style={styles.serviceGroup}>
+              <Text style={styles.serviceSectionTitle}>En curso</Text>
+              {groupedServices.inProgress.map((req) => (
+                <ServiceCard
+                  key={req.id}
+                  request={req}
+                  category="inProgress"
+                  color={STATUS_CARD_COLORS.inProgress.icon}
+                  icon="time"
+                  navigation={navigation}
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Próximos */}
+          {groupedServices.upcoming.length > 0 && (
+            <View style={styles.serviceGroup}>
+              <Text style={styles.serviceSectionTitle}>Próximos (3 días)</Text>
+              {groupedServices.upcoming.map((req) => (
+                <ServiceCard
+                  key={req.id}
+                  request={req}
+                  category="upcoming"
+                  color={STATUS_CARD_COLORS.upcoming.icon}
+                  icon="calendar"
+                  navigation={navigation}
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Completados */}
+          {groupedServices.completed.length > 0 && (
+            <View style={styles.serviceGroup}>
+              <Text style={styles.serviceSectionTitle}>Recientes</Text>
+              {groupedServices.completed.map((req) => (
+                <ServiceCard
+                  key={req.id}
+                  request={req}
+                  category="completed"
+                  color={STATUS_CARD_COLORS.completed.icon}
+                  icon="checkmark-circle"
+                  navigation={navigation}
+                />
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
