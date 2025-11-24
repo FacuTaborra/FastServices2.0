@@ -9,6 +9,7 @@ from services.notification_service import notification_service
 
 router = APIRouter(prefix="/notifications")
 
+
 @router.post("/register-token", response_model=GeneralResponse)
 async def register_token(
     payload: PushTokenCreate,
@@ -19,10 +20,9 @@ async def register_token(
     Registra un token de Expo Push para el usuario actual.
     """
     await notification_service.register_token(
-        db, 
-        user_id=current_user.id, 
-        token=payload.token, 
-        device_name=payload.device_name
+        db,
+        user_id=current_user.id,
+        token=payload.token,
+        device_name=payload.device_name,
     )
-    return GeneralResponse(message="Token registrado correctamente")
-
+    return GeneralResponse(message="Token registrado correctamente", success=True)
