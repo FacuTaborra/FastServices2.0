@@ -27,19 +27,34 @@ export function useNotifications() {
     let isMounted = true;
 
     if (isAuthenticated) {
-      registerForPushNotificationsAsync().then(token => {
-        if (isMounted && token) {
-          setExpoPushToken(token);
-          // Register token in backend
-          httpMethods.post('/notifications/register-token', {
-            token: token,
-            device_name: Device.modelName || 'Unknown Device'
-          }).catch(err => {
-              // Silent fail or log
-              console.log("Error registering push token:", err);
-          });
-        }
-      });
+      console.log('🔔 Solicitando token push a Expo...');
+      registerForPushNotificationsAsync()
+        .then(token => {
+          console.log('🔔 Token Expo obtenido:', token);
+          if (isMounted && token) {
+            setExpoPushToken(token);
+            httpMethods
+              .post('/notifications/register-token', {
+                token,
+                device_name: Device.modelName || 'Unknown Device',
+              })
+              .then(() => console.log('✅ Token registrado correctamente'))
+              .catch(err => {
+                console.log('❌ Error registrando token:', err?.response ?? err);
+              });
+          } else {
+            console.log(
+              '⚠️ No se registró token (isMounted:',
+              isMounted,
+              'token:',
+              token,
+              ')',
+            );
+          }
+        })
+        .catch(err => {
+          console.log('❌ Error obteniendo token Expo:', err);
+        });
     }
 
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
@@ -50,10 +65,10 @@ export function useNotifications() {
       const data = response.notification.request.content.data;
       // Navigate based on data
       if (data?.requestId) {
-          // Check if it is a proposal or something else to navigate specifically
-          // For now, generic navigation to request detail could work if we had the route name
-          // navigation.navigate('RequestDetail', { requestId: data.requestId });
-          console.log("Notification Data:", data);
+        // Check if it is a proposal or something else to navigate specifically
+        // For now, generic navigation to request detail could work if we had the route name
+        // navigation.navigate('RequestDetail', { requestId: data.requestId });
+        console.log("Notification Data:", data);
       }
     });
 
@@ -90,14 +105,14 @@ async function registerForPushNotificationsAsync() {
       console.log('Failed to get push token for push notification!');
       return;
     }
-    
+
     try {
-        // Try to get projectId from config
-        const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-        token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      // Try to get projectId from config
+      const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+      token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
     } catch (e) {
-        // Fallback
-        token = (await Notifications.getExpoPushTokenAsync()).data;
+      // Fallback
+      token = (await Notifications.getExpoPushTokenAsync()).data;
     }
   } else {
     console.log('Must use physical device for Push Notifications');
@@ -105,4 +120,3 @@ async function registerForPushNotificationsAsync() {
 
   return token;
 }
-

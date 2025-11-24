@@ -810,6 +810,20 @@ class ServiceRequestService:
 
         await db.commit()
 
+        # Notificar al prestador
+        try:
+            provider_user_id = provider_profile.user_id
+            if provider_user_id:
+                await notification_service.send_notification_to_user(
+                    db,
+                    user_id=provider_user_id,
+                    title="¡Nueva calificación recibida!",
+                    body=f"Un cliente calificó tu servicio con {payload.rating} estrellas.",
+                    data={"requestId": service_request.id, "type": "service_reviewed"},
+                )
+        except Exception as e:
+            logger.error(f"Error enviando notificacion push: {e}")
+
         return await ServiceRequestService._fetch_request_with_relations(
             db, service_request.id, client_id=client_id
         )
@@ -844,6 +858,18 @@ class ServiceRequestService:
         service.status = ServiceStatus.ON_ROUTE
 
         await db.commit()
+
+        # Notificar al cliente
+        try:
+            await notification_service.send_notification_to_user(
+                db,
+                user_id=client_id,
+                title="¡Prestador en camino!",
+                body=f"El prestador ya está yendo a tu domicilio para el servicio '{service_request.title}'.",
+                data={"requestId": service_request.id, "type": "service_on_route"},
+            )
+        except Exception as e:
+            logger.error(f"Error enviando notificacion push: {e}")
 
         return await ServiceRequestService._fetch_request_with_relations(
             db, service_request.id, client_id=client_id
@@ -891,6 +917,18 @@ class ServiceRequestService:
         service.status = ServiceStatus.IN_PROGRESS
 
         await db.commit()
+
+        # Notificar al cliente
+        try:
+            await notification_service.send_notification_to_user(
+                db,
+                user_id=client_id,
+                title="¡Servicio iniciado!",
+                body=f"El prestador ha comenzado a trabajar en '{service_request.title}'.",
+                data={"requestId": service_request.id, "type": "service_in_progress"},
+            )
+        except Exception as e:
+            logger.error(f"Error enviando notificacion push: {e}")
 
         return await ServiceRequestService._fetch_request_with_relations(
             db, service_request.id, client_id=client_id

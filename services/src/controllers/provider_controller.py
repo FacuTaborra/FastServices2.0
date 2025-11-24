@@ -788,6 +788,22 @@ class ProviderController:
 
         await db.commit()
 
+        # Notificar al cliente
+        try:
+            request_title = service.request.title if service.request else "tu servicio"
+            await notification_service.send_notification_to_user(
+                db,
+                user_id=service.client_id,
+                title="¡Servicio finalizado!",
+                body=f"El prestador ha marcado como finalizado el servicio '{request_title}'.",
+                data={
+                    "requestId": service.request_id,
+                    "type": "service_completed",
+                },
+            )
+        except Exception as e:
+            logger.error(f"Error enviando notificacion push: {e}")
+
         refreshed_result = await db.execute(stmt)
         refreshed_service = refreshed_result.scalar_one()
         return ProviderController._map_service_to_provider_response(refreshed_service)
