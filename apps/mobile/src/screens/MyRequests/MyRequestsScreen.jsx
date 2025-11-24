@@ -215,7 +215,7 @@ const MyRequestsScreen = () => {
         : null;
       const title = request?.title?.trim() || 'Solicitud sin título';
       const isLicitacion = request?.request_type === 'LICITACION';
-      const requestTypeLabel = isLicitacion ? 'LICITACIÓN' : 'FAST';
+      const requestTypeLabel = isLicitacion ? 'PRESUPUESTO' : 'FAST';
       const descriptionSnippet = buildDescriptionSnippet(request?.description);
       const locationLabel =
         normalizeSnapshotLabel(request?.service?.address_snapshot) ||

@@ -220,7 +220,7 @@ export default function FastMatchScreen() {
         const hint =
             remainingSeconds > 0
                 ? 'Mientras esté activo el Fast los prestadores tienen prioridad para cotizar.'
-                : 'Podés pasar a licitación para seguir recibiendo propuestas hasta 72 horas.';
+                : 'Podés pasar a servicio presupuestado para seguir recibiendo propuestas hasta 72 horas.';
 
         return {
             title: 'Buscando prestadores...',
@@ -799,7 +799,7 @@ export default function FastMatchScreen() {
                                 isSwitchDisabled && styles.switchButtonTextDisabled,
                             ]}
                         >
-                            Pasar a licitación
+                            Pasar a servicio presupuestado
                         </Text>
                         {serviceCreated ? (
                             <Text style={styles.switchHelperText}>
@@ -816,7 +816,7 @@ export default function FastMatchScreen() {
                                     !isUpdating && styles.switchHelperTextReady,
                                 ]}
                             >
-                                Ahora podés ampliar la licitación
+                                Ahora podés ampliar el tiempo para recibir propuestas
                             </Text>
                         )}
                     </TouchableOpacity>

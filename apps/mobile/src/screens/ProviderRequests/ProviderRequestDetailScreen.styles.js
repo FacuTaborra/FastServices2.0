@@ -57,11 +57,46 @@ export default StyleSheet.create({
         shadowRadius: 10,
         elevation: 2,
     },
+    clientHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    clientLocationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    clientLocationText: {
+        fontSize: 13,
+        color: PALETTE.textSecondary,
+        marginLeft: 4,
+    },
+    clientAvatar: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        marginRight: 12,
+        backgroundColor: PALETTE.backgroundLight,
+    },
+    clientAvatarFallback: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        marginRight: 12,
+        backgroundColor: PALETTE.backgroundLight,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    clientNameLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: PALETTE.textPrimary,
+    },
     requestTitle: {
         fontSize: 20,
         fontWeight: '700',
         color: PALETTE.textPrimary,
-        marginBottom: 12,
+        marginBottom: 4,
     },
     requestLocationRow: {
         flexDirection: 'row',
@@ -93,6 +128,7 @@ export default StyleSheet.create({
         fontSize: 15,
         lineHeight: 22,
         color: PALETTE.textPrimary,
+        marginTop: 2,
     },
     proposalStatusBadge: {
         paddingHorizontal: 10,

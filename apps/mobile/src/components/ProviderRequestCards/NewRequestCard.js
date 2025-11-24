@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from './NewRequestCard.styles';
@@ -17,10 +17,21 @@ export default function NewRequestCard({ item, onAccept, onReject, onPress }) {
       {!item.fast && (
         <View style={styles.LicitacionBadge}>
           <Ionicons name="hammer" size={10} color="#fff" style={styles.LicitacionIcon} />
-          <Text style={styles.LicitacionText}>Licitación</Text>
+          <Text style={styles.LicitacionText}>Presupuesto</Text>
         </View>
       )}
       <View style={styles.info}>
+        <View style={styles.clientRow}>
+          {item.clientAvatar ? (
+            <Image source={{ uri: item.clientAvatar }} style={styles.clientAvatar} />
+          ) : (
+            <View style={styles.clientAvatarFallback}>
+              <Ionicons name="person" size={16} color="#6B7280" />
+            </View>
+          )}
+          <Text style={styles.clientName}>{item.clientName}</Text>
+        </View>
+
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.date}>{item.date}</Text>
         <Text style={styles.address}>{item.address}</Text>

@@ -25,7 +25,7 @@ import RequestSummaryCard from '../ProviderRequests/components/RequestSummaryCar
 const DEFAULT_CURRENCY = 'ARS';
 const REQUEST_TYPE_LABELS = {
     FAST: 'FAST',
-    LICITACION: 'Licitación',
+    LICITACION: 'Presupuesto',
 };
 const REQUEST_TYPE_ICONS = {
     FAST: 'flash',

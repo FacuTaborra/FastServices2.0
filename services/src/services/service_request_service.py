@@ -64,7 +64,7 @@ class ServiceRequestService:
             payload.request_type == ServiceRequestType.LICITACION
             and payload.bidding_deadline is None
         ):
-            now = datetime.now(timezone.utc)
+            now = datetime.now(timezone(timedelta(hours=-3)))
             auto_deadline = (now + timedelta(hours=72)).replace(
                 minute=0, second=0, microsecond=0
             )
@@ -192,11 +192,11 @@ class ServiceRequestService:
             payload.request_type == ServiceRequestType.LICITACION
             and payload.bidding_deadline
         ):
-            now = datetime.now(timezone.utc)
-            # Si la fecha es naïve la asumimos en UTC
+            now = datetime.now(timezone(timedelta(hours=-3)))
+            # Si la fecha es naïve la asumimos en UTC-3
             candidate = payload.bidding_deadline
             if candidate.tzinfo is None:
-                candidate = candidate.replace(tzinfo=timezone.utc)
+                candidate = candidate.replace(tzinfo=timezone(timedelta(hours=-3)))
 
             if candidate <= now:
                 raise HTTPException(
@@ -472,7 +472,7 @@ class ServiceRequestService:
                 has_changes = True
 
                 if payload.request_type == ServiceRequestType.LICITACION:
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(timezone(timedelta(hours=-3)))
                     bidding_deadline = (now + timedelta(hours=72)).replace(
                         minute=0, second=0, microsecond=0
                     )
@@ -609,9 +609,10 @@ class ServiceRequestService:
             }
 
         if service_request.request_type == ServiceRequestType.FAST:
-            service_entity.scheduled_start_at = datetime.now(timezone.utc).replace(
-                tzinfo=None, microsecond=0
-            )
+            # Guardar horario actual de Argentina (UTC-3) al confirmar
+            service_entity.scheduled_start_at = datetime.now(
+                timezone(timedelta(hours=-3))
+            ).replace(tzinfo=None, microsecond=0)
         elif selected_proposal.proposed_start_at:
             service_entity.scheduled_start_at = selected_proposal.proposed_start_at
         if selected_proposal.proposed_end_at:
@@ -687,11 +688,11 @@ class ServiceRequestService:
                 detail="Solo se pueden cancelar servicios confirmados o en camino",
             )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None)
         scheduled_start = service.scheduled_start_at
         if scheduled_start is not None:
-            if scheduled_start.tzinfo is None:
-                scheduled_start = scheduled_start.replace(tzinfo=timezone.utc)
+            if scheduled_start.tzinfo is not None:
+                scheduled_start = scheduled_start.replace(tzinfo=None)
             if scheduled_start <= now:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -861,11 +862,11 @@ class ServiceRequestService:
                 detail="El servicio no puede pasar a en ejecución",
             )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None)
         scheduled_start = service.scheduled_start_at
         if scheduled_start is not None:
-            if scheduled_start.tzinfo is None:
-                scheduled_start = scheduled_start.replace(tzinfo=timezone.utc)
+            if scheduled_start.tzinfo is not None:
+                scheduled_start = scheduled_start.replace(tzinfo=None)
             if scheduled_start > now:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

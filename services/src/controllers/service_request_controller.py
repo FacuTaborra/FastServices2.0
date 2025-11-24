@@ -233,9 +233,21 @@ class ServiceRequestController:
         elif service_request.city_snapshot:
             address_label = service_request.city_snapshot
 
+        client_name = None
+        client_avatar_url = None
+        if getattr(service_request, "client", None):
+            first = (service_request.client.first_name or "").strip()
+            last = (service_request.client.last_name or "").strip()
+            client_name = (
+                " ".join(part for part in [first, last] if part).strip() or None
+            )
+            client_avatar_url = getattr(service_request.client, "profile_image_url", None)
+
         return ServiceRequestResponse(
             id=service_request.id,
             client_id=service_request.client_id,
+            client_name=client_name,
+            client_avatar_url=client_avatar_url,
             address_id=service_request.address_id,
             title=service_request.title,
             description=service_request.description,

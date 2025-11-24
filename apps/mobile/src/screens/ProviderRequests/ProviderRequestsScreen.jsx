@@ -148,6 +148,8 @@ function mapServiceRequestToCard(request) {
     preferred_end_at: request.preferred_end_at,
     rawRequest: request,
     proposalSummary: buildProposalSummary(request),
+    clientName: request.client_name || 'Cliente',
+    clientAvatar: request.client_avatar_url,
   };
 }
 

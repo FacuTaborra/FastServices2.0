@@ -20,6 +20,7 @@ import {
   isValid,
   isAfter,
   isBefore,
+  isWithinInterval,
   subDays,
   addDays,
   startOfDay,
@@ -76,7 +77,7 @@ const describeActiveRequest = (request) => {
   if (request.request_type === 'FAST') {
     parts.push('FAST ⚡');
   } else if (request.request_type === 'LICITACION') {
-    parts.push('Licitación');
+    parts.push('Presupuesto');
     if (Number.isFinite(request.proposal_count) && request.proposal_count > 0) {
       const label = request.proposal_count === 1
         ? '1 oferta'
@@ -166,15 +167,16 @@ const groupServiceRequests = (allRequests) => {
   }
 
   const now = new Date();
-  const startOfYesterday = startOfDay(subDays(now, 1));
+  // Se amplía a 2 días atrás para incluir "los últimos 2 días"
+  const startOfWindow = startOfDay(subDays(now, 2));
   const endOfToday = endOfDay(now);
   const threeDaysFromNow = endOfDay(addDays(now, 3));
 
   allRequests.forEach((req) => {
     const status = req?.service?.status;
 
-    // 1. En Progreso: status IN_PROGRESS (Todos)
-    if (status === 'IN_PROGRESS') {
+    // 1. En Progreso: status IN_PROGRESS u ON_ROUTE
+    if (status === 'IN_PROGRESS' || status === 'ON_ROUTE') {
       result.inProgress.push(req);
       return;
     }
@@ -188,10 +190,14 @@ const groupServiceRequests = (allRequests) => {
       return;
     }
 
-    // 3. Completados: status COMPLETED y fecha fin en [ayer inicio, hoy fin]
+    // 3. Completados: status COMPLETED y fecha fin en [hace 2 días, hoy fin]
     if (status === 'COMPLETED') {
-      const endDate = parseIsoDate(req?.service?.scheduled_end_at);
-      if (endDate && isAfter(endDate, startOfYesterday) && isBefore(endDate, endOfToday)) {
+      // Prioridad: updated_at (momento real de cambio de estado), luego programada
+      const completionDate = parseIsoDate(req?.service?.updated_at)
+        || parseIsoDate(req?.service?.scheduled_end_at)
+        || parseIsoDate(req?.service?.scheduled_start_at);
+
+      if (completionDate && isWithinInterval(completionDate, { start: startOfWindow, end: endOfToday })) {
         result.completed.push(req);
       }
     }
@@ -205,10 +211,10 @@ const groupServiceRequests = (allRequests) => {
     return dateA - dateB;
   });
 
-  // Completed: más reciente primero
+  // Completed: más reciente primero (usando updated_at como criterio principal)
   result.completed.sort((a, b) => {
-    const dateA = parseIsoDate(a.service?.scheduled_end_at) || 0;
-    const dateB = parseIsoDate(b.service?.scheduled_end_at) || 0;
+    const dateA = parseIsoDate(a.service?.updated_at) || parseIsoDate(a.service?.scheduled_end_at) || 0;
+    const dateB = parseIsoDate(b.service?.updated_at) || parseIsoDate(b.service?.scheduled_end_at) || 0;
     return dateB - dateA;
   });
 
@@ -222,14 +228,18 @@ const ServiceCard = ({ request, category, color, icon, navigation }) => {
   let dateValue = null;
 
   if (category === 'inProgress') {
-    dateLabel = 'Inició';
+    if (request.service?.status === 'ON_ROUTE') {
+      dateLabel = 'En camino';
+    } else {
+      dateLabel = 'Inició';
+    }
     dateValue = request.service?.scheduled_start_at;
   } else if (category === 'upcoming') {
     dateLabel = 'Programado';
     dateValue = request.service?.scheduled_start_at;
   } else {
     dateLabel = 'Finalizó';
-    dateValue = request.service?.scheduled_end_at;
+    dateValue = request.service?.updated_at || request.service?.scheduled_end_at;
   }
 
   const formattedDate = dateValue ? formatPublishedDate(dateValue) : 'Sin fecha';
@@ -486,7 +496,7 @@ const HomePage = () => {
                     {isLicitacionRequest ? (
                       <View style={styles.licitationBadge}>
                         <Ionicons name="time-outline" size={12} style={styles.licitationBadgeIcon} />
-                        <Text style={styles.licitationBadgeText}>LICITACIÓN</Text>
+                        <Text style={styles.licitationBadgeText}>PRESUPUESTO</Text>
                       </View>
                     ) : null}
                   </View>
@@ -550,7 +560,7 @@ const HomePage = () => {
           {/* Próximos */}
           {groupedServices.upcoming.length > 0 && (
             <View style={styles.serviceGroup}>
-              <Text style={styles.serviceSectionTitle}>Próximos (3 días)</Text>
+              <Text style={styles.serviceSectionTitle}>Próximos</Text>
               {groupedServices.upcoming.map((req) => (
                 <ServiceCard
                   key={req.id}

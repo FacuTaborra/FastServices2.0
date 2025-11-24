@@ -248,7 +248,6 @@ const ServiceDetailScreen = () => {
     const route = useRoute();
     const { requestId, autoOpenRating = false } = route.params ?? {};
 
-    const [autoMarkAttempted, setAutoMarkAttempted] = useState(false);
     const [ratingModalVisible, setRatingModalVisible] = useState(false);
     const [ratingSubmitted, setRatingSubmitted] = useState(false);
     const [optimisticReview, setOptimisticReview] = useState(null);
@@ -338,23 +337,6 @@ const ServiceDetailScreen = () => {
     const isLoading = serviceRequestQuery.isLoading || serviceRequestQuery.isFetching;
     const isMutating = cancelServiceMutation.isPending || markInProgressMutation.isPending;
     const showCancelButton = serviceData?.status === 'CONFIRMED';
-
-    useEffect(() => {
-        if (!autoMarkAttempted && shouldAutoMarkInProgress(serviceData)) {
-            setAutoMarkAttempted(true);
-            markInProgressMutation.mutate(
-                { requestId },
-                {
-                    onError: (error) => {
-                        const message = error?.response?.data?.detail || error?.message;
-                        if (message) {
-                            console.warn('No se pudo marcar el servicio en progreso automáticamente:', message);
-                        }
-                    },
-                },
-            );
-        }
-    }, [autoMarkAttempted, markInProgressMutation, requestId, serviceData]);
 
     useEffect(() => {
         if (!autoOpenRating) {

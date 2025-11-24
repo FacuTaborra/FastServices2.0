@@ -21,7 +21,7 @@ export default function ProviderProposalCard({ item, onPress }) {
                         color="#fff"
                         style={styles.typeBadgeIcon}
                     />
-                    <Text style={styles.typeBadgeText}>{isFast ? 'FAST' : 'Licitación'}</Text>
+                    <Text style={styles.typeBadgeText}>{isFast ? 'FAST' : 'Presupuesto'}</Text>
                 </View>
                 <View
                     style={[styles.statusBadge,

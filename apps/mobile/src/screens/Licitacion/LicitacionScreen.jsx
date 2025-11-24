@@ -278,7 +278,7 @@ export default function LicitacionScreen() {
     const cancelRequestMutation = useCancelServiceRequest();
 
     const serviceCreated = Boolean(requestData?.service);
-    const requestTitle = requestData?.title ?? 'Solicitud en licitación';
+    const requestTitle = requestData?.title ?? 'Solicitud de presupuesto';
     const requestDescription = requestData?.description ?? 'Descripción no disponible.';
     const requestAddress = requestData?.address ?? 'Dirección pendiente.';
     const requestCreatedAt = requestData?.created_at ?? null;
@@ -486,10 +486,10 @@ export default function LicitacionScreen() {
 
     const statusMessage = useMemo(() => {
         if (isCancelled) {
-            return 'Cancelaste la licitación. No se recibirán nuevas ofertas.';
+            return 'Cancelaste la solicitud. No se recibirán nuevas ofertas.';
         }
         if (isClosed) {
-            return 'Cerraste la licitación. Revisá las propuestas y confirmá al prestador.';
+            return 'Cerraste la solicitud. Revisá las propuestas y confirmá al prestador.';
         }
         return 'Los prestadores están enviando propuestas. Podés cerrar cuando tengas suficientes opciones.';
     }, [isCancelled, isClosed]);
@@ -499,9 +499,9 @@ export default function LicitacionScreen() {
             return 'Recordá crear una nueva solicitud si cambiaron tus necesidades.';
         }
         if (isClosed) {
-            return 'La licitación ya no acepta nuevas ofertas.';
+            return 'La solicitud ya no acepta nuevas ofertas.';
         }
-        return 'Cuando recibas al menos 3 propuestas vas a poder cerrar la licitación.';
+        return 'Cuando recibas al menos 3 propuestas vas a poder cerrar la solicitud.';
     }, [isCancelled, isClosed]);
 
     const getProposalScheduleLabel = useCallback(
@@ -575,7 +575,7 @@ export default function LicitacionScreen() {
                     <View style={styles.emptyOffersBox}>
                         <Ionicons name="pause-outline" size={28} color="#ef4444" />
                         <Text style={styles.emptyOffersText}>
-                            La licitación fue cancelada. No se mostrarán propuestas.
+                            La solicitud fue cancelada. No se mostrarán propuestas.
                         </Text>
                     </View>
                 ),
@@ -705,8 +705,8 @@ export default function LicitacionScreen() {
 
                         if (isAuto) {
                             Alert.alert(
-                                'Licitación finalizada',
-                                'La licitación se cerró automáticamente al cumplirse el plazo de 72 horas.',
+                                'Solicitud finalizada',
+                                'La solicitud se cerró automáticamente al cumplirse el plazo de 72 horas.',
                                 [
                                     {
                                         text: 'Entendido',
@@ -715,7 +715,7 @@ export default function LicitacionScreen() {
                             );
                         } else {
                             Alert.alert(
-                                'Licitación cerrada',
+                                'Solicitud cerrada',
                                 'Revisá las ofertas y elegí al prestador que mejor se adapte a tu necesidad.',
                             );
                         }
@@ -723,9 +723,9 @@ export default function LicitacionScreen() {
                     onError: (error) => {
                         const message = resolveErrorMessage(
                             error,
-                            'No pudimos cerrar la licitación. Intentá nuevamente.',
+                            'No pudimos cerrar la solicitud. Intentá nuevamente.',
                         );
-                        Alert.alert('Error al cerrar la licitación', message);
+                        Alert.alert('Error al cerrar la solicitud', message);
                         setHasAutoClosed(false);
                     },
                 },
@@ -753,8 +753,8 @@ export default function LicitacionScreen() {
         }
 
         Alert.alert(
-            'Cerrar licitación',
-            'Vas a finalizar la licitación y revelar las ofertas recibidas. ¿Querés continuar?',
+            'Cerrar solicitud',
+            'Vas a finalizar la solicitud y revelar las ofertas recibidas. ¿Querés continuar?',
             [
                 { text: 'Cancelar', style: 'cancel' },
                 {
@@ -772,8 +772,8 @@ export default function LicitacionScreen() {
         }
 
         Alert.alert(
-            'Cancelar licitación',
-            'Si cancelás esta licitación dejarás de recibir propuestas. ¿Querés continuar?',
+            'Cancelar solicitud',
+            'Si cancelás esta solicitud dejarás de recibir propuestas. ¿Querés continuar?',
             [
                 { text: 'No', style: 'cancel' },
                 {
@@ -792,7 +792,7 @@ export default function LicitacionScreen() {
                                     }
                                     Alert.alert(
                                         'Solicitud cancelada',
-                                        'La licitación se canceló correctamente.',
+                                        'La solicitud se canceló correctamente.',
                                         [
                                             {
                                                 text: 'OK',
@@ -809,7 +809,7 @@ export default function LicitacionScreen() {
                                 },
                                 onError: (error) => {
                                     Alert.alert(
-                                        'No pudimos cancelar la licitación',
+                                        'No pudimos cancelar la solicitud',
                                         resolveErrorMessage(
                                             error,
                                             'Intentalo nuevamente en unos segundos.',
@@ -915,7 +915,7 @@ export default function LicitacionScreen() {
                     <Ionicons name="arrow-back" size={24} color="#111" />
                 </TouchableOpacity>
                 <View style={styles.headerTitleWrapper}>
-                    <Text style={styles.headerTitle}>LICITACIÓN</Text>
+                    <Text style={styles.headerTitle}>PRESUPUESTADO</Text>
                     <Text style={styles.headerSubtitle} numberOfLines={2}>
                         {requestTitle}
                     </Text>
@@ -1173,7 +1173,7 @@ export default function LicitacionScreen() {
                                     && styles.closeButtonTextDisabled,
                                 ]}
                             >
-                                Cerrar licitación y ver ofertas
+                                Terminar tiempo y ver ofertas
                             </Text>
                             <Text style={styles.closeHelperText}>
                                 {canCloseManually

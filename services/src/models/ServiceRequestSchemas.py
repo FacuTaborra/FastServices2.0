@@ -183,6 +183,10 @@ class ServiceRequestResponse(BaseModel):
 
     id: int
     client_id: int
+    client_name: Optional[str] = Field(None, description="Nombre completo del cliente")
+    client_avatar_url: Optional[str] = Field(
+        None, description="URL del avatar del cliente"
+    )
     address_id: Optional[int]
     title: Optional[str]
     description: str

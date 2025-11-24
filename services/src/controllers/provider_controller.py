@@ -60,7 +60,7 @@ llm_controller = LLMController()
 
 
 def _normalize_to_utc_naive(value: Optional[datetime]) -> Optional[datetime]:
-    """Devuelve un datetime naive en UTC para almacenar o comparar."""
+    """Devuelve un datetime naive en UTC-3 (Argentina) para almacenar o comparar."""
 
     if value is None:
         return None
@@ -68,7 +68,8 @@ def _normalize_to_utc_naive(value: Optional[datetime]) -> Optional[datetime]:
     if value.tzinfo is None:
         return value
 
-    return value.astimezone(timezone.utc).replace(tzinfo=None)
+    # Convertir a UTC-3
+    return value.astimezone(timezone(timedelta(hours=-3))).replace(tzinfo=None)
 
 
 class ProviderController:
@@ -434,6 +435,7 @@ class ProviderController:
                 request_address_alias.id == ServiceRequest.address_id,
             )
             .options(
+                selectinload(ServiceRequest.client),
                 selectinload(ServiceRequest.images),
                 selectinload(ServiceRequest.tag_links).selectinload(
                     ServiceRequestTag.tag
@@ -680,10 +682,13 @@ class ProviderController:
         scheduled_start = service.scheduled_start_at
         if scheduled_start is not None:
             if scheduled_start.tzinfo is not None:
-                scheduled_start = scheduled_start.astimezone(timezone.utc).replace(
-                    tzinfo=None
-                )
-            current_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+                scheduled_start = scheduled_start.astimezone(
+                    timezone(timedelta(hours=-3))
+                ).replace(tzinfo=None)
+            # Comparar con hora actual Argentina (UTC-3)
+            current_utc = datetime.now(timezone(timedelta(hours=-3))).replace(
+                tzinfo=None
+            )
             if scheduled_start > current_utc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -947,14 +952,18 @@ class ProviderController:
         is_fast_request = service_request.request_type == ServiceRequestType.FAST
 
         if is_fast_request:
-            current_utc = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
+            # Usar hora actual Argentina (UTC-3)
+            current_utc = datetime.now(timezone(timedelta(hours=-3))).replace(
+                tzinfo=None, microsecond=0
+            )
             normalized_start = current_utc
             normalized_end = None
             normalized_valid_until = None
 
         if (
             normalized_valid_until is not None
-            and normalized_valid_until <= datetime.utcnow()
+            and normalized_valid_until
+            <= datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None)
         ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1220,13 +1229,18 @@ class ProviderController:
         # Filter metrics by currency to ensure consistency
         revenue_base = revenue_base.where(Service.currency == currency_code)
         services_stmt = services_stmt.where(Service.currency == currency_code)
-        proposal_stmt = proposal_stmt.where(ServiceRequestProposal.currency == currency_code)
+        proposal_stmt = proposal_stmt.where(
+            ServiceRequestProposal.currency == currency_code
+        )
 
-        now_utc = datetime.now(timezone.utc)
+        # Usar hora actual Argentina (UTC-3) para KPIs
+        now_utc = datetime.now(timezone(timedelta(hours=-3)))
         current_month_start = now_utc.replace(
             day=1, hour=0, minute=0, second=0, microsecond=0
         )
-        current_month_start = current_month_start.replace(tzinfo=timezone.utc)
+        current_month_start = current_month_start.replace(
+            tzinfo=timezone(timedelta(hours=-3))
+        )
 
         if current_month_start.month == 1:
             previous_month_start = current_month_start.replace(
@@ -1366,7 +1380,8 @@ class ProviderController:
 
         normalized_months = max(1, min(months, 12))
 
-        now_utc = datetime.now(timezone.utc).replace(
+        # Usar hora actual Argentina (UTC-3)
+        now_utc = datetime.now(timezone(timedelta(hours=-3))).replace(
             day=1, hour=0, minute=0, second=0, microsecond=0
         )
 
@@ -1527,7 +1542,8 @@ class ProviderController:
 
         normalized_months = max(1, min(months, 12))
 
-        now_utc = datetime.now(timezone.utc).replace(
+        # Usar hora actual Argentina (UTC-3)
+        now_utc = datetime.now(timezone(timedelta(hours=-3))).replace(
             day=1, hour=0, minute=0, second=0, microsecond=0
         )
 

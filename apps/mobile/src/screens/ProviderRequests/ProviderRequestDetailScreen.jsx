@@ -33,6 +33,38 @@ function resolveAttachmentUri(attachment) {
     );
 }
 
+function formatCurrency(amount, currency) {
+    const value = Number(amount);
+    if (Number.isNaN(value)) return null;
+    return value.toLocaleString('es-AR', {
+        style: 'currency',
+        currency: currency || 'ARS',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    });
+}
+
+function formatDate(dateString) {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+const PROPOSAL_STATUS_LABELS = {
+    pending: 'Pendiente',
+    accepted: 'Aceptado',
+    rejected: 'Rechazado',
+    withdrawn: 'Retirado',
+    expired: 'Expirado',
+};
+
 export default function ProviderRequestDetailScreen() {
     const navigation = useNavigation();
     const route = useRoute();
@@ -98,6 +130,14 @@ export default function ProviderRequestDetailScreen() {
         };
     }, [resolvedRequest]);
 
+    const clientInfo = useMemo(() => {
+        if (!resolvedRequest) return null;
+        return {
+            name: resolvedRequest.client_name || 'Cliente',
+            avatar: resolvedRequest.client_avatar_url,
+        };
+    }, [resolvedRequest]);
+
     const isRequestConfirmed = useMemo(() => {
         const status = typeof resolvedRequest?.status === 'string'
             ? resolvedRequest.status.toUpperCase()
@@ -113,6 +153,36 @@ export default function ProviderRequestDetailScreen() {
             || status === 'CANCELED'
             || status === 'CANCELLED';
     }, [resolvedRequest]);
+
+    const proposalDetails = useMemo(() => {
+        if (!proposalParam) return null;
+
+        const status = proposalParam.status?.toLowerCase() || 'pending';
+        const statusLabel = PROPOSAL_STATUS_LABELS[status] || proposalParam.status;
+
+        let statusStyle = styles.proposalStatusBadgePending;
+        let textStyle = styles.proposalStatusTextPending;
+
+        if (status === 'accepted') {
+            statusStyle = styles.proposalStatusBadgeAccepted;
+            textStyle = styles.proposalStatusTextAccepted;
+        } else if (status === 'rejected' || status === 'withdrawn' || status === 'expired') {
+            statusStyle = styles.proposalStatusBadgeRejected;
+            textStyle = styles.proposalStatusTextRejected;
+        }
+
+        return {
+            statusLabel,
+            statusStyle,
+            textStyle,
+            price: formatCurrency(proposalParam.quoted_price, proposalParam.currency),
+            createdAt: formatDate(proposalParam.created_at),
+            validUntil: formatDate(proposalParam.valid_until),
+            startDate: formatDate(proposalParam.proposed_start_at),
+            endDate: formatDate(proposalParam.proposed_end_at),
+            notes: proposalParam.notes,
+        };
+    }, [proposalParam]);
 
     const handleGoBack = () => {
         navigation.goBack();
@@ -180,18 +250,36 @@ export default function ProviderRequestDetailScreen() {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
+                    {clientInfo ? (
+                        <View style={styles.section}>
+                            <View style={styles.clientHeaderRow}>
+                                {clientInfo.avatar ? (
+                                    <Image source={{ uri: clientInfo.avatar }} style={styles.clientAvatar} />
+                                ) : (
+                                    <View style={styles.clientAvatarFallback}>
+                                        <Ionicons name="person" size={20} color={PALETTE.textSecondary} />
+                                    </View>
+                                )}
+                                <View style={{ flex: 1, justifyContent: 'center' }}>
+                                    <Text style={styles.clientNameLabel}>{clientInfo.name}</Text>
+                                    <View style={styles.clientLocationRow}>
+                                        <Ionicons name="location-outline" size={14} color={PALETTE.textSecondary} />
+                                        <Text style={styles.clientLocationText}>
+                                            {cityLabel}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </View>
+                        </View>
+                    ) : null}
+
                     <View style={styles.section}>
                         <Text style={styles.requestTitle}>
                             {resolvedRequest.title ?? 'Solicitud sin título'}
                         </Text>
-                        <View style={styles.requestLocationRow}>
-                            <Ionicons name="location-outline" size={18} color={PALETTE.textSecondary} style={styles.requestLocationIcon} />
-                            <Text style={styles.requestLocationLabel}>{cityLabel}</Text>
-                        </View>
-                    </View>
 
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Descripción</Text>
+                        <View style={{ height: 1, backgroundColor: PALETTE.borderSubtle, marginVertical: 12 }} />
+
                         <Text style={styles.sectionBody}>
                             {resolvedRequest.description || 'No pudimos mostrar la descripción de la solicitud.'}
                         </Text>
@@ -199,7 +287,7 @@ export default function ProviderRequestDetailScreen() {
 
                     <View style={styles.section}>
                         <View style={styles.sectionHeaderRow}>
-                            <Text style={styles.sectionTitle}>Adjuntos</Text>
+                            <Text style={styles.sectionTitle}>Adjuntos Solicitud</Text>
                             <Text style={styles.sectionMeta}>
                                 {attachments.length > 0 ? `${attachments.length} archivos` : 'Sin adjuntos'}
                             </Text>
@@ -245,6 +333,46 @@ export default function ProviderRequestDetailScreen() {
                             </View>
                         )}
                     </View>
+
+                    {proposalDetails ? (
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeaderRow}>
+                                <Text style={styles.sectionTitle}>Tu Presupuesto</Text>
+                                <View style={[styles.proposalStatusBadge, proposalDetails.statusStyle]}>
+                                    <Text style={[styles.proposalStatusText, proposalDetails.textStyle]}>
+                                        {proposalDetails.statusLabel}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <Text style={styles.proposalAmount}>{proposalDetails.price}</Text>
+
+                            {proposalDetails.startDate ? (
+                                <Text style={styles.proposalMetaLabel}>
+                                    Inicio propuesto: {proposalDetails.startDate}
+                                </Text>
+                            ) : null}
+
+                            {proposalDetails.endDate ? (
+                                <Text style={styles.proposalMetaLabel}>
+                                    Fin estimado: {proposalDetails.endDate}
+                                </Text>
+                            ) : null}
+
+                            {proposalDetails.validUntil ? (
+                                <Text style={styles.proposalMetaLabel}>
+                                    Válido hasta: {proposalDetails.validUntil}
+                                </Text>
+                            ) : null}
+
+                            {proposalDetails.notes ? (
+                                <View style={styles.proposalNotesBlock}>
+                                    <Text style={styles.proposalNotesTitle}>Notas:</Text>
+                                    <Text style={styles.proposalNotesText}>{proposalDetails.notes}</Text>
+                                </View>
+                            ) : null}
+                        </View>
+                    ) : null}
 
                     {fetchError && !queryData ? (
                         <View style={styles.section}>

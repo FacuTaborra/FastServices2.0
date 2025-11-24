@@ -51,6 +51,32 @@ export default StyleSheet.create({
   info: {
     marginBottom: 8,
   },
+  clientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  clientAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  clientAvatarFallback: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clientName: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#4B5563',
+  },
   title: {
     fontSize: 16,
     fontWeight: '600',
