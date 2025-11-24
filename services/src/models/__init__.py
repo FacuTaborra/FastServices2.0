@@ -35,6 +35,7 @@ from .Address import (
     AddressListResponse,
 )
 from .Token import Token
+from .PushToken import PushToken, PushTokenCreate
 from .Tag import (
     Tag,
     ServiceRequestTag,
@@ -133,5 +134,7 @@ __all__ = [
     "ServiceCancelRequest",
     # Token
     "Token",
+    "PushToken",
+    "PushTokenCreate",
     "GeneralResponse",
 ]

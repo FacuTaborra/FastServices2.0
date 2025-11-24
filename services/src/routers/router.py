@@ -6,6 +6,7 @@ from routers import (
     providers_router,
     service_requests_router,
     users_router,
+    notifications_router,
 )
 
 router = APIRouter(prefix="/api", tags=["FastServices API"])
@@ -21,3 +22,5 @@ router.include_router(addresses_router.router, tags=["addresses"])
 router.include_router(images_router.router, tags=["images"])
 
 router.include_router(service_requests_router.router, tags=["service_requests"])
+
+router.include_router(notifications_router.router, tags=["notifications"])

@@ -37,6 +37,7 @@ from models.User import User, UserRole
 from utils.error_handler import error_handler
 from controllers.tags_controllers import TagsController
 from controllers.llm_controller import LLMController
+from services.notification_service import notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -621,6 +622,20 @@ class ServiceRequestService:
         db.add(service_entity)
 
         await db.commit()
+
+        # Notificar al prestador
+        try:
+            provider_user_id = selected_proposal.provider.user_id
+            if provider_user_id:
+                await notification_service.send_notification_to_user(
+                    db,
+                    user_id=provider_user_id,
+                    title="¡Presupuesto Aceptado!",
+                    body=f"El cliente confirmó tu presupuesto para '{service_request.title}'.",
+                    data={"requestId": service_request.id, "type": "proposal_accepted"},
+                )
+        except Exception as e:
+            logger.error(f"Error enviando notificacion push: {e}")
 
         return await ServiceRequestService._fetch_request_with_relations(
             db, service_request.id, client_id=client_id

@@ -53,6 +53,7 @@ from auth.auth_utils import get_password_hash
 from utils.error_handler import error_handler
 from controllers.tags_controllers import TagsController
 from controllers.llm_controller import LLMController
+from services.notification_service import notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -1000,6 +1001,19 @@ class ProviderController:
         )
         refreshed_result = await db.execute(proposal_stmt)
         persisted = refreshed_result.scalar_one()
+
+        # Notificar al cliente
+        try:
+            title_preview = (service_request.title or "")[:30]
+            await notification_service.send_notification_to_user(
+                db,
+                user_id=service_request.client_id,
+                title="Nueva propuesta recibida",
+                body=f"Recibiste una oferta para '{title_preview}'",
+                data={"requestId": service_request.id, "type": "proposal_received"},
+            )
+        except Exception as e:
+            logger.error(f"Error enviando notificacion push: {e}")
 
         return ProviderController._map_proposal_to_provider_response(persisted)
 

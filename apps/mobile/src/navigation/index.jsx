@@ -29,6 +29,7 @@ import FastMatchScreen from '../screens/FastMatch/FastMatchScreen';
 import LicitacionScreen from '../screens/Licitacion/LicitacionScreen';
 import ServiceDetailScreen from '../screens/ServiceDetail/ServiceDetailScreen';
 import ProviderServiceDetailScreen from '../screens/MyServicesProvider/ServiceDetail/ProviderServiceDetailScreen';
+import { useNotifications } from '../hooks/useNotifications';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -62,9 +63,15 @@ function MainTabs() {
 }
 
 
+function NotificationHandler() {
+  useNotifications();
+  return null;
+}
+
 export default function AppNavigator() {
   return (
     <NavigationContainer>
+      <NotificationHandler />
       <Stack.Navigator
         initialRouteName="Splash"
         screenOptions={{
