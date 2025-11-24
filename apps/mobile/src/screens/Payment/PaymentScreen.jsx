@@ -58,8 +58,8 @@ export default function PaymentScreen() {
     [baseAmount],
   );
   const totalAmount = useMemo(
-    () => baseAmount + managementFeeAmount,
-    [baseAmount, managementFeeAmount],
+    () => baseAmount,
+    [baseAmount],
   );
 
   const baseAmountLabel = useMemo(() => {
