@@ -17,6 +17,7 @@ from models.ServiceRequestSchemas import (
     ServiceRequestResponse,
     ServiceRequestUpdate,
     ServiceReviewCreate,
+    PaymentHistoryItem,
 )
 from models.User import User
 
@@ -59,6 +60,18 @@ async def list_active_service_requests_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> List[ServiceRequestResponse]:
     return await ServiceRequestController.list_active_without_service(db, current_user)
+
+
+@router.get(
+    "/payments/history",
+    response_model=List[PaymentHistoryItem],
+    summary="Obtener el historial de pagos del cliente",
+)
+async def get_payment_history_endpoint(
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> List[PaymentHistoryItem]:
+    return await ServiceRequestController.get_payment_history(db, current_user)
 
 
 @router.get(

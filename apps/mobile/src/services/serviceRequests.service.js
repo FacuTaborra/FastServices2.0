@@ -174,6 +174,19 @@ export async function submitServiceReview(requestId, payload) {
     }
 }
 
+export async function getPaymentHistory() {
+    try {
+        console.log('💸 Obteniendo historial de pagos del cliente...');
+        const response = await api.get('/service-requests/payments/history');
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error obteniendo historial de pagos:', { status, message });
+        throw error;
+    }
+}
+
 export default {
     createServiceRequest,
     getActiveServiceRequests,
@@ -185,4 +198,5 @@ export default {
     cancelService,
     markServiceInProgress,
     submitServiceReview,
+    getPaymentHistory,
 };

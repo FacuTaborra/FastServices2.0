@@ -12,6 +12,7 @@ export const serviceRequestKeys = {
     detail: (id) => ['service-requests', id],
     active: ['service-requests', 'active'],
     history: ['service-requests', 'history'],
+    payments: ['service-requests', 'payments'],
 };
 
 /**
@@ -179,6 +180,16 @@ export function useSubmitServiceReview() {
     });
 }
 
+export function usePaymentHistory(options = {}) {
+    return useQuery({
+        queryKey: serviceRequestKeys.payments,
+        queryFn: serviceRequestService.getPaymentHistory,
+        staleTime: 1000 * 60 * 5, // 5 minutos
+        refetchOnWindowFocus: false,
+        ...options,
+    });
+}
+
 export default {
     useCreateServiceRequest,
     useActiveServiceRequests,
@@ -190,4 +201,5 @@ export default {
     useCancelService,
     useMarkServiceInProgress,
     useSubmitServiceReview,
+    usePaymentHistory,
 };

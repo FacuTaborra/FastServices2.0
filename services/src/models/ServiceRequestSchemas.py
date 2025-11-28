@@ -286,3 +286,18 @@ class ServiceCancelRequest(BaseModel):
         max_length=300,
         description="Motivo del reembolso solicitado",
     )
+
+
+class PaymentHistoryItem(BaseModel):
+    """Item del historial de pagos de un cliente."""
+
+    id: str = Field(..., description="ID único compuesto o simple")
+    service_id: int
+    service_title: Optional[str]
+    provider_name: str
+    date: datetime
+    amount: Decimal
+    currency: str
+    status: ServiceStatus
+
+    model_config = dict(from_attributes=True)

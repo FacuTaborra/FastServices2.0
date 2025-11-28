@@ -63,7 +63,7 @@ export default function HelpSupportScreen() {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.versionText}>Versión 2.0.1</Text>
+          <Text style={styles.versionText}>Versión 1.0.3</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

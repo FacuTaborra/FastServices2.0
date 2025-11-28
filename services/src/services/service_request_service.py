@@ -32,6 +32,7 @@ from models.ServiceRequestSchemas import (
     ServiceRequestCreate,
     ServiceRequestUpdate,
     ServiceReviewCreate,
+    PaymentHistoryItem,
 )
 from models.User import User, UserRole
 from utils.error_handler import error_handler
@@ -933,6 +934,62 @@ class ServiceRequestService:
         return await ServiceRequestService._fetch_request_with_relations(
             db, service_request.id, client_id=client_id
         )
+
+    @staticmethod
+    async def get_payment_history(
+        db: AsyncSession, *, client_id: int
+    ) -> List[PaymentHistoryItem]:
+        """Recupera el historial de pagos (servicios confirmados) del cliente."""
+
+        # Traemos los servicios donde el usuario es cliente, junto con info del request y provider
+        stmt = (
+            select(Service)
+            .options(
+                selectinload(Service.request),
+                selectinload(Service.provider).selectinload(ProviderProfile.user),
+            )
+            .where(
+                Service.client_id == client_id,
+                Service.status
+                != ServiceStatus.CANCELED,  # Opcional: mostrar cancelados como reembolsados?
+                # Por ahora mostramos todo menos lo que no sea pago efectivo, aunque la logica de 'pago'
+                # en este sistema es al confirmar.
+                # Si se cancela despues, deberia figurar como reembolsado o similar.
+                # Dejamos que se muestren todos los que alguna vez se confirmaron.
+            )
+            .order_by(Service.created_at.desc())
+        )
+
+        result = await db.execute(stmt)
+        services = result.scalars().all()
+
+        history = []
+        for svc in services:
+            # Construimos el item
+            # Título del servicio viene de svc.request.title
+            # Nombre prestador de svc.provider.user.first_name + last_name o fantasia
+
+            provider_name = "Prestador"
+            if svc.provider and svc.provider.user:
+                provider_name = (
+                    f"{svc.provider.user.first_name} {svc.provider.user.last_name}"
+                )
+
+            item = PaymentHistoryItem(
+                id=str(svc.id),
+                service_id=svc.id,
+                service_title=svc.request.title
+                if svc.request
+                else "Servicio sin título",
+                provider_name=provider_name,
+                date=svc.created_at,  # Fecha de confirmacion del pago/servicio
+                amount=svc.total_price or Decimal(0),
+                currency=svc.currency or "ARS",
+                status=svc.status,
+            )
+            history.append(item)
+
+        return history
 
 
 __all__ = ["ServiceRequestService"]

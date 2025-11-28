@@ -21,6 +21,7 @@ import ProfileScreen from '../screens/Profile/ProfileScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
 import PaymentScreen from '../screens/Payment/PaymentScreen';
+import PaymentHistoryScreen from '../screens/PaymentHistory/PaymentHistoryScreen';
 import HelpSupportScreen from '../screens/HelpSupport/HelpSupportScreen';
 import StatsScreen from '../screens/Stats/StatsScreen';
 import MyServicesScreen from '../screens/MyServicesProvider/MyServicesScreen';
@@ -123,6 +124,7 @@ export default function AppNavigator() {
         />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Payment" component={PaymentScreen} />
+        <Stack.Screen name="PaymentHistory" component={PaymentHistoryScreen} />
         <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
         <Stack.Screen
           name="FastMatch"

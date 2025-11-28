@@ -18,6 +18,7 @@ from models.ServiceRequestSchemas import (
     ServiceCancelRequest,
     ServiceReviewCreate,
     ServiceReviewResponse,
+    PaymentHistoryItem,
 )
 from models.User import User
 from services.service_request_service import ServiceRequestService
@@ -177,6 +178,15 @@ class ServiceRequestController:
         return ServiceRequestController._build_response(updated_request)
 
     @staticmethod
+    @error_handler(logger)
+    async def get_payment_history(
+        db: AsyncSession, current_user: User
+    ) -> List[PaymentHistoryItem]:
+        return await ServiceRequestService.get_payment_history(
+            db, client_id=current_user.id
+        )
+
+    @staticmethod
     def _build_response(service_request: ServiceRequest) -> ServiceRequestResponse:
         attachments = ServiceRequestController._serialize_attachments(service_request)
         tag_links = sorted(
@@ -241,7 +251,9 @@ class ServiceRequestController:
             client_name = (
                 " ".join(part for part in [first, last] if part).strip() or None
             )
-            client_avatar_url = getattr(service_request.client, "profile_image_url", None)
+            client_avatar_url = getattr(
+                service_request.client, "profile_image_url", None
+            )
 
         return ServiceRequestResponse(
             id=service_request.id,

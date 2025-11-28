@@ -32,17 +32,17 @@ export default function SettingsScreen() {
 
         <Option
           icon="notifications-outline"
-          label="Notification"
+          label="Notificaciones"
           onPress={() => navigation.navigate('Notifications')}
         />
         <Option
           icon="card-outline"
-          label="Payment"
-          onPress={() => navigation.navigate('Payment')}
+          label="Historial de pagos"
+          onPress={() => navigation.navigate('PaymentHistory')}
         />
         <Option
           icon="help-circle-outline"
-          label="Help & Support"
+          label="Ayuda y soporte"
           onPress={() => navigation.navigate('HelpSupport')}
         />
       </View>
