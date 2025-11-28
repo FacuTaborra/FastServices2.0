@@ -1,18 +1,34 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, Switch, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Switch, StyleSheet, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { useNotifications, sendTestNotification } from '../../hooks/useNotifications';
 import styles from './NotificationsScreen.styles';
 
 export default function NotificationsScreen() {
   const navigation = useNavigation();
-  const { expoPushToken, notification } = useNotifications();
-  const [isEnabled, setIsEnabled] = useState(true);
+  const { expoPushToken, notification, registerToken } = useNotifications();
+  const [isEnabled, setIsEnabled] = useState(false); // Default false until checked
+
+  const checkPermissions = async () => {
+    const { status } = await Notifications.getPermissionsAsync();
+    setIsEnabled(status === 'granted');
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      checkPermissions();
+    }, [])
+  );
 
   const handleTestNotification = async () => {
+    if (!isEnabled) {
+      Alert.alert('Permisos requeridos', 'Debes activar las notificaciones para realizar pruebas.');
+      return;
+    }
     if (!expoPushToken) {
       Alert.alert('Aviso', 'No se pueden enviar notificaciones en este momento. Verifica tu conexión.');
       return;
@@ -25,29 +41,53 @@ export default function NotificationsScreen() {
     }
   };
 
-  const handleLocalNotification = async () => {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "¡Hola! 👋",
-        body: 'Así se verán las notificaciones de FastServices.',
-        data: { data: 'test' },
-      },
-      trigger: { seconds: 1 },
-    });
+  const openSettings = () => {
+    if (Platform.OS === 'ios') {
+      Linking.openURL('app-settings:');
+    } else {
+      // Intentar abrir directamente la configuración de notificaciones de la app
+      if (Platform.Version >= 26) {
+        IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.APP_NOTIFICATION_SETTINGS, {
+          "android.provider.extra.APP_PACKAGE": "com.facutaborra.fastservices", // Asegúrate que coincida con tu package
+        }).catch(() => Linking.openSettings());
+      } else {
+        Linking.openSettings();
+      }
+    }
   };
 
-  const toggleSwitch = () => {
+  const toggleSwitch = async () => {
     if (isEnabled) {
+      // Usuario quiere desactivar
       Alert.alert(
         'Desactivar Notificaciones',
         'Para desactivar las notificaciones, debes ir a la configuración de tu dispositivo.',
         [
           { text: 'Cancelar', style: 'cancel' },
-          { text: 'Ir a Configuración', onPress: () => Alert.alert('Instrucción', 'Ve a Ajustes > Aplicaciones > FastServices > Notificaciones') }
+          { text: 'Ir a Configuración', onPress: openSettings }
         ]
       );
     } else {
-      setIsEnabled(true);
+      // Usuario quiere activar
+      try {
+        const { status } = await Notifications.requestPermissionsAsync();
+        if (status === 'granted') {
+          setIsEnabled(true);
+          await registerToken();
+          Alert.alert('Activado', 'Notificaciones activadas correctamente.');
+        } else {
+          Alert.alert(
+            'Permisos denegados',
+            'Has denegado los permisos anteriormente. Debes activarlos manualmente en Configuración.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Ir a Configuración', onPress: openSettings }
+            ]
+          );
+        }
+      } catch (e) {
+        console.log(e);
+      }
     }
   };
 
