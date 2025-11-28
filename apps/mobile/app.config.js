@@ -40,8 +40,8 @@ export default {
         },
         extra: {
             URL_SERVER: process.env.URL_SERVER || 'http://192.168.1.20:8000',
-            URL_SERVER_PRODUCTION: process.env.URL_SERVER_PRODUCTION,
             API_VERSION: process.env.API_VERSION || 'v1',
+            URL_SERVER_PRODUCTION: process.env.URL_SERVER_PRODUCTION || 'http://192.168.1.20:8000',
             eas: {
                 projectId: "87d519b1-9fc7-450f-a9af-481a064391b2"
             }
