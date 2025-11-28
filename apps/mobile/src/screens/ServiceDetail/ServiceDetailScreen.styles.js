@@ -38,9 +38,11 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingHorizontal: 20,
+        paddingTop: 20,
         paddingBottom: 24,
     },
     summaryCard: {
+        marginTop: 20,
         backgroundColor: '#ffffff',
         borderRadius: 16,
         padding: 20,
@@ -297,6 +299,52 @@ const styles = StyleSheet.create({
         color: '#64748b',
         textAlign: 'center',
         marginTop: 4,
+    },
+    providerCard: {
+        backgroundColor: '#ffffff',
+        borderRadius: 16,
+        padding: 20,
+        shadowColor: '#0f172a',
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
+    },
+    providerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    providerAvatar: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#e2e8f0',
+    },
+    providerInfoColumn: {
+        flex: 1,
+        marginLeft: 16,
+        justifyContent: 'center',
+    },
+    providerNameLarge: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#0f172a',
+        marginBottom: 4,
+    },
+    providerStatsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    ratingText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#0f172a',
+        marginLeft: 4,
+    },
+    reviewsText: {
+        fontSize: 14,
+        color: '#64748b',
+        marginLeft: 6,
     },
     buttonSpinner: {
         marginRight: 6,

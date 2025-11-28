@@ -39,7 +39,7 @@ export default {
             policy: "appVersion"
         },
         extra: {
-            URL_SERVER: process.env.URL_SERVER || 'http://localhost:8000',
+            URL_SERVER: process.env.URL_SERVER || 'http://192.168.1.15:8000',
             API_VERSION: process.env.API_VERSION || 'v1',
             eas: {
                 projectId: "87d519b1-9fc7-450f-a9af-481a064391b2"

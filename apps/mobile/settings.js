@@ -8,11 +8,11 @@ const getEnvVar = (key, fallback) => {
 
 const ENV = {
     development: {
-        URL_SERVER: getEnvVar('URL_SERVER', 'http://localhost:8000'),
+        URL_SERVER: getEnvVar('URL_SERVER', 'http://192.168.1.15:8000'),
         API_VERSION: getEnvVar('API_VERSION', 'v1')
     },
     production: {
-        URL_SERVER: getEnvVar('URL_SERVER', 'https://api.fastservices.com'),
+        URL_SERVER: getEnvVar('URL_SERVER'),
         API_VERSION: getEnvVar('API_VERSION', 'v1')
     }
 };

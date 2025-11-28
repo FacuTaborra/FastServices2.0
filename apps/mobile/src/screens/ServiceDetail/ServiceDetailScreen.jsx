@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -266,16 +266,25 @@ const ServiceDetailScreen = () => {
     const serviceData = requestData?.service ?? null;
     const hasPersistedReview = Boolean(serviceData?.client_review);
 
-    const providerName = useMemo(() => {
-        if (!serviceData?.provider_display_name) {
-            const proposal = Array.isArray(requestData?.proposals)
-                ? requestData.proposals.find((item) => item.id === serviceData?.proposal_id)
-                : null;
-            const fallbackName = proposal?.provider_display_name ?? null;
-            return fallbackName ?? 'Prestador asignado';
-        }
-        return serviceData.provider_display_name;
-    }, [requestData?.proposals, serviceData?.provider_display_name, serviceData?.proposal_id]);
+    const providerInfo = useMemo(() => {
+        // Intentamos buscar la propuesta ganadora para sacar más datos (foto, rating, etc)
+        const proposal = Array.isArray(requestData?.proposals)
+            ? requestData.proposals.find((item) => item.id === serviceData?.proposal_id)
+            : null;
+
+        // Nombre: Prioridad serviceData -> proposal -> fallback
+        const name = serviceData?.provider_display_name || proposal?.provider_display_name || 'Prestador asignado';
+
+        // ID del perfil
+        const id = serviceData?.provider_profile_id || proposal?.provider_profile_id;
+
+        // Datos extra que solo suelen venir en la propuesta (si existe)
+        const image = proposal?.provider_image_url || null;
+        const rating = proposal?.provider_rating_avg ? Number(proposal.provider_rating_avg) : 0;
+        const reviews = proposal?.provider_total_reviews || 0;
+
+        return { name, id, image, rating, reviews };
+    }, [requestData?.proposals, serviceData]);
 
     const statusBadge = resolveStatusBadge(serviceData?.status);
     const statusBadgeStyle = styles[`statusBadge_${statusBadge.styleKey}`] || styles.statusBadge_default;
@@ -493,15 +502,38 @@ const ServiceDetailScreen = () => {
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
                 >
+                    <View style={styles.providerCard}>
+                        <Text style={styles.sectionTitle}>Profesional a cargo</Text>
+                        <View style={styles.providerContent}>
+                            <Image
+                                source={{
+                                    uri: providerInfo.image || 'https://dthezntil550i.cloudfront.net/f4/latest/f41908291942413280009640715/1280_960/1b2d9510-d66d-43a2-971a-cfcbb600e7fe.png'
+                                }}
+                                style={styles.providerAvatar}
+                            />
+                            <View style={styles.providerInfoColumn}>
+                                <Text style={styles.providerNameLarge}>{providerInfo.name}</Text>
+                                <View style={styles.providerStatsRow}>
+                                    <Ionicons name="star" size={16} color="#F59E0B" />
+                                    <Text style={styles.ratingText}>
+                                        {providerInfo.rating > 0 ? providerInfo.rating.toFixed(1) : 'Nuevo'}
+                                    </Text>
+                                    {providerInfo.reviews > 0 && (
+                                        <Text style={styles.reviewsText}>
+                                            ({providerInfo.reviews} reseñas)
+                                        </Text>
+                                    )}
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+
                     <View style={styles.summaryCard}>
                         <View style={styles.summaryHeader}>
                             <Ionicons name="briefcase-outline" size={26} color="#2563eb" />
                             <View style={styles.summaryHeaderText}>
                                 <Text style={styles.serviceTitle} numberOfLines={2}>
                                     {requestData?.title ?? 'Servicio confirmado'}
-                                </Text>
-                                <Text style={styles.providerName} numberOfLines={1}>
-                                    {providerName}
                                 </Text>
                             </View>
                             <View style={[styles.statusBadge, statusBadgeStyle]}>
