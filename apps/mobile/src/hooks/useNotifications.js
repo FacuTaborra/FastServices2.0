@@ -82,6 +82,26 @@ export function useNotifications() {
   return { expoPushToken, notification };
 }
 
+export async function sendTestNotification(expoPushToken) {
+  const message = {
+    to: expoPushToken,
+    sound: 'default',
+    title: 'Prueba de notificación',
+    body: 'Esta es una notificación local de prueba desde la app',
+    data: { someData: 'goes here' },
+  };
+
+  await fetch('https://exp.host/--/api/v2/push/send', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Accept-encoding': 'gzip, deflate',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(message),
+  });
+}
+
 async function registerForPushNotificationsAsync() {
   let token;
 
