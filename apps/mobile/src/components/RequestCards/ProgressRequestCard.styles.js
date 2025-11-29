@@ -35,26 +35,28 @@ export default StyleSheet.create({
     lineHeight: 20,
   },
   footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     marginBottom: 12,
+    gap: 8,
   },
   rowItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexShrink: 1,
+    width: '100%',
   },
   alignRight: {
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
   },
   icon: {
     marginRight: 8,
+    width: 20,
+    textAlign: 'center',
   },
   rowText: {
     fontSize: 14,
     color: '#1f2937',
-    maxWidth: 160,
+    flex: 1,
   },
   status: {
     alignSelf: 'flex-start',

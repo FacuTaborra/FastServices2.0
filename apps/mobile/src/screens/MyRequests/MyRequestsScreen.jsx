@@ -534,18 +534,6 @@ const MyRequestsScreen = () => {
                 <Text style={styles.brandTitle}>Mis solicitudes</Text>
               </View>
             </View>
-            <TouchableOpacity
-              style={styles.notificationButton}
-              onPress={() => navigation.navigate('Notifications')}
-              accessibilityRole="button"
-              accessibilityLabel="Ver notificaciones"
-            >
-              <Ionicons
-                name="notifications-outline"
-                size={22}
-                style={styles.notificationIcon}
-              />
-            </TouchableOpacity>
           </View>
 
         </View>

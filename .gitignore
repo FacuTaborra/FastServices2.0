@@ -14,3 +14,5 @@ venv/
 .vscode/
 *.jks
 *.keystore
+
+./secrets/

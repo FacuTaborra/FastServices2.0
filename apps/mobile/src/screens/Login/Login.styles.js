@@ -45,6 +45,7 @@ export default StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 8,
+    marginBottom: 8,
   },
   buttonDisabled: {
     backgroundColor: '#94A3B8',
@@ -54,9 +55,19 @@ export default StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  forgotPasswordContainer: {
+    marginVertical: 8,
+    alignItems: 'center',
+  },
+  forgotPasswordText: {
+    color: '#6B7280',
+    fontSize: 14,
+  },
   link: {
     marginTop: 12,
     color: '#4776a6',
     textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

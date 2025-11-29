@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, Switch, StyleSheet, Linking, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Switch, StyleSheet, Linking, Platform, AppState } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -11,18 +11,37 @@ import styles from './NotificationsScreen.styles';
 export default function NotificationsScreen() {
   const navigation = useNavigation();
   const { expoPushToken, notification, registerToken } = useNotifications();
-  const [isEnabled, setIsEnabled] = useState(false); // Default false until checked
+  const [isEnabled, setIsEnabled] = useState(false);
+  const appState = useRef(AppState.currentState);
 
   const checkPermissions = async () => {
     const { status } = await Notifications.getPermissionsAsync();
     setIsEnabled(status === 'granted');
   };
 
+  // Chequear permisos al entrar a la pantalla
   useFocusEffect(
     useCallback(() => {
       checkPermissions();
     }, [])
   );
+
+  // Chequear permisos al volver de background (ej. volver de Configuración)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        checkPermissions();
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const handleTestNotification = async () => {
     if (!isEnabled) {

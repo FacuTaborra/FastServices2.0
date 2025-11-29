@@ -596,6 +596,29 @@ class ProviderController:
         if service.status == ServiceStatus.ON_ROUTE:
             return ProviderController._map_service_to_provider_response(service)
 
+        scheduled_start = service.scheduled_start_at
+        if scheduled_start is not None:
+            if scheduled_start.tzinfo is not None:
+                scheduled_start = scheduled_start.astimezone(
+                    timezone(timedelta(hours=-3))
+                ).replace(tzinfo=None)
+            # Comparar con hora actual Argentina (UTC-3)
+            current_utc = datetime.now(timezone(timedelta(hours=-3))).replace(
+                tzinfo=None
+            )
+            # Permitir marcar en camino un poco antes (ej. 2 horas antes)
+            # o estrictamente después. Asumimos estrictamente >= start para consistencia
+            # con la solicitud, aunque "en camino" suele ser antes.
+            # Ajuste: Permitimos marcar "En camino" si faltan menos de 2 horas para el inicio
+            # o si ya pasó la hora.
+            earliest_allowed = scheduled_start - timedelta(hours=2)
+
+            if current_utc < earliest_allowed:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Aún es muy temprano para salir hacia el servicio (máx. 2hs antes)",
+                )
+
         previous_status = (
             service.status.value
             if isinstance(service.status, ServiceStatus)
@@ -1032,6 +1055,87 @@ class ProviderController:
             logger.error(f"Error enviando notificacion push: {e}")
 
         return ProviderController._map_proposal_to_provider_response(persisted)
+
+    @staticmethod
+    @error_handler(logger)
+    async def reject_service_request(
+        db: AsyncSession, user_id: int, request_id: int
+    ) -> None:
+        """
+        Permite al proveedor rechazar una solicitud.
+        Se crea una propuesta con estado REJECTED para que no vuelva a aparecer en matching-requests.
+        """
+        user = await ProviderController._load_provider_with_relations(db, user_id)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proveedor no encontrado",
+            )
+
+        profile = getattr(user, "provider_profile", None)
+        if not profile:
+            profile = await ProviderController._ensure_provider_profile(db, user_id)
+
+        # Verificar si ya existe una propuesta/interacción para esta solicitud
+        existing_stmt = select(ServiceRequestProposal).where(
+            ServiceRequestProposal.request_id == request_id,
+            ServiceRequestProposal.provider_profile_id == profile.id,
+        )
+        existing_result = await db.execute(existing_stmt)
+        existing_proposals = existing_result.scalars().all()
+
+        if existing_proposals:
+            # Si ya tiene propuestas, verificamos si alguna está activa
+            # Si tiene una activa, no deberíamos "rechazar" la solicitud sin más,
+            # pero para simplificar, si ya interactuó, asumimos que ya está manejado o
+            # podemos marcar la última como rechazada si estaba pendiente.
+            # Por ahora, si ya existe algo, retornamos éxito (idempotencia) o error si está aceptada.
+            for prop in existing_proposals:
+                if prop.status == ProposalStatus.ACCEPTED:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="No puedes rechazar una solicitud que ya tienes aceptada.",
+                    )
+            # Si no hay aceptadas, ya está "gestionada" (pendiente o rechazada), no hacemos nada.
+            return
+
+        # Si no existe propuesta, creamos una "dummy" con estado REJECTED
+        # Usamos valores por defecto para campos obligatorios
+        # Aseguramos que la moneda exista (usamos ARS por defecto, pero verificamos o usamos null si se permitiera)
+        # Nota: La tabla requiere currency NOT NULL y FK. Asumimos 'ARS' existe.
+        # Para evitar error FK, verificamos si ARS existe, si no, buscamos cualquiera disponible.
+
+        currency_code = "ARG"
+        # Verificar si ARS existe para evitar FK error
+        currency_check = await db.execute(
+            select(Currency.code).where(Currency.code == "ARS")
+        )
+        if not currency_check.scalar_one_or_none():
+            # Fallback a la primera moneda disponible
+            any_currency = await db.execute(select(Currency.code).limit(1))
+            currency_code = any_currency.scalar_one_or_none()
+
+            if not currency_code:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="No hay monedas configuradas en el sistema para procesar el rechazo.",
+                )
+
+        rejected_proposal = ServiceRequestProposal(
+            request_id=request_id,
+            provider_profile_id=profile.id,
+            version=1,
+            quoted_price=0,
+            currency=currency_code,
+            status=ProposalStatus.REJECTED,
+            notes="Rechazada por el proveedor (oculta)",
+            # proposed_start_at, valid_until pueden ser null
+        )
+
+        db.add(rejected_proposal)
+        await db.commit()
+        return
 
     @staticmethod
     def _map_proposal_to_provider_response(

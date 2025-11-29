@@ -16,7 +16,7 @@ import ProviderProposalCard from '../../components/ProviderRequestCards/Provider
 import Spinner from '../../components/Spinner/Spinner';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import styles from './ProviderRequestsScreen.styles';
-import { getMatchingServiceRequests, getProviderProposals } from '../../services/providers.service';
+import { getMatchingServiceRequests, getProviderProposals, rejectServiceRequest } from '../../services/providers.service';
 import { useAuth } from '../../hooks/useAuth';
 
 const brandIcon = require('../../../assets/icon.png');
@@ -158,6 +158,7 @@ export default function ProviderRequestsScreen() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('nuevas');
   const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('ALL');
   const [showSearch, setShowSearch] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filterModal, setFilterModal] = useState(false);
@@ -242,16 +243,40 @@ export default function ProviderRequestsScreen() {
     }
   }, [loadMatchingRequests, loadProposals]);
 
+  const handleReject = useCallback(async (requestId) => {
+    try {
+      await rejectServiceRequest(requestId);
+      setMatchingRequests((prev) => prev.filter((req) => String(req.id) !== String(requestId)));
+    } catch (error) {
+      console.error('❌ Error rechazando solicitud:', error);
+    }
+  }, []);
+
   const filteredRequests = useMemo(() => {
     const query = search.trim().toLowerCase();
-
     const source = activeTab === 'nuevas' ? matchingRequests : proposals;
 
-    if (!query) {
-      return source;
+    let result = source;
+
+    // Filter by Service Type
+    if (filterType !== 'ALL') {
+      result = result.filter((item) => {
+        if (activeTab === 'nuevas') {
+          const isFast = item.fast === true;
+          return filterType === 'FAST' ? isFast : !isFast;
+        }
+        // proposals tab
+        const type = item.requestType; // 'FAST' or 'LICITACION'
+        return type === filterType;
+      });
     }
 
-    return source.filter((item) => {
+    // Filter by Search
+    if (!query) {
+      return result;
+    }
+
+    return result.filter((item) => {
       const fields = activeTab === 'nuevas'
         ? [item.title, item.address]
         : [item.title, item.address, item.clientName, item.statusLabel];
@@ -259,7 +284,7 @@ export default function ProviderRequestsScreen() {
         (field) => typeof field === 'string' && field.toLowerCase().includes(query),
       );
     });
-  }, [activeTab, search, matchingRequests, proposals]);
+  }, [activeTab, search, matchingRequests, proposals, filterType]);
 
   const renderItem = ({ item }) => {
     if (activeTab === 'nuevas') {
@@ -285,7 +310,7 @@ export default function ProviderRequestsScreen() {
               preferred_end_at: item.preferred_end_at,
             },
           })}
-          onReject={() => { }}
+          onReject={() => handleReject(rawRequest?.id ?? item.id)}
         />
       );
     }
@@ -403,14 +428,53 @@ export default function ProviderRequestsScreen() {
         <Modal transparent visible={filterModal} animationType="fade">
           <TouchableOpacity style={styles.modalOverlay} onPress={() => setFilterModal(false)}>
             <View style={styles.modalContent}>
-              <TouchableOpacity style={styles.modalOption} onPress={() => setFilterModal(false)}>
-                <Text style={styles.modalOptionText}>Ordenar por fecha</Text>
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => {
+                  setFilterType('ALL');
+                  setFilterModal(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.modalOptionText,
+                    filterType === 'ALL' && { color: styles.refreshColor.color, fontWeight: 'bold' },
+                  ]}
+                >
+                  Todos
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => {
+                  setFilterType('FAST');
+                  setFilterModal(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.modalOptionText,
+                    filterType === 'FAST' && { color: styles.refreshColor.color, fontWeight: 'bold' },
+                  ]}
+                >
+                  Fast ⚡
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalOption, styles.modalOptionLast]}
-                onPress={() => setFilterModal(false)}
+                onPress={() => {
+                  setFilterType('LICITACION');
+                  setFilterModal(false);
+                }}
               >
-                <Text style={styles.modalOptionText}>Ordenar por presupuesto</Text>
+                <Text
+                  style={[
+                    styles.modalOptionText,
+                    filterType === 'LICITACION' && { color: styles.refreshColor.color, fontWeight: 'bold' },
+                  ]}
+                >
+                  Presupuestos ⏰
+                </Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>

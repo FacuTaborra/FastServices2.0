@@ -48,6 +48,19 @@ export default function ProfileScreen() {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
 
+  // Estado para cambio de contraseña
+  const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordErrors, setPasswordErrors] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
   // Estados para formulario de dirección
   const [addressForm, setAddressForm] = useState({
     title: '',
@@ -145,7 +158,7 @@ export default function ProfileScreen() {
   const handleUpdateProfile = async () => {
     try {
       setUpdating(true);
-      const success = await profileHandler.updateUserProfile(profile.fullName, dateOfBirth);
+      const success = await profileHandler.updateUserProfile(profile.fullName, dateOfBirth, profile.phone);
 
       if (success) {
         // Refrescar los datos del perfil desde el servidor
@@ -153,6 +166,45 @@ export default function ProfileScreen() {
       }
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    // Reiniciar errores
+    setPasswordErrors({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    let errors = {};
+    let hasError = false;
+
+    // Validaciones del lado del cliente
+    if (passwordForm.newPassword.length < 6) {
+      errors.newPassword = 'La nueva contraseña debe tener al menos 6 caracteres';
+      hasError = true;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      errors.confirmPassword = 'Las contraseñas nuevas no coinciden';
+      hasError = true;
+    }
+
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      errors.newPassword = 'La nueva contraseña debe ser diferente a la actual';
+      hasError = true;
+    }
+
+    if (hasError) {
+      setPasswordErrors(errors);
+      return;
+    }
+
+    const success = await profileHandler.changePassword(
+      passwordForm.currentPassword,
+      passwordForm.newPassword,
+      passwordForm.confirmPassword
+    );
+    if (success) {
+      setChangePasswordModalVisible(false);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordErrors({ currentPassword: '', newPassword: '', confirmPassword: '' });
     }
   };
 
@@ -214,7 +266,7 @@ export default function ProfileScreen() {
         <TextInput
           style={styles.input}
           placeholder="Nombre Completo"
-          placeholderTextColor="#5A5A5A"
+          placeholderTextColor="#9CA3AF"
           value={profile.fullName}
           onChangeText={(text) => setProfile({ ...profile, fullName: text })}
         />
@@ -223,17 +275,17 @@ export default function ProfileScreen() {
         <TextInput
           style={styles.input}
           placeholder="Teléfono"
-          placeholderTextColor="#5A5A5A"
+          placeholderTextColor="#9CA3AF"
           value={profile.phone}
           onChangeText={(text) => setProfile({ ...profile, phone: text })}
-          editable={false}
+          keyboardType="phone-pad"
         />
 
         <Text style={styles.label}>Fecha de nacimiento</Text>
         <TextInput
           style={styles.input}
           placeholder="Fecha de nacimiento (DD/MM/YYYY)"
-          placeholderTextColor="#5A5A5A"
+          placeholderTextColor="#9CA3AF"
           value={dateOfBirth}
           onChangeText={(text) => {
             // Formatear la entrada como DD/MM/YYYY
@@ -253,9 +305,9 @@ export default function ProfileScreen() {
 
         <Text style={styles.label}>Email</Text>
         <TextInput
-          style={styles.input}
+          style={styles.inputDisabled}
           placeholder="Email"
-          placeholderTextColor="#5A5A5A"
+          placeholderTextColor="#9CA3AF"
           value={profile.email}
           onChangeText={(text) => setProfile({ ...profile, email: text })}
           editable={false}
@@ -368,12 +420,12 @@ export default function ProfileScreen() {
         </View>
 
         <Text style={styles.label}>Contraseña</Text>
-        <View style={styles.passwordRow}>
+        <View style={[styles.passwordRow, { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' }]}>
           <TextInput
-            style={styles.passwordInput}
+            style={[styles.passwordInput, { color: '#6B7280' }]}
             secureTextEntry={!showPassword}
             placeholder="Contraseña"
-            placeholderTextColor="#5A5A5A"
+            placeholderTextColor="#9CA3AF"
             value={profile.password}
             onChangeText={(text) => setProfile({ ...profile, password: text })}
             editable={false}
@@ -382,10 +434,17 @@ export default function ProfileScreen() {
             <Ionicons
               name={showPassword ? 'eye' : 'eye-off'}
               size={20}
-              color="#5A5A5A"
+              color="#9CA3AF"
             />
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={[styles.buttonSecondary, { marginBottom: 24, marginTop: -8 }]}
+          onPress={() => setChangePasswordModalVisible(true)}
+        >
+          <Text style={styles.buttonSecondaryText}>Cambiar Contraseña</Text>
+        </TouchableOpacity>
 
         <Text style={styles.label}>Miembro desde</Text>
         <View style={styles.infoContainer}>
@@ -518,6 +577,88 @@ export default function ProfileScreen() {
                 <Text style={styles.buttonDangerText}>Eliminar dirección</Text>
               </TouchableOpacity>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={changePasswordModalVisible} transparent animationType="slide">
+        <View style={styles.modalBackground}>
+          <View style={styles.modalBox}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
+              <Ionicons
+                name="lock-closed"
+                size={24}
+                color="#4776a6"
+              />
+              <Text style={[styles.modalTitle, { marginBottom: 0, marginLeft: 8 }]}>
+                Cambiar Contraseña
+              </Text>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <TextInput
+                style={[styles.modalInput, passwordErrors.currentPassword && styles.inputError]}
+                placeholder="Contraseña actual"
+                placeholderTextColor="#9CA3AF"
+                secureTextEntry
+                value={passwordForm.currentPassword}
+                onChangeText={(text) => {
+                  setPasswordForm({ ...passwordForm, currentPassword: text });
+                  if (passwordErrors.currentPassword) setPasswordErrors({ ...passwordErrors, currentPassword: '' });
+                }}
+              />
+              {passwordErrors.currentPassword ? <Text style={styles.errorText}>{passwordErrors.currentPassword}</Text> : null}
+
+              <TextInput
+                style={[styles.modalInput, passwordErrors.newPassword && styles.inputError]}
+                placeholder="Nueva contraseña"
+                placeholderTextColor="#9CA3AF"
+                secureTextEntry
+                value={passwordForm.newPassword}
+                onChangeText={(text) => {
+                  setPasswordForm({ ...passwordForm, newPassword: text });
+                  if (passwordErrors.newPassword) setPasswordErrors({ ...passwordErrors, newPassword: '' });
+                }}
+              />
+              {passwordErrors.newPassword ? <Text style={styles.errorText}>{passwordErrors.newPassword}</Text> : null}
+
+              <TextInput
+                style={[styles.modalInput, passwordErrors.confirmPassword && styles.inputError]}
+                placeholder="Confirmar nueva contraseña"
+                placeholderTextColor="#9CA3AF"
+                secureTextEntry
+                value={passwordForm.confirmPassword}
+                onChangeText={(text) => {
+                  setPasswordForm({ ...passwordForm, confirmPassword: text });
+                  if (passwordErrors.confirmPassword) setPasswordErrors({ ...passwordErrors, confirmPassword: '' });
+                }}
+              />
+              {passwordErrors.confirmPassword ? <Text style={styles.errorText}>{passwordErrors.confirmPassword}</Text> : null}
+            </ScrollView>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.buttonSecondary}
+                onPress={() => {
+                  setChangePasswordModalVisible(false);
+                  setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                  setPasswordErrors({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                }}
+              >
+                <Text style={styles.buttonSecondaryText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.buttonPrimary,
+                  (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) && styles.buttonDisabled
+                ]}
+                onPress={handleChangePassword}
+                disabled={!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}
+              >
+                <Text style={styles.buttonPrimaryText}>Actualizar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

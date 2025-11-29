@@ -173,4 +173,35 @@ export default StyleSheet.create({
     includeFontPadding: false,
     fontSize: 16,
   },
+  termsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: '#4776a6',
+    borderRadius: 4,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  termsTextContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  termsText: {
+    fontSize: 14,
+    color: '#374151',
+  },
+  termsLink: {
+    fontSize: 14,
+    color: '#4776a6',
+    fontWeight: 'bold',
+  },
 });

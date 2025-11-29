@@ -341,7 +341,7 @@ export default function LicitacionScreen() {
         [currentStatus],
     );
 
-    const canCloseManually = !isClosed && !isCancelled && proposalCount >= 3;
+    const canCloseManually = !isClosed && !isCancelled;
 
     const formattedRemaining = useMemo(() => {
         if (isCancelled) {
@@ -491,7 +491,7 @@ export default function LicitacionScreen() {
         if (isClosed) {
             return 'Cerraste la solicitud. Revisá las propuestas y confirmá al prestador.';
         }
-        return 'Los prestadores están enviando propuestas. Podés cerrar cuando tengas suficientes opciones.';
+        return 'Los prestadores están enviando propuestas. Podés cerrar cuando quieras elegir uno.';
     }, [isCancelled, isClosed]);
 
     const statusHint = useMemo(() => {
@@ -501,7 +501,7 @@ export default function LicitacionScreen() {
         if (isClosed) {
             return 'La solicitud ya no acepta nuevas ofertas.';
         }
-        return 'Cuando recibas al menos 3 propuestas vas a poder cerrar la solicitud.';
+        return 'Cuando tengas las propuestas que necesitás, podés cerrar la solicitud.';
     }, [isCancelled, isClosed]);
 
     const getProposalScheduleLabel = useCallback(
@@ -1177,8 +1177,8 @@ export default function LicitacionScreen() {
                             </Text>
                             <Text style={styles.closeHelperText}>
                                 {canCloseManually
-                                    ? 'Disponés de suficientes propuestas para elegir.'
-                                    : 'Necesitás al menos 3 ofertas para cerrar la licitación.'}
+                                    ? 'Vas a poder elegir entre las ofertas recibidas.'
+                                    : 'No se puede cerrar la licitación en este momento.'}
                             </Text>
                         </TouchableOpacity>
                     ) : null}

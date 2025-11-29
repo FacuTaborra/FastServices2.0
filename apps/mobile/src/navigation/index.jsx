@@ -30,6 +30,8 @@ import FastMatchScreen from '../screens/FastMatch/FastMatchScreen';
 import LicitacionScreen from '../screens/Licitacion/LicitacionScreen';
 import ServiceDetailScreen from '../screens/ServiceDetail/ServiceDetailScreen';
 import ProviderServiceDetailScreen from '../screens/MyServicesProvider/ServiceDetail/ProviderServiceDetailScreen';
+import TermsAndConditionsScreen from '../screens/TermsAndConditions/TermsAndConditionsScreen';
+import ForgotPasswordScreen from '../screens/ForgotPassword/ForgotPasswordScreen';
 import { useNotifications } from '../hooks/useNotifications';
 
 const Stack = createNativeStackNavigator();
@@ -86,9 +88,11 @@ export default function AppNavigator() {
         <Stack.Screen name="Login" component={Login} options={({ route }) => ({
           animation: route?.params?.animation ?? 'slide_from_right',
         })} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="Register" component={Register} options={({ route }) => ({
           animation: route?.params?.animation ?? 'slide_from_right',
         })} />
+        <Stack.Screen name="TermsAndConditions" component={TermsAndConditionsScreen} />
         <Stack.Screen
           name="ProviderLicensesSetup"
           component={ProviderLicensesScreen}

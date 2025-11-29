@@ -176,6 +176,28 @@ async def list_matching_service_requests(
     return await ProviderController.list_matching_service_requests(db, current_user.id)
 
 
+@router.post(
+    "/me/requests/{request_id}/reject",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Rechazar solicitud de servicio",
+    description="Marca una solicitud como rechazada para el proveedor, ocultándola de futuras búsquedas.",
+)
+async def reject_service_request(
+    request_id: int,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    await ProviderController.reject_service_request(db, current_user.id, request_id)
+    return None
+
+
 @router.get(
     "/me/proposals",
     response_model=list[ProviderProposalResponse],

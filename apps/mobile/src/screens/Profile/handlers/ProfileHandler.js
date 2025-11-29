@@ -1,5 +1,6 @@
 import { Alert } from 'react-native';
 import apiService from '../../../auth/apiService_auth';
+import * as UserService from '../../../services/users.service';
 
 export class ProfileHandler {
     constructor() {
@@ -116,7 +117,7 @@ export class ProfileHandler {
     }
 
     // Actualizar perfil del usuario
-    async updateUserProfile(fullName, dateOfBirth) {
+    async updateUserProfile(fullName, dateOfBirth, phone) {
         try {
             console.log('🔄 Actualizando perfil del usuario...');
 
@@ -134,7 +135,8 @@ export class ProfileHandler {
             const updateData = {
                 first_name: firstName,
                 last_name: lastName,
-                date_of_birth: backendDateOfBirth
+                date_of_birth: backendDateOfBirth,
+                phone: phone
             };
 
             console.log('📤 Datos a enviar:', updateData);
@@ -150,6 +152,20 @@ export class ProfileHandler {
         } catch (error) {
             console.error('❌ Error actualizando perfil:', error);
             Alert.alert('Error', 'No se pudo actualizar el perfil');
+            return false;
+        }
+    }
+
+    // Cambiar contraseña
+    async changePassword(currentPassword, newPassword, confirmPassword) {
+        try {
+            await UserService.changePassword(currentPassword, newPassword, confirmPassword);
+            Alert.alert('Éxito', 'Contraseña actualizada correctamente');
+            return true;
+        } catch (error) {
+            console.error('❌ Error cambiando contraseña:', error);
+            const message = error.message || error.response?.data?.detail || 'No se pudo cambiar la contraseña';
+            Alert.alert('Error', message);
             return false;
         }
     }

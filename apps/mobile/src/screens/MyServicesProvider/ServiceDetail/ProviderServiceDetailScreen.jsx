@@ -609,7 +609,13 @@ export default function ProviderServiceDetailScreen() {
     );
 
     const canOpenMap = Boolean(mapsUrl);
-    const canMarkOnRoute = service?.status === 'CONFIRMED' && Boolean(serviceId);
+    
+    // Validar si es momento permitido para "En camino" (ej. 2 horas antes del inicio)
+    const scheduledStart = service?.scheduled_start_at ? new Date(service.scheduled_start_at) : null;
+    const now = new Date();
+    const isTooEarly = scheduledStart && (scheduledStart.getTime() - now.getTime()) > (2 * 60 * 60 * 1000);
+
+    const canMarkOnRoute = service?.status === 'CONFIRMED' && Boolean(serviceId) && !isTooEarly;
     const canMarkInProgress = service?.status === 'ON_ROUTE' && Boolean(serviceId);
     const canMarkCompleted = service?.status === 'IN_PROGRESS' && Boolean(serviceId);
     const isMarkingOnRoute = markOnRouteMutation.isPending;
@@ -997,14 +1003,18 @@ export default function ProviderServiceDetailScreen() {
                                                     <Text style={styles.timelineDescription}>{entry.description}</Text>
                                                 ) : null}
 
-                                                {entry.status === 'CONFIRMED' && canMarkOnRoute ? (
+                                                {entry.status === 'CONFIRMED' && service?.status === 'CONFIRMED' ? (
                                                     <TouchableOpacity
                                                         style={[
                                                             styles.timelineActionButton,
-                                                            isMarkingOnRoute && styles.timelineActionButtonDisabled,
+                                                            (isMarkingOnRoute || isTooEarly) && styles.timelineActionButtonDisabled,
                                                         ]}
-                                                        activeOpacity={isMarkingOnRoute ? 1 : 0.9}
-                                                        onPress={isMarkingOnRoute ? undefined : handleMarkOnRoute}
+                                                        activeOpacity={isMarkingOnRoute || isTooEarly ? 1 : 0.9}
+                                                        onPress={
+                                                            isTooEarly
+                                                                ? () => Alert.alert('Aún es temprano', 'Podrás marcar "En camino" 2 horas antes del inicio programado.')
+                                                                : (isMarkingOnRoute ? undefined : handleMarkOnRoute)
+                                                        }
                                                         disabled={isMarkingOnRoute}
                                                     >
                                                         {isMarkingOnRoute ? (
@@ -1020,7 +1030,9 @@ export default function ProviderServiceDetailScreen() {
                                                                 style={styles.timelineActionIcon}
                                                             />
                                                         )}
-                                                        <Text style={styles.timelineActionLabel}>Estoy en camino</Text>
+                                                        <Text style={styles.timelineActionLabel}>
+                                                            {isTooEarly ? 'Pendiente horario' : 'Estoy en camino'}
+                                                        </Text>
                                                     </TouchableOpacity>
                                                 ) : null}
 

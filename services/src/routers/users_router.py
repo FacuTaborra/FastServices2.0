@@ -74,7 +74,8 @@ async def update_user_profile(
     current_user: User = Depends(check_user_login),
     db: AsyncSession = Depends(get_db),
 ) -> UserResponse:
-    if current_user.role not in ["client", "provider"]:
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role not in ["client", "provider"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acceso denegado: Solo para clientes y proveedores",
@@ -102,10 +103,11 @@ async def change_password(
     current_user: User = Depends(check_user_login),
     db: AsyncSession = Depends(get_db),
 ) -> GeneralResponse:
-    if current_user.role != "client":
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role not in ["client", "provider"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso denegado: Solo para clientes",
+            detail="Acceso denegado: Solo para clientes y proveedores",
         )
 
     if password_data.new_password != password_data.confirm_password:

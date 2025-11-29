@@ -130,6 +130,15 @@ export async function markProviderServiceCompleted(serviceId) {
     }
 }
 
+export async function rejectServiceRequest(requestId) {
+    try {
+        await api.post(`/providers/me/requests/${requestId}/reject`);
+    } catch (error) {
+        console.error('❌ Error rechazando solicitud:', error.message || error);
+        throw error;
+    }
+}
+
 export async function createProviderProposal(payload) {
     try {
         const response = await api.post('/providers/me/proposals', payload);

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import styles from './Register.styles';
 import fastservicesLogo from '../../../assets/iconFastServices2.png';
 import Spinner from '../../components/Spinner/Spinner';
@@ -40,7 +41,15 @@ export default function Register() {
   const [postalCode, setPostalCode] = useState('');
   const [country, setCountry] = useState('Argentina');
 
+  // Estado para términos y condiciones
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
   const validateForm = () => {
+    // Validar términos y condiciones
+    if (!acceptedTerms) {
+      Alert.alert('Error', 'Debes aceptar los Términos y Condiciones para registrarte');
+      return false;
+    }
     // Validar campos requeridos
     if (!firstName.trim()) {
       Alert.alert('Error', 'Por favor ingresa tu nombre');
@@ -463,6 +472,23 @@ export default function Register() {
 
             </View>
           )}
+
+          {/* Checkbox de Términos y Condiciones */}
+          <View style={styles.termsContainer}>
+            <TouchableOpacity
+              style={styles.checkbox}
+              onPress={() => setAcceptedTerms(!acceptedTerms)}
+              disabled={loading}
+            >
+              {acceptedTerms && <Ionicons name="checkmark" size={18} color="#4776a6" />}
+            </TouchableOpacity>
+            <View style={styles.termsTextContainer}>
+              <Text style={styles.termsText}>Acepto los </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('TermsAndConditions')}>
+                <Text style={styles.termsLink}>Términos y Condiciones</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}

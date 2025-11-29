@@ -56,12 +56,24 @@ export default StyleSheet.create({
     textAlignVertical: 'center',
   },
   input: {
-    backgroundColor: '#F4F4F4',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 14,
     marginBottom: 16,
     color: '#1A1A1A',
+  },
+  inputDisabled: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    marginBottom: 16,
+    color: '#6B7280',
   },
   dropdown: {
     flexDirection: 'row',
@@ -311,6 +323,17 @@ export default StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     fontSize: 16,
+  },
+  inputError: {
+    borderColor: '#EF4444',
+    marginBottom: 4,
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginBottom: 16,
+    marginLeft: 4,
+    marginTop: -2,
   },
   modalButtons: {
     flexDirection: 'row',

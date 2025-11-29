@@ -114,3 +114,48 @@ export async function deleteCompleteProfileImage() {
         throw error;
     }
 }
+
+/**
+ * Cambiar contraseña del usuario
+ */
+export async function changePassword(currentPassword, newPassword, confirmPassword) {
+    try {
+        console.log('🔐 Cambiando contraseña...');
+
+        const payload = {
+            current_password: currentPassword,
+            new_password: newPassword,
+            confirm_password: confirmPassword
+        };
+
+        const response = await api.put('/users/me/password', payload);
+        console.log('✅ Contraseña cambiada exitosamente');
+        return response.data;
+    } catch (error) {
+        console.error('❌ Error cambiando contraseña:', error.message);
+
+        // Asegurarnos de propagar el error con su respuesta original si existe
+        if (error.response && error.response.data) {
+            const detail = error.response.data.detail;
+
+            // Manejo de errores de validación (array de errores)
+            if (Array.isArray(detail)) {
+                // Tomar el primer mensaje de error legible o uno genérico
+                const firstError = detail[0];
+                if (firstError && firstError.msg) {
+                    // Traducir mensajes comunes de Pydantic si es necesario
+                    if (firstError.msg.includes('at least 6 characters')) {
+                        throw new Error('La contraseña debe tener al menos 6 caracteres');
+                    }
+                    throw new Error(firstError.msg);
+                }
+            }
+
+            if (detail && typeof detail === 'string') {
+                throw new Error(detail);
+            }
+        }
+
+        throw error;
+    }
+}

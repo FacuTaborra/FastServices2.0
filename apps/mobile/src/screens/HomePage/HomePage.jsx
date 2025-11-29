@@ -401,13 +401,6 @@ const HomePage = () => {
             <Image source={heroIcon} style={styles.brandIcon} />
             <Text style={styles.brandText}>Fast Services</Text>
           </View>
-          <TouchableOpacity style={styles.notificationButton}>
-            <Ionicons
-              name="notifications-outline"
-              size={22}
-              style={styles.notificationIcon}
-            />
-          </TouchableOpacity>
         </View>
 
         <View style={styles.heroCard}>

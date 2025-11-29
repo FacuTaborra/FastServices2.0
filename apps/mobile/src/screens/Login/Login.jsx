@@ -83,13 +83,16 @@ export default function Login() {
       console.error('❌ Error en login:', error);
 
       let errorMessage = 'Ocurrió un error al iniciar sesión';
+      const errorMsg = error.message || '';
 
-      if (error.message.includes('401')) {
+      if (errorMsg.includes('401') || errorMsg.includes('incorrectos')) {
         errorMessage = 'Email o contraseña incorrectos';
-      } else if (error.message.includes('400')) {
+      } else if (errorMsg.includes('400')) {
         errorMessage = 'Datos inválidos. Por favor verifica tu información.';
-      } else if (error.message.includes('Network')) {
+      } else if (errorMsg.includes('Network')) {
         errorMessage = 'Error de conexión. Verifica tu internet.';
+      } else if (errorMsg) {
+        errorMessage = errorMsg;
       }
 
       Alert.alert('Error de Login', errorMessage);
@@ -136,6 +139,14 @@ export default function Login() {
           {loading ? 'Iniciando sesión...' : 'Ingresar'}
         </Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => navigation.navigate('ForgotPassword')}
+        style={styles.forgotPasswordContainer}
+      >
+        <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity onPress={() => navigation.navigate('Register')}>
         <Text style={styles.link}>Crear cuenta</Text>
       </TouchableOpacity>

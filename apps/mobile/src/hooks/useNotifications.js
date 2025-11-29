@@ -117,14 +117,24 @@ async function registerForPushNotificationsAsync() {
     }
 
     try {
-      // En builds de producción (APK/AAB), Constants.expoConfig a veces no tiene la config completa.
-      // Usamos el ID hardcodeado como fallback seguro.
-      const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? "87d519b1-9fc7-450f-a9af-481a064391b2";
+      // Solución robusta para Project ID en builds de producción
+      let projectId = Constants?.expoConfig?.extra?.eas?.projectId;
+
+      // Si falla, intentar usar ID hardcodeado
+      if (!projectId) {
+        projectId = "87d519b1-9fc7-450f-a9af-481a064391b2";
+      }
+
       token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
     } catch (e) {
       console.log('⚠️ Error obteniendo token con Project ID:', e);
-      // Intento final sin params (a veces funciona si la config nativa ya lo tiene)
-      token = (await Notifications.getExpoPushTokenAsync()).data;
+      // Intento desesperado sin projectId (a veces funciona si la config nativa ya lo tiene)
+      try {
+        token = (await Notifications.getExpoPushTokenAsync()).data;
+      } catch (e2) {
+        console.log('❌ Error final obteniendo token:', e2);
+        throw e2; // Re-lanzar para que la UI sepa que falló
+      }
     }
   } else {
     console.log('Must use physical device for Push Notifications');

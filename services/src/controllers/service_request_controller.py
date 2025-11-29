@@ -295,6 +295,10 @@ class ServiceRequestController:
         service_request: ServiceRequest,
     ) -> List[ServiceRequestProposalResponse]:
         proposals = list(service_request.proposals or [])
+
+        # Filter out rejected proposals (they are internal markers for provider rejections)
+        proposals = [p for p in proposals if getattr(p, "status", None) != "rejected"]
+
         proposals.sort(key=lambda proposal: (proposal.quoted_price, proposal.id))
 
         serialized: List[ServiceRequestProposalResponse] = []
