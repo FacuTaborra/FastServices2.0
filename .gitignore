@@ -15,4 +15,4 @@ venv/
 *.jks
 *.keystore
 
-./secrets/
+secrets/
