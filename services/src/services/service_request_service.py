@@ -6,7 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Iterable, Sequence, List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import Select, select
+from sqlalchemy import Select, select, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -388,8 +388,14 @@ class ServiceRequestService:
     async def list_all_for_client(
         db: AsyncSession, *, client_id: int
     ) -> List[ServiceRequest]:
+        # Calcular el límite de 24 horas para servicios cancelados
+        cutoff_time = datetime.now(timezone(timedelta(hours=-3))).replace(
+            tzinfo=None
+        ) - timedelta(hours=24)
+
         stmt: Select[ServiceRequest] = (
             select(ServiceRequest)
+            .outerjoin(Service, ServiceRequest.id == Service.request_id)
             .options(
                 selectinload(ServiceRequest.images),
                 selectinload(ServiceRequest.tag_links).selectinload(
@@ -410,7 +416,20 @@ class ServiceRequestService:
                 ),
                 selectinload(ServiceRequest.address),
             )
-            .where(ServiceRequest.client_id == client_id)
+            .where(
+                ServiceRequest.client_id == client_id,
+                # Filtrar solicitudes canceladas (CANCELLED) de más de 24hs
+                or_(
+                    ServiceRequest.status != ServiceRequestStatus.CANCELLED,
+                    ServiceRequest.updated_at >= cutoff_time,
+                ),
+                # Filtrar servicios cancelados (CANCELED) de más de 24hs
+                or_(
+                    Service.id.is_(None),  # Sin servicio asociado
+                    Service.status != ServiceStatus.CANCELED,  # Servicio no cancelado
+                    Service.updated_at >= cutoff_time,  # Cancelado hace menos de 24hs
+                ),
+            )
             .order_by(ServiceRequest.created_at.desc())
         )
 

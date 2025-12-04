@@ -1146,12 +1146,14 @@ class ProviderController:
     ) -> ProviderProposalResponse:
         request = getattr(proposal, "request", None)
         client_name = None
+        client_avatar_url = None
         if request and getattr(request, "client", None):
             first = (request.client.first_name or "").strip()
             last = (request.client.last_name or "").strip()
             client_name = (
                 " ".join(part for part in [first, last] if part).strip() or None
             )
+            client_avatar_url = getattr(request.client, "profile_image_url", None)
 
         attachments = []
         if request is not None:
@@ -1179,6 +1181,7 @@ class ProviderController:
             preferred_start_at=getattr(request, "preferred_start_at", None),
             preferred_end_at=getattr(request, "preferred_end_at", None),
             client_name=client_name,
+            client_avatar_url=client_avatar_url,
         )
 
     @staticmethod

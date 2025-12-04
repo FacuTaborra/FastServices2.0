@@ -513,6 +513,8 @@ function mapProposalToCard(proposal) {
     preferred_end_at: proposal.preferred_end_at ?? null,
     created_at: proposal.request_created_at ?? proposal.created_at ?? null,
     client_snapshot: proposal.client_name ?? null,
+    client_name: proposal.client_name ?? null,
+    client_avatar_url: proposal.client_avatar_url ?? null,
     attachments: Array.isArray(proposal.request_attachments)
       ? proposal.request_attachments
       : [],

@@ -364,6 +364,7 @@ class ProviderProposalResponse(BaseModel):
     preferred_start_at: Optional[datetime] = None
     preferred_end_at: Optional[datetime] = None
     client_name: Optional[str] = None
+    client_avatar_url: Optional[str] = None
 
 
 class ProviderServiceStatusHistory(BaseModel):
