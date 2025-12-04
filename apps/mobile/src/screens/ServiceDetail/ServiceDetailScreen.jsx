@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -256,6 +256,7 @@ const ServiceDetailScreen = () => {
     const serviceRequestQuery = useServiceRequest(requestId, {
         enabled: Boolean(requestId),
     });
+    const { refetch, isFetching } = serviceRequestQuery;
     const cancelServiceMutation = useCancelService();
     const markInProgressMutation = useMarkServiceInProgress();
     const submitReviewMutation = useSubmitServiceReview();
@@ -344,7 +345,7 @@ const ServiceDetailScreen = () => {
         return startMs <= Date.now() ? 'El servicio ya comenzó' : null;
     }, [serviceData]);
 
-    const isLoading = serviceRequestQuery.isLoading || serviceRequestQuery.isFetching;
+    const isLoading = serviceRequestQuery.isLoading || isFetching;
     const isMutating = cancelServiceMutation.isPending || markInProgressMutation.isPending;
     const showCancelButton = serviceData?.status === 'CONFIRMED';
 
@@ -398,6 +399,10 @@ const ServiceDetailScreen = () => {
     const handleBack = useCallback(() => {
         navigation.goBack();
     }, [navigation]);
+
+    const handleRefresh = useCallback(() => {
+        refetch();
+    }, [refetch]);
 
     const handleOpenRatingModal = useCallback(() => {
         if (ratingSubmitted || isSubmittingReview) {
@@ -502,6 +507,14 @@ const ServiceDetailScreen = () => {
                     style={styles.scroll}
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={isFetching}
+                            onRefresh={handleRefresh}
+                            tintColor="#6366f1"
+                            colors={['#6366f1']}
+                        />
+                    }
                 >
                     <View style={styles.providerCard}>
                         <Text style={styles.sectionTitle}>Profesional a cargo</Text>
