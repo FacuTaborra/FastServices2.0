@@ -58,6 +58,7 @@ const formatDateTime = (value) => {
     const timeOptions = {
         hour: '2-digit',
         minute: '2-digit',
+        hour12: false,
     };
 
     const datePart = parsed.toLocaleDateString('es-AR', dateOptions);

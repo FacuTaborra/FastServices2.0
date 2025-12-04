@@ -23,6 +23,7 @@ from models.ServiceRequest import (
     ServiceRequestType,
     ServiceStatus,
     ServiceReview,
+    ServiceStatusHistory,
 )
 from models.Tag import Tag, ServiceRequestTag
 from models.ServiceRequestSchemas import (
@@ -621,6 +622,16 @@ class ServiceRequestService:
             service_entity.scheduled_end_at = selected_proposal.proposed_end_at
 
         db.add(service_entity)
+        await db.flush()
+
+        # Crear registro inicial de historial con hora Argentina (UTC-3)
+        initial_history = ServiceStatusHistory(
+            service_id=service_entity.id,
+            from_status=None,
+            to_status=ServiceStatus.CONFIRMED.value,
+            changed_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
+        )
+        db.add(initial_history)
 
         await db.commit()
 

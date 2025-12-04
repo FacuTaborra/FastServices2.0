@@ -631,6 +631,7 @@ class ProviderController:
             from_status=previous_status,
             to_status=ServiceStatus.ON_ROUTE.value,
             changed_by=user_id,
+            changed_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
         )
         db.add(history_entry)
 
@@ -727,6 +728,7 @@ class ProviderController:
             from_status=previous_status,
             to_status=ServiceStatus.IN_PROGRESS.value,
             changed_by=user_id,
+            changed_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
         )
         db.add(history_entry)
 
@@ -806,6 +808,7 @@ class ProviderController:
             from_status=previous_status,
             to_status=ServiceStatus.COMPLETED.value,
             changed_by=user_id,
+            changed_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
         )
         db.add(history_entry)
 
