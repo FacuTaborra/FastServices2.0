@@ -335,14 +335,8 @@ const ServiceDetailScreen = () => {
         if (serviceData.status !== 'CONFIRMED') {
             return 'Solo servicios confirmados';
         }
-        if (!serviceData.scheduled_start_at) {
-            return null;
-        }
-        const startMs = new Date(serviceData.scheduled_start_at).getTime();
-        if (Number.isNaN(startMs)) {
-            return null;
-        }
-        return startMs <= Date.now() ? 'El servicio ya comenzó' : null;
+        // Si está CONFIRMED, siempre se puede cancelar (hasta que pase a ON_ROUTE)
+        return null;
     }, [serviceData]);
 
     const isLoading = serviceRequestQuery.isLoading || isFetching;
@@ -593,15 +587,6 @@ const ServiceDetailScreen = () => {
                         </View>
                     </View>
 
-                    {serviceData.status === 'CONFIRMED' ? (
-                        <View style={styles.infoBanner}>
-                            <Ionicons name="information-circle-outline" size={20} color="#0f172a" />
-                            <Text style={styles.infoBannerText}>
-                                Podés cancelar sin cargo hasta el comienzo del servicio. Te devolveremos el pago en los próximos días hábiles.
-                            </Text>
-                        </View>
-                    ) : null}
-
                     <View style={[styles.timelineCard]}>
                         <Text style={styles.sectionTitle}>Historial del servicio</Text>
                         <View style={styles.timelineSection}>
@@ -662,7 +647,18 @@ const ServiceDetailScreen = () => {
                             )}
                         </View>
                     </View>
+
+                    {serviceData.status === 'CONFIRMED' ? (
+                        <View style={styles.infoBanner}>
+                            <Ionicons name="information-circle-outline" size={20} color="#0f172a" />
+                            <Text style={styles.infoBannerText}>
+                                Podés cancelar sin cargo hasta el comienzo del servicio. Te devolveremos el pago en los próximos días hábiles.
+                            </Text>
+                        </View>
+                    ) : null}
+
                 </ScrollView>
+
 
                 <View style={styles.footer}>
                     {isServiceCompleted ? (

@@ -715,16 +715,8 @@ class ServiceRequestService:
                 detail="Solo se pueden cancelar servicios confirmados o en camino",
             )
 
-        now = datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None)
-        scheduled_start = service.scheduled_start_at
-        if scheduled_start is not None:
-            if scheduled_start.tzinfo is not None:
-                scheduled_start = scheduled_start.replace(tzinfo=None)
-            if scheduled_start <= now:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No podés cancelar un servicio que ya comenzó",
-                )
+        # Si el estado es CONFIRMED o ON_ROUTE, se puede cancelar
+        # (el estado ya indica si el servicio realmente comenzó o no)
 
         service.status = ServiceStatus.CANCELED
         service_request.status = ServiceRequestStatus.CANCELLED
