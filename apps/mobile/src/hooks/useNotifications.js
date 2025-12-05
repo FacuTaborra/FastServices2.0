@@ -58,16 +58,23 @@ export function useNotifications() {
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
       if (isMounted) setNotification(notification);
     });
-    // ...
-    // (The rest of the listeners code is truncated in read_file, I need to be careful not to delete it.
-    // I'll try to match the exact block to replace the useEffect content but keep listeners).
+
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      if (!isMounted) return;
+      const data = response.notification.request.content.data;
+      console.log('🔔 Notificación tocada:', data);
+      // Navegar según el tipo de notificación
+      if (data?.screen) {
+        navigation.navigate(data.screen, data.params || {});
+      }
+    });
 
     return () => {
       isMounted = false;
       notificationListener.current && notificationListener.current.remove();
       responseListener.current && responseListener.current.remove();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, navigation]);
 
   return { expoPushToken, notification, registerToken };
 }
