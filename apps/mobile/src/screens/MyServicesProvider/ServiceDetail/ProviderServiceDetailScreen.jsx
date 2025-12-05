@@ -537,7 +537,7 @@ export default function ProviderServiceDetailScreen() {
         isLoading,
         isError,
         refetch,
-    } = useProviderServices({
+    } = useProviderServices(null, {
         enabled: true,
         refetchOnWindowFocus: false,
     });
@@ -609,7 +609,7 @@ export default function ProviderServiceDetailScreen() {
     );
 
     const canOpenMap = Boolean(mapsUrl);
-    
+
     // Validar si es momento permitido para "En camino" (ej. 2 horas antes del inicio)
     const scheduledStart = service?.scheduled_start_at ? new Date(service.scheduled_start_at) : null;
     const now = new Date();

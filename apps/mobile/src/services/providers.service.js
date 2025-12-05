@@ -45,9 +45,13 @@ export async function getProviderProposals() {
     }
 }
 
-export async function getProviderServices() {
+export async function getProviderServices({ filterType = 'all', completedDate = null } = {}) {
     try {
-        const response = await api.get('/providers/me/services');
+        const params = { filter_type: filterType };
+        if (completedDate) {
+            params.completed_date = completedDate;
+        }
+        const response = await api.get('/providers/me/services', { params });
         return response.data;
     } catch (error) {
         console.error('❌ Error obteniendo servicios del proveedor:', error.message || error);

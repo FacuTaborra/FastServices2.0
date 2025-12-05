@@ -502,7 +502,10 @@ class ProviderController:
     @staticmethod
     @error_handler(logger)
     async def list_provider_services(
-        db: AsyncSession, user_id: int
+        db: AsyncSession,
+        user_id: int,
+        completed_date: str | None = None,
+        filter_type: str = "all",
     ) -> List[ProviderServiceResponse]:
         user = await ProviderController._load_provider_with_relations(db, user_id)
 
@@ -516,29 +519,77 @@ class ProviderController:
         if not profile:
             profile = await ProviderController._ensure_provider_profile(db, user_id)
 
-        stmt = (
-            select(Service)
-            .options(
-                selectinload(Service.request).selectinload(ServiceRequest.images),
-                selectinload(Service.request),
-                selectinload(Service.proposal),
-                selectinload(Service.status_history),
-                selectinload(Service.reviews),
-                selectinload(Service.client),
-            )
-            .where(Service.provider_profile_id == profile.id)
-            .order_by(
-                case((Service.status == ServiceStatus.IN_PROGRESS, 0), else_=1),
-                case((Service.status == ServiceStatus.ON_ROUTE, 0), else_=1),
-                case((Service.status == ServiceStatus.CONFIRMED, 0), else_=1),
-                case((Service.status == ServiceStatus.COMPLETED, 0), else_=1),
-                Service.scheduled_start_at.asc(),
-                Service.created_at.desc(),
-            )
-        )
+        services: list[Service] = []
 
-        result = await db.execute(stmt)
-        services = list(result.scalars().all())
+        # Query para servicios activos
+        if filter_type in ("all", "active"):
+            active_statuses = [
+                ServiceStatus.IN_PROGRESS,
+                ServiceStatus.ON_ROUTE,
+                ServiceStatus.CONFIRMED,
+            ]
+
+            stmt_active = (
+                select(Service)
+                .options(
+                    selectinload(Service.request).selectinload(ServiceRequest.images),
+                    selectinload(Service.request),
+                    selectinload(Service.proposal),
+                    selectinload(Service.status_history),
+                    selectinload(Service.reviews),
+                    selectinload(Service.client),
+                )
+                .where(
+                    Service.provider_profile_id == profile.id,
+                    Service.status.in_(active_statuses),
+                )
+                .order_by(
+                    case((Service.status == ServiceStatus.IN_PROGRESS, 0), else_=1),
+                    case((Service.status == ServiceStatus.ON_ROUTE, 0), else_=1),
+                    case((Service.status == ServiceStatus.CONFIRMED, 0), else_=1),
+                    Service.scheduled_start_at.asc(),
+                    Service.created_at.desc(),
+                )
+            )
+
+            result_active = await db.execute(stmt_active)
+            services.extend(list(result_active.scalars().all()))
+
+        # Query para servicios completados (filtrados por fecha)
+        if filter_type in ("all", "completed"):
+            argentina_tz = timezone(timedelta(hours=-3))
+            if completed_date:
+                try:
+                    target_date = datetime.strptime(completed_date, "%Y-%m-%d").date()
+                except ValueError:
+                    target_date = datetime.now(argentina_tz).date()
+            else:
+                target_date = datetime.now(argentina_tz).date()
+
+            day_start = datetime.combine(target_date, datetime.min.time())
+            day_end = datetime.combine(target_date, datetime.max.time())
+
+            stmt_completed = (
+                select(Service)
+                .options(
+                    selectinload(Service.request).selectinload(ServiceRequest.images),
+                    selectinload(Service.request),
+                    selectinload(Service.proposal),
+                    selectinload(Service.status_history),
+                    selectinload(Service.reviews),
+                    selectinload(Service.client),
+                )
+                .where(
+                    Service.provider_profile_id == profile.id,
+                    Service.status == ServiceStatus.COMPLETED,
+                    Service.updated_at >= day_start,
+                    Service.updated_at <= day_end,
+                )
+                .order_by(Service.updated_at.desc())
+            )
+
+            result_completed = await db.execute(stmt_completed)
+            services.extend(list(result_completed.scalars().all()))
 
         return [
             ProviderController._map_service_to_provider_response(service)

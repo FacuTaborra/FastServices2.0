@@ -9,16 +9,47 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 import styles, { SERVICE_STATUS_COLORS } from './MyServices.styles';
 import { PALETTE, STATUS_CARD_COLORS as HOME_STATUS_COLORS } from '../HomePage/HomePage.styles';
-import { useProviderServices } from '../../hooks/useProviderServices';
+import { useProviderActiveServices, useProviderCompletedServices } from '../../hooks/useProviderServices';
 
 const brandIcon = require('../../../assets/icon.png');
+
+function formatDateForApi(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateLabel(date) {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const isToday = date.toDateString() === today.toDateString();
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  if (isToday) {
+    return 'Hoy';
+  }
+  if (isYesterday) {
+    return 'Ayer';
+  }
+
+  return date.toLocaleDateString('es-AR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
 
 const STATUS_LABELS = {
   CONFIRMED: 'Confirmado',
@@ -272,17 +303,87 @@ function getClientReview(service) {
 
 export default function MyServicesScreen() {
   const navigation = useNavigation();
+
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const completedDateParam = useMemo(() => formatDateForApi(selectedDate), [selectedDate]);
+
+  // Query para servicios activos (no depende de la fecha)
   const {
-    data,
-    isLoading,
-    isFetching,
-    isError,
-    refetch,
-  } = useProviderServices();
+    data: activeData,
+    isLoading: isLoadingActive,
+    isFetching: isFetchingActive,
+    isError: isErrorActive,
+    refetch: refetchActive,
+  } = useProviderActiveServices();
 
-  const [showCompleted, setShowCompleted] = useState(false);
+  // Query para servicios completados (depende de la fecha seleccionada)
+  const {
+    data: completedData,
+    isLoading: isLoadingCompleted,
+    isFetching: isFetchingCompleted,
+    isError: isErrorCompleted,
+    refetch: refetchCompleted,
+  } = useProviderCompletedServices(completedDateParam);
 
-  const services = Array.isArray(data) ? data : [];
+  const activeServices = Array.isArray(activeData) ? activeData : [];
+  const completedServicesFromApi = Array.isArray(completedData) ? completedData : [];
+
+  // Solo mostrar spinner grande en la carga inicial de activos
+  // (completados puede cargar independientemente sin bloquear la UI)
+  const isLoading = isLoadingActive;
+  const isFetching = isFetchingActive;
+  const isError = isErrorActive;
+
+  const refetch = useCallback(() => {
+    refetchActive();
+    refetchCompleted();
+  }, [refetchActive, refetchCompleted]);
+
+  // Combinar servicios para ordenamiento (solo activos, los completados ya vienen ordenados)
+  const services = activeServices;
+
+  const handlePreviousDay = useCallback(() => {
+    setSelectedDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() - 1);
+      return newDate;
+    });
+  }, []);
+
+  const handleNextDay = useCallback(() => {
+    const today = new Date();
+    setSelectedDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() + 1);
+      // No permitir ir más allá de hoy
+      if (newDate > today) {
+        return prev;
+      }
+      return newDate;
+    });
+  }, []);
+
+  const handleDateChange = useCallback((event, date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (date) {
+      const today = new Date();
+      // No permitir fechas futuras
+      if (date <= today) {
+        setSelectedDate(date);
+      }
+    }
+  }, []);
+
+  const openDatePicker = useCallback(() => {
+    setShowDatePicker(true);
+  }, []);
+
+  const isToday = useMemo(() => {
+    const today = new Date();
+    return selectedDate.toDateString() === today.toDateString();
+  }, [selectedDate]);
 
   const orderedServices = useMemo(() => {
     return [...services].sort((a, b) => {
@@ -304,15 +405,14 @@ export default function MyServicesScreen() {
     });
   }, [services]);
 
-  const activeServices = useMemo(
-    () => orderedServices.filter((service) => ['IN_PROGRESS', 'ON_ROUTE', 'CONFIRMED'].includes(service?.status)),
+  // Servicios activos ordenados (ya vienen filtrados del backend)
+  const activeServicesOrdered = useMemo(
+    () => orderedServices,
     [orderedServices],
   );
 
-  const completedServices = useMemo(
-    () => orderedServices.filter((service) => service?.status === 'COMPLETED'),
-    [orderedServices],
-  );
+  // Servicios completados (ya vienen filtrados y ordenados del backend)
+  const completedServices = completedServicesFromApi;
 
   const handleOpenServiceDetail = useCallback((service) => {
     if (!service) {
@@ -471,10 +571,6 @@ export default function MyServicesScreen() {
     );
   }, [handleOpenServiceDetail]);
 
-  const toggleCompleted = useCallback(() => {
-    setShowCompleted((prev) => !prev);
-  }, []);
-
   if (isLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -520,16 +616,16 @@ export default function MyServicesScreen() {
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Servicios en progreso</Text>
-          {activeServices.length ? (
+          {activeServicesOrdered.length ? (
             <View style={styles.sectionCounter}>
-              <Text style={styles.sectionCounterText}>{activeServices.length}</Text>
+              <Text style={styles.sectionCounterText}>{activeServicesOrdered.length}</Text>
             </View>
           ) : null}
         </View>
 
-        {activeServices.length ? (
+        {activeServicesOrdered.length ? (
           <View style={styles.activeList}>
-            {activeServices.map((service) => renderActiveServiceCard(service))}
+            {activeServicesOrdered.map((service) => renderActiveServiceCard(service))}
           </View>
         ) : (
           <View style={styles.emptyState}>
@@ -538,35 +634,61 @@ export default function MyServicesScreen() {
           </View>
         )}
 
-        <TouchableOpacity style={styles.completedToggle} onPress={toggleCompleted} activeOpacity={0.85}>
-          <View style={styles.completedToggleLeft}>
-            <View style={[styles.completedBadge, { backgroundColor: HOME_STATUS_COLORS.completed.pill }]}>
-              <Ionicons name="checkmark-done" size={14} color="#FFFFFF" />
-            </View>
-            <Text style={styles.completedToggleText}>Servicios completados</Text>
-          </View>
-          <View style={styles.completedToggleRight}>
-            <Text style={styles.completedCount}>{completedServices.length}</Text>
-            <Ionicons
-              name={showCompleted ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              style={styles.completedChevron}
-            />
-          </View>
-        </TouchableOpacity>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Servicios completados</Text>
+        </View>
 
-        {showCompleted ? (
-          completedServices.length ? (
-            <View style={styles.completedList}>
-              {completedServices.map((service) => renderCompletedService(service))}
-            </View>
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="checkmark-done-outline" size={26} color={PALETTE.textSecondary} />
-              <Text style={styles.emptyStateText}>Todavía no registraste servicios completados.</Text>
-            </View>
-          )
-        ) : null}
+        <View style={styles.dateSelector}>
+          <TouchableOpacity
+            style={styles.dateSelectorButton}
+            onPress={handlePreviousDay}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={20} color={PALETTE.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={openDatePicker} activeOpacity={0.7} style={styles.dateLabelTouchable}>
+            <Ionicons name="calendar-outline" size={16} color={PALETTE.primary} style={styles.calendarIcon} />
+            <Text style={styles.dateSelectorLabel}>{formatDateLabel(selectedDate)}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.dateSelectorButton, isToday && styles.dateSelectorButtonDisabled]}
+            onPress={handleNextDay}
+            activeOpacity={isToday ? 1 : 0.7}
+            disabled={isToday}
+          >
+            <Ionicons name="chevron-forward" size={20} color={isToday ? '#CBD5E1' : PALETTE.primary} />
+          </TouchableOpacity>
+          <View style={styles.dateSelectorCount}>
+            <Text style={styles.dateSelectorCountText}>{completedServices.length}</Text>
+          </View>
+        </View>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleDateChange}
+            maximumDate={new Date()}
+            locale="es-AR"
+          />
+        )}
+
+        {isLoadingCompleted || isFetchingCompleted ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="small" color={PALETTE.primary} />
+            <Text style={styles.emptyStateText}>Cargando servicios...</Text>
+          </View>
+        ) : completedServices.length ? (
+          <View style={styles.completedList}>
+            {completedServices.map((service) => renderCompletedService(service))}
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="checkmark-done-outline" size={26} color={PALETTE.textSecondary} />
+            <Text style={styles.emptyStateText}>No hay servicios completados en esta fecha.</Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

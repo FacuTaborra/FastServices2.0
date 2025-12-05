@@ -226,12 +226,21 @@ async def list_provider_proposals(
     response_model=list[ProviderServiceResponse],
     summary="Listar servicios del proveedor",
     description=(
-        "Devuelve los servicios confirmados, en progreso y completados del proveedor, "
-        "incluyendo la información relevante de la solicitud asociada."
+        "Devuelve los servicios del proveedor. Usa filter_type para filtrar: "
+        "'all' (todos), 'active' (en progreso), 'completed' (completados por fecha)."
     ),
 )
 async def list_provider_services(
-    current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    filter_type: str = Query(
+        "all",
+        description="Tipo de filtro: 'all', 'active', o 'completed'.",
+    ),
+    completed_date: str = Query(
+        None,
+        description="Fecha para filtrar servicios completados (formato: YYYY-MM-DD). Solo aplica si filter_type es 'all' o 'completed'.",
+    ),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     current_role = getattr(current_user.role, "value", current_user.role)
     if current_role != UserRole.PROVIDER.value:
@@ -240,7 +249,9 @@ async def list_provider_services(
             detail="Acceso denegado: Solo para proveedores de servicios",
         )
 
-    return await ProviderController.list_provider_services(db, current_user.id)
+    return await ProviderController.list_provider_services(
+        db, current_user.id, completed_date, filter_type
+    )
 
 
 @router.get(

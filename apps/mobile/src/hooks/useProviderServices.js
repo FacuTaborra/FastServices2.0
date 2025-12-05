@@ -7,13 +7,42 @@ import {
 } from '../services/providers.service';
 
 export const providerServicesKeys = {
+    active: ['provider', 'services', 'active'],
+    completed: (date) => ['provider', 'services', 'completed', date],
     all: ['provider', 'services'],
 };
 
-export function useProviderServices(options = {}) {
+// Hook para servicios activos (CONFIRMED, ON_ROUTE, IN_PROGRESS)
+export function useProviderActiveServices(options = {}) {
     return useQuery({
-        queryKey: providerServicesKeys.all,
-        queryFn: getProviderServices,
+        queryKey: providerServicesKeys.active,
+        queryFn: () => getProviderServices({ filterType: 'active' }),
+        staleTime: 60 * 1000,
+        gcTime: 5 * 60 * 1000,
+        ...options,
+    });
+}
+
+// Hook para servicios completados (filtrados por fecha)
+export function useProviderCompletedServices(completedDate, options = {}) {
+    return useQuery({
+        queryKey: providerServicesKeys.completed(completedDate),
+        queryFn: () => getProviderServices({ filterType: 'completed', completedDate }),
+        staleTime: 60 * 1000,
+        gcTime: 5 * 60 * 1000,
+        ...options,
+    });
+}
+
+// Hook legacy para compatibilidad (trae todos)
+export function useProviderServices(completedDate = null, options = {}) {
+    const queryKey = completedDate
+        ? ['provider', 'services', 'all', completedDate]
+        : providerServicesKeys.all;
+
+    return useQuery({
+        queryKey,
+        queryFn: () => getProviderServices({ filterType: 'all', completedDate }),
         staleTime: 60 * 1000,
         gcTime: 5 * 60 * 1000,
         ...options,
@@ -27,7 +56,8 @@ export function useMarkProviderServiceOnRoute(options = {}) {
     return useMutation({
         mutationFn: ({ serviceId }) => markProviderServiceOnRoute(serviceId),
         onSuccess: (data, variables, context) => {
-            queryClient.invalidateQueries({ queryKey: providerServicesKeys.all });
+            // Invalidar todas las queries de servicios del proveedor
+            queryClient.invalidateQueries({ queryKey: ['provider', 'services'] });
             if (typeof onSuccess === 'function') {
                 onSuccess(data, variables, context);
             }
@@ -43,7 +73,8 @@ export function useMarkProviderServiceInProgress(options = {}) {
     return useMutation({
         mutationFn: ({ serviceId }) => markProviderServiceInProgress(serviceId),
         onSuccess: (data, variables, context) => {
-            queryClient.invalidateQueries({ queryKey: providerServicesKeys.all });
+            // Invalidar todas las queries de servicios del proveedor
+            queryClient.invalidateQueries({ queryKey: ['provider', 'services'] });
             if (typeof onSuccess === 'function') {
                 onSuccess(data, variables, context);
             }
@@ -59,7 +90,8 @@ export function useMarkProviderServiceCompleted(options = {}) {
     return useMutation({
         mutationFn: ({ serviceId }) => markProviderServiceCompleted(serviceId),
         onSuccess: (data, variables, context) => {
-            queryClient.invalidateQueries({ queryKey: providerServicesKeys.all });
+            // Invalidar todas las queries de servicios del proveedor
+            queryClient.invalidateQueries({ queryKey: ['provider', 'services'] });
             if (typeof onSuccess === 'function') {
                 onSuccess(data, variables, context);
             }
