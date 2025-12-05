@@ -12,7 +12,7 @@ const ENV = {
         API_VERSION: getEnvVar('API_VERSION', 'v1')
     },
     production: {
-        URL_SERVER: getEnvVar('URL_SERVER_PRODUCTION', 'http://192.168.1.20:8000'),
+        URL_SERVER: getEnvVar('URL_SERVER_PRODUCTION'),
         API_VERSION: getEnvVar('API_VERSION', 'v1')
     }
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -19,6 +19,16 @@ export default function ForgotPasswordScreen() {
     const navigation = useNavigation();
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
+    const timeoutRef = useRef(null);
+
+    // Limpiar timeout al desmontar el componente
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, []);
 
     const handleSendEmail = async () => {
         if (!email.trim()) {
@@ -35,7 +45,7 @@ export default function ForgotPasswordScreen() {
         setLoading(true);
 
         // Simulación de llamada a la API
-        setTimeout(() => {
+        timeoutRef.current = setTimeout(() => {
             setLoading(false);
             Alert.alert(
                 'Email enviado',
