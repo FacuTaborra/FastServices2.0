@@ -16,7 +16,7 @@ export const serviceRequestKeys = {
 };
 
 /**
- * Hook para crear una solicitud de servicio
+ * Hook para crear una solicitud de servicio (método tradicional)
  */
 export function useCreateServiceRequest() {
     const queryClient = useQueryClient();
@@ -29,6 +29,47 @@ export function useCreateServiceRequest() {
         },
         onError: (error) => {
             console.error('❌ useCreateServiceRequest error:', error?.message);
+        },
+    });
+}
+
+/**
+ * Hook para crear una solicitud usando el agente inteligente.
+ * Puede devolver la solicitud creada o una pregunta de clarificación.
+ */
+export function useCreateServiceRequestWithAgent() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: serviceRequestService.createServiceRequestWithAgent,
+        onSuccess: (result) => {
+            if (result?.status === 'completed' && result?.service_request) {
+                console.log('✅ useCreateServiceRequestWithAgent éxito:', result.service_request?.id);
+                queryClient.invalidateQueries({ queryKey: serviceRequestKeys.all });
+            } else if (result?.status === 'needs_clarification') {
+                console.log('❓ useCreateServiceRequestWithAgent necesita clarificación');
+            }
+        },
+        onError: (error) => {
+            console.error('❌ useCreateServiceRequestWithAgent error:', error?.message);
+        },
+    });
+}
+
+/**
+ * Hook para crear una solicitud después de proporcionar clarificación.
+ */
+export function useCreateServiceRequestWithClarification() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: serviceRequestService.createServiceRequestWithClarification,
+        onSuccess: (createdRequest) => {
+            console.log('✅ useCreateServiceRequestWithClarification éxito:', createdRequest?.id);
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.all });
+        },
+        onError: (error) => {
+            console.error('❌ useCreateServiceRequestWithClarification error:', error?.message);
         },
     });
 }
@@ -192,6 +233,8 @@ export function usePaymentHistory(options = {}) {
 
 export default {
     useCreateServiceRequest,
+    useCreateServiceRequestWithAgent,
+    useCreateServiceRequestWithClarification,
     useActiveServiceRequests,
     useServiceRequest,
     useUpdateServiceRequest,

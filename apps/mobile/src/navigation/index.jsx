@@ -32,6 +32,7 @@ import ServiceDetailScreen from '../screens/ServiceDetail/ServiceDetailScreen';
 import ProviderServiceDetailScreen from '../screens/MyServicesProvider/ServiceDetail/ProviderServiceDetailScreen';
 import TermsAndConditionsScreen from '../screens/TermsAndConditions/TermsAndConditionsScreen';
 import ForgotPasswordScreen from '../screens/ForgotPassword/ForgotPasswordScreen';
+import ClarificationChatScreen from '../screens/ClarificationChat/ClarificationChatScreen';
 import { useNotifications } from '../hooks/useNotifications';
 
 const Stack = createNativeStackNavigator();
@@ -142,6 +143,11 @@ export default function AppNavigator() {
         />
         <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
         <Stack.Screen name="ProviderServiceDetail" component={ProviderServiceDetailScreen} />
+        <Stack.Screen
+          name="ClarificationChat"
+          component={ClarificationChatScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

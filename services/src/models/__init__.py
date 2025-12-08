@@ -60,6 +60,7 @@ from .ServiceRequest import (
 from .ServiceRequestSchemas import (
     ServiceRequestAttachment,
     ServiceRequestCreate,
+    ServiceRequestCreateResponse,
     ServiceRequestImageResponse,
     ServiceRequestProposalResponse,
     ServiceRequestResponse,
@@ -67,6 +68,8 @@ from .ServiceRequestSchemas import (
     ServiceRequestConfirmPayment,
     ServiceRequestUpdate,
     ServiceCancelRequest,
+    ClarificationStatus,
+    ClarificationResponse,
 )
 from .GeneralResponse import GeneralResponse
 
@@ -125,6 +128,7 @@ __all__ = [
     # Modelos Pydantic para ServiceRequest
     "ServiceRequestAttachment",
     "ServiceRequestCreate",
+    "ServiceRequestCreateResponse",
     "ServiceRequestImageResponse",
     "ServiceRequestProposalResponse",
     "ServiceRequestResponse",
@@ -132,6 +136,8 @@ __all__ = [
     "ServiceRequestConfirmPayment",
     "ServiceRequestUpdate",
     "ServiceCancelRequest",
+    "ClarificationStatus",
+    "ClarificationResponse",
     # Token
     "Token",
     "PushToken",

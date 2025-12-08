@@ -18,7 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import Spinner from '../../components/Spinner/Spinner';
 import styles from './RequestDetailScreen.styles';
 import { useMyAddresses } from '../../hooks/useAddresses';
-import { useCreateServiceRequest } from '../../hooks/useServiceRequests';
+import { useCreateServiceRequestWithAgent } from '../../hooks/useServiceRequests';
 import { uploadServiceRequestImage } from '../../services/images.service';
 import { rewriteWithAI } from '../../services/serviceRequests.service';
 
@@ -36,7 +36,8 @@ const RequestDetailScreen = () => {
   const [attachments, setAttachments] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
 
-  const createRequestMutation = useCreateServiceRequest();
+  // Hook para crear solicitud con agente inteligente
+  const createRequestMutation = useCreateServiceRequestWithAgent();
 
   const [isRewriting, setIsRewriting] = useState(false);
   const typingIntervalRef = useRef(null);
@@ -371,6 +372,72 @@ const RequestDetailScreen = () => {
     setAttachments([]);
   };
 
+  const handleRequestSuccess = (createdRequest, payload) => {
+    const createdType = createdRequest?.request_type ?? requestType;
+    resetForm();
+
+    if (createdType === 'FAST') {
+      navigation.navigate('FastMatch', {
+        requestId: createdRequest?.id,
+        animation: 'slide_from_right',
+      });
+      return;
+    }
+
+    if (createdType === 'LICITACION') {
+      const createdAddressId = createdRequest?.address_id ?? payload.address_id;
+      const selectedAddress = addressList.find((addr) => addr.id === createdAddressId);
+      const licitacionSummary = {
+        id: createdRequest?.id,
+        title: createdRequest?.title ?? payload.title,
+        description: createdRequest?.description ?? payload.description,
+        address:
+          createdRequest?.city_snapshot ??
+          selectedAddress?.full_address ??
+          'Dirección pendiente.',
+        created_at: createdRequest?.created_at ?? new Date().toISOString(),
+        bidding_deadline:
+          createdRequest?.bidding_deadline ?? payload.bidding_deadline ?? null,
+        status: createdRequest?.status ?? 'PUBLISHED',
+        proposal_count: createdRequest?.proposal_count ?? 0,
+        proposals: Array.isArray(createdRequest?.proposals)
+          ? createdRequest.proposals
+          : [],
+        attachments: Array.isArray(createdRequest?.attachments)
+          ? createdRequest.attachments
+          : payload.attachments ?? [],
+      };
+
+      navigation.navigate('Licitacion', {
+        requestId: createdRequest?.id,
+        requestSummary: licitacionSummary,
+        animation: 'slide_from_right',
+      });
+      return;
+    }
+
+    Alert.alert(
+      'Solicitud creada',
+      'Tu solicitud fue publicada exitosamente.',
+      [
+        {
+          text: 'Crear otra',
+          onPress: () => {
+            setRequestType(createdType);
+            setSelectedAddressId(
+              createdRequest?.address_id ?? selectedAddressId,
+            );
+          },
+        },
+        {
+          text: 'Ver mis solicitudes',
+          onPress: () => navigation.navigate('Requests', { animation: 'fade' }),
+        },
+      ],
+      { cancelable: false },
+    );
+  };
+
   const handleSubmit = () => {
     const payload = buildPayload();
     if (!payload) {
@@ -378,70 +445,23 @@ const RequestDetailScreen = () => {
     }
 
     createRequestMutation.mutate(payload, {
-      onSuccess: (createdRequest) => {
-        const createdType = createdRequest?.request_type ?? requestType;
-        resetForm();
-
-        if (createdType === 'FAST') {
-          navigation.navigate('FastMatch', {
-            requestId: createdRequest?.id,
-            animation: 'slide_from_right',
+      onSuccess: (result) => {
+        // Si el agente necesita clarificación, navegar a pantalla de chat
+        if (result?.status === 'needs_clarification') {
+          navigation.navigate('ClarificationChat', {
+            initialQuestion: result.clarification_question || '¿Podrías darnos más detalles sobre tu solicitud?',
+            initialOptions: result.suggested_options || [],
+            pendingData: result.pending_request_data,
+            initialClarificationCount: result.clarification_count || 1,
+            addressList: addressList,
           });
           return;
         }
 
-        if (createdType === 'LICITACION') {
-          const createdAddressId = createdRequest?.address_id ?? payload.address_id;
-          const selectedAddress = addressList.find((addr) => addr.id === createdAddressId);
-          const licitacionSummary = {
-            id: createdRequest?.id,
-            title: createdRequest?.title ?? payload.title,
-            description: createdRequest?.description ?? payload.description,
-            address:
-              createdRequest?.city_snapshot ??
-              selectedAddress?.full_address ??
-              'Dirección pendiente.',
-            created_at: createdRequest?.created_at ?? new Date().toISOString(),
-            bidding_deadline:
-              createdRequest?.bidding_deadline ?? payload.bidding_deadline ?? null,
-            status: createdRequest?.status ?? 'PUBLISHED',
-            proposal_count: createdRequest?.proposal_count ?? 0,
-            proposals: Array.isArray(createdRequest?.proposals)
-              ? createdRequest.proposals
-              : [],
-            attachments: Array.isArray(createdRequest?.attachments)
-              ? createdRequest.attachments
-              : payload.attachments ?? [],
-          };
-
-          navigation.navigate('Licitacion', {
-            requestId: createdRequest?.id,
-            requestSummary: licitacionSummary,
-            animation: 'slide_from_right',
-          });
-          return;
+        // Si se creó exitosamente
+        if (result?.status === 'completed' && result?.service_request) {
+          handleRequestSuccess(result.service_request, payload);
         }
-
-        Alert.alert(
-          'Solicitud creada',
-          'Tu solicitud fue publicada exitosamente.',
-          [
-            {
-              text: 'Crear otra',
-              onPress: () => {
-                setRequestType(createdType);
-                setSelectedAddressId(
-                  createdRequest?.address_id ?? selectedAddressId,
-                );
-              },
-            },
-            {
-              text: 'Ver mis solicitudes',
-              onPress: () => navigation.navigate('Requests', { animation: 'fade' }),
-            },
-          ],
-          { cancelable: false },
-        );
       },
       onError: (error) => {
         const status = error?.status ?? error?.response?.status;

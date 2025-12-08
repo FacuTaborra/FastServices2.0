@@ -30,6 +30,59 @@ export async function createServiceRequest(requestData) {
     }
 }
 
+/**
+ * Crear una solicitud usando el agente inteligente con soporte de clarificación.
+ * @param {Object} requestData - Payload con los datos de la solicitud.
+ * @returns {Promise<Object>} - Objeto con status, service_request o clarification_question.
+ */
+export async function createServiceRequestWithAgent(requestData) {
+    try {
+        console.log('🤖 Creando solicitud con agente inteligente...', {
+            request_type: requestData?.request_type,
+            address_id: requestData?.address_id,
+            attachments: requestData?.attachments?.length ?? 0,
+        });
+
+        const response = await api.post('/service-requests/with-agent', requestData);
+
+        if (response.data?.status === 'needs_clarification') {
+            console.log('❓ El agente necesita clarificación:', response.data?.clarification_question);
+        } else {
+            console.log('✅ Solicitud creada con agente, ID:', response.data?.service_request?.id);
+        }
+
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error creando solicitud con agente:', { status, message });
+        throw error;
+    }
+}
+
+/**
+ * Crear una solicitud después de proporcionar clarificación.
+ * @param {Object} clarificationData - Datos originales + respuesta de clarificación.
+ * @returns {Promise<Object>} - Solicitud creada regresada por la API.
+ */
+export async function createServiceRequestWithClarification(clarificationData) {
+    try {
+        console.log('💬 Creando solicitud con clarificación...', {
+            clarification_answer: clarificationData?.clarification_answer?.substring(0, 50),
+        });
+
+        const response = await api.post('/service-requests/with-clarification', clarificationData);
+
+        console.log('✅ Solicitud creada con clarificación, ID:', response.data?.id);
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error creando solicitud con clarificación:', { status, message });
+        throw error;
+    }
+}
+
 export async function getActiveServiceRequests() {
     try {
         console.log('📄 Obteniendo solicitudes activas del cliente...');
@@ -213,6 +266,8 @@ export async function rewriteWithAI(data) {
 
 export default {
     createServiceRequest,
+    createServiceRequestWithAgent,
+    createServiceRequestWithClarification,
     getActiveServiceRequests,
     getAllServiceRequests,
     getServiceRequest,

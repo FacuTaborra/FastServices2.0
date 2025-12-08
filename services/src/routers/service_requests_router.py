@@ -16,12 +16,14 @@ from models.ServiceRequestSchemas import (
     ServiceCancelRequest,
     ServiceRequestConfirmPayment,
     ServiceRequestCreate,
+    ServiceRequestCreateResponse,
     ServiceRequestResponse,
     ServiceRequestRewriteInput,
     ServiceRequestRewriteOutput,
     ServiceRequestUpdate,
     ServiceReviewCreate,
     PaymentHistoryItem,
+    ClarificationResponse,
 )
 from models.User import User
 
@@ -32,7 +34,8 @@ router = APIRouter(prefix="/service-requests", tags=["service_requests"])
     "",
     response_model=ServiceRequestResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Crear una solicitud de servicio",
+    summary="Crear una solicitud de servicio (método tradicional)",
+    description="Crea una solicitud usando el sistema tradicional de generación de tags.",
 )
 async def create_service_request_endpoint(
     payload: ServiceRequestCreate,
@@ -40,6 +43,54 @@ async def create_service_request_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> ServiceRequestResponse:
     return await ServiceRequestController.create_request(db, current_user, payload)
+
+
+@router.post(
+    "/with-agent",
+    response_model=ServiceRequestCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Crear solicitud con agente inteligente",
+    description="""
+    Crea una solicitud usando el agente LangGraph para generación inteligente de tags.
+    
+    Este endpoint puede devolver:
+    - **status: completed** - La solicitud fue creada exitosamente con los tags generados
+    - **status: needs_clarification** - El agente necesita más información para generar tags correctos
+    
+    Si el estado es `needs_clarification`, el cliente debe responder usando el endpoint
+    `/service-requests/with-clarification` enviando la respuesta a la pregunta.
+    """,
+)
+async def create_service_request_with_agent_endpoint(
+    payload: ServiceRequestCreate,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceRequestCreateResponse:
+    return await ServiceRequestController.create_request_with_agent(db, current_user, payload)
+
+
+@router.post(
+    "/with-clarification",
+    response_model=ServiceRequestCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Crear solicitud con respuesta de clarificación",
+    description="""
+    Crea una solicitud después de proporcionar información adicional solicitada por el agente.
+    
+    Usa este endpoint cuando el endpoint `/with-agent` devolvió `status: needs_clarification`.
+    Incluye la respuesta del usuario en el campo `clarification_answer` y el `clarification_count`.
+    
+    Este endpoint puede devolver:
+    - **status: completed** - La solicitud fue creada exitosamente
+    - **status: needs_clarification** - El agente necesita AÚN más información (máximo 3 preguntas)
+    """,
+)
+async def create_service_request_with_clarification_endpoint(
+    payload: ClarificationResponse,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceRequestResponse:
+    return await ServiceRequestController.create_request_with_clarification(db, current_user, payload)
 
 
 @router.get(

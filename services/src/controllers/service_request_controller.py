@@ -9,6 +9,7 @@ from models.ServiceRequest import ServiceRequest
 from models.ServiceRequestSchemas import (
     ServiceRequestConfirmPayment,
     ServiceRequestCreate,
+    ServiceRequestCreateResponse,
     ServiceRequestImageResponse,
     ServiceRequestProposalResponse,
     ServiceRequestTagResponse,
@@ -19,6 +20,8 @@ from models.ServiceRequestSchemas import (
     ServiceReviewCreate,
     ServiceReviewResponse,
     PaymentHistoryItem,
+    ClarificationResponse,
+    ClarificationStatus,
 )
 from models.User import User
 from services.service_request_service import ServiceRequestService
@@ -37,6 +40,77 @@ class ServiceRequestController:
             db, current_user=current_user, payload=payload
         )
         return ServiceRequestController._build_response(service_request)
+
+    @staticmethod
+    @error_handler(logger)
+    async def create_request_with_agent(
+        db: AsyncSession, current_user: User, payload: ServiceRequestCreate
+    ) -> ServiceRequestCreateResponse:
+        """
+        Crea una solicitud usando el agente LangGraph.
+        
+        Puede devolver la solicitud creada o una pregunta de clarificación.
+        """
+        result = await ServiceRequestService.create_service_request_with_agent(
+            db, current_user=current_user, payload=payload
+        )
+
+        if result["status"] == "needs_clarification":
+            return ServiceRequestCreateResponse(
+                status=ClarificationStatus.NEEDS_CLARIFICATION,
+                service_request=None,
+                clarification_question=result["clarification_question"],
+                suggested_options=result["suggested_options"],
+                clarification_count=result.get("clarification_count", 1),
+                pending_request_data=result["pending_request_data"],
+            )
+
+        return ServiceRequestCreateResponse(
+            status=ClarificationStatus.COMPLETED,
+            service_request=ServiceRequestController._build_response(
+                result["service_request"]
+            ),
+            clarification_question=None,
+            suggested_options=None,
+            clarification_count=None,
+            pending_request_data=None,
+        )
+
+    @staticmethod
+    @error_handler(logger)
+    async def create_request_with_clarification(
+        db: AsyncSession, current_user: User, payload: ClarificationResponse
+    ) -> ServiceRequestCreateResponse:
+        """
+        Crea una solicitud después de recibir una respuesta de clarificación.
+        Puede devolver otra clarificación si el agente necesita más info (máx 3).
+        """
+        result = await ServiceRequestService.create_service_request_with_clarification(
+            db, current_user=current_user, payload=payload
+        )
+
+        # Si necesita otra clarificación
+        if result["status"] == "needs_clarification":
+            return ServiceRequestCreateResponse(
+                status=ClarificationStatus.NEEDS_CLARIFICATION,
+                service_request=None,
+                clarification_question=result["clarification_question"],
+                suggested_options=result["suggested_options"],
+                clarification_count=result.get("clarification_count", 1),
+                pending_request_data=result["pending_request_data"],
+            )
+
+        # Solicitud creada exitosamente
+        return ServiceRequestCreateResponse(
+            status=ClarificationStatus.COMPLETED,
+            service_request=ServiceRequestController._build_response(
+                result["service_request"]
+            ),
+            clarification_question=None,
+            suggested_options=None,
+            clarification_count=None,
+            pending_request_data=None,
+        )
 
     @staticmethod
     @error_handler(logger)

@@ -34,7 +34,9 @@ from models.ServiceRequestSchemas import (
     ServiceRequestUpdate,
     ServiceReviewCreate,
     PaymentHistoryItem,
+    ClarificationResponse,
 )
+from services.tag_agent import TagGenerationStatus
 from models.User import User, UserRole
 from utils.error_handler import error_handler
 from controllers.tags_controllers import TagsController
@@ -136,6 +138,311 @@ class ServiceRequestService:
         )
 
         return request_with_relations
+
+    @staticmethod
+    @error_handler(logger)
+    async def create_service_request_with_agent(
+        db: AsyncSession, *, current_user: User, payload: ServiceRequestCreate
+    ) -> dict:
+        """
+        Crea una nueva solicitud usando el agente LangGraph para generar tags.
+
+        Este método puede devolver:
+        - La solicitud creada (si los tags se generaron exitosamente)
+        - Una solicitud de clarificación (si el agente necesita más información)
+
+        Args:
+            db: Sesión de base de datos
+            current_user: Usuario que crea la solicitud
+            payload: Datos de la solicitud
+
+        Returns:
+            Dict con:
+            - status: "completed" o "needs_clarification"
+            - service_request: La solicitud creada (si completed)
+            - clarification_question: Pregunta para el usuario (si needs_clarification)
+            - suggested_options: Opciones sugeridas
+            - pending_request_data: Datos para reenviar con la clarificación
+        """
+        ServiceRequestService._ensure_client_role(current_user)
+        await ServiceRequestService._validate_tags(db, payload.tag_ids)
+
+        if (
+            payload.request_type == ServiceRequestType.LICITACION
+            and payload.bidding_deadline is None
+        ):
+            now_ar = datetime.now(timezone(timedelta(hours=-3)))
+            payload.bidding_deadline = (now_ar + timedelta(hours=72)).replace(
+                tzinfo=None
+            )
+
+        address = await ServiceRequestService._get_user_address(
+            db, user_id=current_user.id, address_id=payload.address_id
+        )
+
+        ServiceRequestService._validate_temporal_fields(payload)
+
+        normalized_title = ServiceRequestService._resolve_title(
+            title=payload.title,
+            description=payload.description,
+            request_type=payload.request_type,
+        )
+
+        city_snapshot = address.city if address else None
+        lat_snapshot = address.latitude if address else None
+        lon_snapshot = address.longitude if address else None
+
+        new_request = ServiceRequest(
+            client_id=current_user.id,
+            address_id=payload.address_id,
+            title=normalized_title,
+            description=payload.description,
+            request_type=payload.request_type,
+            status=ServiceRequestStatus.PUBLISHED,
+            preferred_start_at=payload.preferred_start_at,
+            preferred_end_at=payload.preferred_end_at,
+            bidding_deadline=payload.bidding_deadline,
+            city_snapshot=city_snapshot,
+            lat_snapshot=lat_snapshot,
+            lon_snapshot=lon_snapshot,
+            created_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
+            updated_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
+        )
+
+        db.add(new_request)
+        await db.flush()
+
+        ServiceRequestService._validate_attachments(payload.attachments)
+        await ServiceRequestService._attach_images(
+            db, request_id=new_request.id, attachments=payload.attachments
+        )
+
+        await ServiceRequestService._attach_tags(
+            db,
+            request_id=new_request.id,
+            tag_ids=payload.tag_ids,
+        )
+
+        # Usar el nuevo agente con soporte de clarificación
+        tag_result = await TagsController.generate_tags_for_request_with_agent(
+            db, new_request
+        )
+
+        if tag_result.status == TagGenerationStatus.NEEDS_CLARIFICATION:
+            # Hacer rollback de la solicitud y devolver pregunta de clarificación
+            await db.rollback()
+
+            return {
+                "status": "needs_clarification",
+                "service_request": None,
+                "clarification_question": tag_result.clarification_question,
+                "suggested_options": tag_result.suggested_options,
+                "clarification_count": 1,  # Primera clarificación
+                "pending_request_data": {
+                    "original_title": payload.title,
+                    "original_description": payload.description,
+                    "request_type": payload.request_type.value
+                    if payload.request_type
+                    else None,
+                    "address_id": payload.address_id,
+                    "preferred_start_at": payload.preferred_start_at.isoformat()
+                    if payload.preferred_start_at
+                    else None,
+                    "preferred_end_at": payload.preferred_end_at.isoformat()
+                    if payload.preferred_end_at
+                    else None,
+                    "bidding_deadline": payload.bidding_deadline.isoformat()
+                    if payload.bidding_deadline
+                    else None,
+                    "tag_ids": payload.tag_ids,
+                    "attachments": [att.model_dump() for att in payload.attachments],
+                    "clarification_count": 1,
+                },
+            }
+
+        # Si hubo error en el agente, usamos el método tradicional como fallback
+        if tag_result.status == TagGenerationStatus.ERROR:
+            logger.warning(
+                "Error en agente LangGraph, usando método tradicional: %s",
+                tag_result.error_message,
+            )
+            await TagsController.generate_tags_for_service_request(
+                db,
+                new_request,
+                llm_controller.create_tags_for_request,
+            )
+
+        await db.commit()
+
+        request_with_relations = (
+            await ServiceRequestService._fetch_request_with_relations(
+                db, new_request.id
+            )
+        )
+
+        return {
+            "status": "completed",
+            "service_request": request_with_relations,
+            "clarification_question": None,
+            "suggested_options": None,
+            "pending_request_data": None,
+        }
+
+    @staticmethod
+    @error_handler(logger)
+    async def create_service_request_with_clarification(
+        db: AsyncSession, *, current_user: User, payload: ClarificationResponse
+    ) -> dict:
+        """
+        Crea una solicitud de servicio después de recibir una respuesta de clarificación.
+
+        Puede devolver otra clarificación si el agente necesita más información
+        y no se llegó al máximo de 3 clarificaciones.
+
+        Args:
+            db: Sesión de base de datos
+            current_user: Usuario que crea la solicitud
+            payload: Datos de la solicitud con la respuesta de clarificación
+
+        Returns:
+            Dict con status, service_request o clarification_question
+        """
+        ServiceRequestService._ensure_client_role(current_user)
+        await ServiceRequestService._validate_tags(db, payload.tag_ids)
+
+        current_count = payload.clarification_count
+        next_count = current_count + 1
+
+        if (
+            payload.request_type == ServiceRequestType.LICITACION
+            and payload.bidding_deadline is None
+        ):
+            now_ar = datetime.now(timezone(timedelta(hours=-3)))
+            payload.bidding_deadline = (now_ar + timedelta(hours=72)).replace(
+                tzinfo=None
+            )
+
+        address = await ServiceRequestService._get_user_address(
+            db, user_id=current_user.id, address_id=payload.address_id
+        )
+
+        normalized_title = ServiceRequestService._resolve_title(
+            title=payload.original_title,
+            description=payload.original_description,
+            request_type=payload.request_type,
+        )
+
+        city_snapshot = address.city if address else None
+        lat_snapshot = address.latitude if address else None
+        lon_snapshot = address.longitude if address else None
+
+        # Combinar la descripción original con la clarificación
+        enhanced_description = (
+            f"{payload.original_description}\n\n"
+            f"Información adicional: {payload.clarification_answer}"
+        )
+
+        new_request = ServiceRequest(
+            client_id=current_user.id,
+            address_id=payload.address_id,
+            title=normalized_title,
+            description=enhanced_description,
+            request_type=payload.request_type,
+            status=ServiceRequestStatus.PUBLISHED,
+            preferred_start_at=payload.preferred_start_at,
+            preferred_end_at=payload.preferred_end_at,
+            bidding_deadline=payload.bidding_deadline,
+            city_snapshot=city_snapshot,
+            lat_snapshot=lat_snapshot,
+            lon_snapshot=lon_snapshot,
+            created_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
+            updated_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
+        )
+
+        db.add(new_request)
+        await db.flush()
+
+        ServiceRequestService._validate_attachments(payload.attachments)
+        await ServiceRequestService._attach_images(
+            db, request_id=new_request.id, attachments=payload.attachments
+        )
+
+        await ServiceRequestService._attach_tags(
+            db,
+            request_id=new_request.id,
+            tag_ids=payload.tag_ids,
+        )
+
+        # Generar tags con la información de clarificación
+        tag_result = await TagsController.generate_tags_with_clarification(
+            db,
+            new_request,
+            original_title=payload.original_title or "",
+            original_description=payload.original_description,
+            clarification_answer=payload.clarification_answer,
+            clarification_count=current_count,
+        )
+
+        # Si necesita otra clarificación y no llegamos al máximo
+        if tag_result.status == TagGenerationStatus.NEEDS_CLARIFICATION:
+            await db.rollback()
+
+            return {
+                "status": "needs_clarification",
+                "service_request": None,
+                "clarification_question": tag_result.clarification_question,
+                "suggested_options": tag_result.suggested_options,
+                "clarification_count": next_count,
+                "pending_request_data": {
+                    "original_title": payload.original_title,
+                    "original_description": payload.original_description,
+                    "request_type": payload.request_type.value
+                    if payload.request_type
+                    else None,
+                    "address_id": payload.address_id,
+                    "preferred_start_at": payload.preferred_start_at.isoformat()
+                    if payload.preferred_start_at
+                    else None,
+                    "preferred_end_at": payload.preferred_end_at.isoformat()
+                    if payload.preferred_end_at
+                    else None,
+                    "bidding_deadline": payload.bidding_deadline.isoformat()
+                    if payload.bidding_deadline
+                    else None,
+                    "tag_ids": payload.tag_ids,
+                    "attachments": [att.model_dump() for att in payload.attachments],
+                    "clarification_count": next_count,
+                },
+            }
+
+        # Si hubo error, usar método tradicional como fallback
+        if tag_result.status == TagGenerationStatus.ERROR:
+            logger.warning(
+                "Error en agente con clarificación, usando método tradicional: %s",
+                tag_result.error_message,
+            )
+            await TagsController.generate_tags_for_service_request(
+                db,
+                new_request,
+                llm_controller.create_tags_for_request,
+            )
+
+        await db.commit()
+
+        request_with_relations = (
+            await ServiceRequestService._fetch_request_with_relations(
+                db, new_request.id
+            )
+        )
+
+        return {
+            "status": "completed",
+            "service_request": request_with_relations,
+            "clarification_question": None,
+            "suggested_options": None,
+            "clarification_count": 0,
+            "pending_request_data": None,
+        }
 
     @staticmethod
     def _ensure_client_role(user: User) -> None:

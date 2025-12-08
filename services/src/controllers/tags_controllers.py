@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import ProviderLicenseTag, ServiceRequestTag, Tag
+from services.tag_agent import TagGenerationResult, TagGenerationStatus, tag_agent
 
 logger = logging.getLogger(__name__)
 
@@ -270,3 +271,150 @@ class TagsController:
         # Permitimos a-z, 0-9 y ñ en el slug
         slug = re.sub(r"[^a-z0-9ñ]+", "-", value).strip("-")
         return slug[:120]
+
+    # =========================================================================
+    # NUEVOS MÉTODOS CON LANGGRAPH AGENT
+    # =========================================================================
+
+    @classmethod
+    async def generate_tags_for_request_with_agent(
+        cls,
+        db: AsyncSession,
+        service_request,
+    ) -> TagGenerationResult:
+        """
+        Genera tags para una solicitud usando el agente LangGraph.
+        
+        A diferencia del método original, este puede devolver una solicitud
+        de clarificación si la solicitud es muy ambigua.
+        
+        Args:
+            db: Sesión de base de datos
+            service_request: Modelo de solicitud de servicio
+            
+        Returns:
+            TagGenerationResult con tags o solicitud de clarificación
+        """
+        if service_request is None:
+            return TagGenerationResult(
+                status=TagGenerationStatus.ERROR,
+                error_message="No se proporcionó solicitud de servicio",
+            )
+
+        await db.flush()
+        await db.refresh(service_request, attribute_names=["tag_links"])
+
+        # Obtener datos de la solicitud
+        title = getattr(service_request, "title", "") or ""
+        description = getattr(service_request, "description", "") or ""
+        request_type = getattr(service_request, "request_type", None)
+        request_type_value = getattr(request_type, "value", None) if request_type else None
+        city = getattr(service_request, "city_snapshot", None)
+
+        # Llamar al agente
+        result = await tag_agent.generate_tags_for_request(
+            db=db,
+            title=title,
+            description=description,
+            request_type=request_type_value,
+            city=city,
+        )
+
+        # Si el agente generó tags exitosamente, adjuntarlos a la solicitud
+        if result.status == TagGenerationStatus.COMPLETED and result.tags:
+            await cls._attach_request_tags(db, service_request, result.tags)
+
+        return result
+
+    @classmethod
+    async def generate_tags_with_clarification(
+        cls,
+        db: AsyncSession,
+        service_request,
+        original_title: str,
+        original_description: str,
+        clarification_answer: str,
+        clarification_count: int = 1,
+    ) -> TagGenerationResult:
+        """
+        Genera tags después de recibir una respuesta de clarificación.
+        
+        Args:
+            db: Sesión de base de datos
+            service_request: Modelo de solicitud de servicio
+            original_title: Título original de la solicitud
+            original_description: Descripción original
+            clarification_answer: Respuesta del usuario a la clarificación
+            clarification_count: Número de clarificación actual (1-3)
+            
+        Returns:
+            TagGenerationResult con los tags generados o otra clarificación
+        """
+        if service_request is None:
+            return TagGenerationResult(
+                status=TagGenerationStatus.ERROR,
+                error_message="No se proporcionó solicitud de servicio",
+            )
+
+        await db.flush()
+        await db.refresh(service_request, attribute_names=["tag_links"])
+
+        request_type = getattr(service_request, "request_type", None)
+        request_type_value = getattr(request_type, "value", None) if request_type else None
+
+        # Llamar al agente con la clarificación
+        result = await tag_agent.generate_tags_with_clarification(
+            db=db,
+            original_title=original_title,
+            original_description=original_description,
+            clarification_answer=clarification_answer,
+            request_type=request_type_value,
+            clarification_count=clarification_count,
+        )
+
+        # Si el agente generó tags exitosamente, adjuntarlos
+        if result.status == TagGenerationStatus.COMPLETED and result.tags:
+            await cls._attach_request_tags(db, service_request, result.tags)
+
+        return result
+
+    @classmethod
+    async def generate_tags_for_license_with_agent(
+        cls,
+        db: AsyncSession,
+        license_model,
+    ) -> TagGenerationResult:
+        """
+        Genera tags para una licencia usando el agente LangGraph.
+        
+        Args:
+            db: Sesión de base de datos
+            license_model: Modelo de licencia del proveedor
+            
+        Returns:
+            TagGenerationResult con los tags generados
+        """
+        if license_model is None:
+            return TagGenerationResult(
+                status=TagGenerationStatus.ERROR,
+                error_message="No se proporcionó licencia",
+            )
+
+        await db.refresh(license_model, attribute_names=["tag_links"])
+
+        title = getattr(license_model, "title", "") or ""
+        description = getattr(license_model, "description", None)
+        issued_by = getattr(license_model, "issued_by", None)
+
+        result = await tag_agent.generate_tags_for_license(
+            db=db,
+            title=title,
+            description=description,
+            issued_by=issued_by,
+        )
+
+        # Si el agente generó tags exitosamente, adjuntarlos
+        if result.status == TagGenerationStatus.COMPLETED and result.tags:
+            await cls._attach_tags(db, license_model, result.tags)
+
+        return result

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -319,3 +320,98 @@ class ServiceRequestRewriteOutput(BaseModel):
         default=None,
         description="Tipo de solicitud recomendado: FAST (urgente) o LICITACION (puede esperar)",
     )
+
+
+# ============================================================================
+# SCHEMAS PARA CLARIFICACIÓN DE TAGS (LangGraph Agent)
+# ============================================================================
+
+
+class ClarificationStatus(str, Enum):
+    """Estado de la generación de tags con el agente LangGraph."""
+
+    COMPLETED = "completed"
+    NEEDS_CLARIFICATION = "needs_clarification"
+
+
+class ServiceRequestCreateResponse(BaseModel):
+    """
+    Respuesta al crear una solicitud de servicio.
+
+    Puede contener:
+    - La solicitud creada (status=completed)
+    - Una pregunta de clarificación (status=needs_clarification)
+    """
+
+    status: ClarificationStatus = Field(
+        ..., description="Estado: completed o needs_clarification"
+    )
+    service_request: Optional[ServiceRequestResponse] = Field(
+        default=None,
+        description="La solicitud creada (solo si status=completed)",
+    )
+    clarification_question: Optional[str] = Field(
+        default=None,
+        description="Pregunta para el cliente (solo si status=needs_clarification)",
+    )
+    suggested_options: Optional[List[str]] = Field(
+        default=None,
+        description="Opciones sugeridas para responder la clarificación",
+    )
+    clarification_count: Optional[int] = Field(
+        default=None,
+        description="Número de clarificación actual (solo si status=needs_clarification)",
+    )
+    pending_request_data: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Datos de la solicitud pendiente para reenviar con la clarificación",
+    )
+
+
+class ClarificationResponse(BaseModel):
+    """Payload para responder a una clarificación."""
+
+    original_title: Optional[str] = Field(None, max_length=150)
+    original_description: str = Field(..., min_length=20, max_length=2000)
+    clarification_answer: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Respuesta del cliente a la pregunta de clarificación",
+    )
+    clarification_count: int = Field(
+        default=1,
+        ge=1,
+        le=3,
+        description="Número de clarificación actual (1-3)",
+    )
+    request_type: ServiceRequestType = Field(
+        default=ServiceRequestType.FAST,
+        description="FAST (rápida) o LICITACION",
+    )
+    address_id: int = Field(
+        ..., description="Identificador de la dirección del cliente"
+    )
+    preferred_start_at: Optional[datetime] = Field(
+        None, description="Inicio deseado del servicio"
+    )
+    preferred_end_at: Optional[datetime] = Field(
+        None, description="Fin deseado del servicio"
+    )
+    bidding_deadline: Optional[datetime] = Field(
+        None,
+        description="Fecha límite para recibir propuestas (solo LICITACION)",
+    )
+    tag_ids: List[int] = Field(
+        default_factory=list,
+        description="Tags sugeridos para la solicitud",
+    )
+    attachments: List[ServiceRequestAttachment] = Field(
+        default_factory=list, description="Hasta 6 imágenes para la solicitud"
+    )
+
+    @field_validator("clarification_answer")
+    @classmethod
+    def normalize_answer(cls, value: str) -> str:
+        cleaned = " ".join(value.strip().split())
+        return cleaned
