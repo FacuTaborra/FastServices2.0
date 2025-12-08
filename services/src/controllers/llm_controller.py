@@ -1,4 +1,5 @@
 import json
+from typing import List
 
 from services.openai import OpenAIService
 from templates.prompts import (
@@ -13,19 +14,35 @@ class LLMController:
     def __init__(self):
         self.openai_service = OpenAIService()
 
-    def create_tag_of_licences(self, description: str):
+    def create_tag_of_licences(self, description: str, existing_tags: List[str] = None):
+        """Genera tags para una licencia, considerando tags existentes."""
+        tags_context = self._format_existing_tags(existing_tags)
+        system_prompt = GENERATE_TAGS_FOR_LICENCE_DESCRIPTION.format(
+            existing_tags=tags_context
+        )
         response = self.openai_service.run(
-            role_system=GENERATE_TAGS_FOR_LICENCE_DESCRIPTION,
+            role_system=system_prompt,
             message=f"{description}",
         )
         return response
 
-    def create_tags_for_request(self, payload: str):
+    def create_tags_for_request(self, payload: str, existing_tags: List[str] = None):
+        """Genera tags para una solicitud, considerando tags existentes."""
+        tags_context = self._format_existing_tags(existing_tags)
+        system_prompt = GENERATE_TAGS_FOR_REQUEST_DESCRIPTION.format(
+            existing_tags=tags_context
+        )
         response = self.openai_service.run(
-            role_system=GENERATE_TAGS_FOR_REQUEST_DESCRIPTION,
+            role_system=system_prompt,
             message=f"{payload}",
         )
         return response
+
+    def _format_existing_tags(self, tags: List[str] = None) -> str:
+        """Formatea la lista de tags para incluir en el prompt."""
+        if not tags:
+            return "No hay tags existentes aún. Puedes crear los que consideres apropiados."
+        return f"[{', '.join(tags)}]"
 
     def rewrite_service_request(self, title: str, description: str) -> dict:
         """Reescribe el título y descripción de una solicitud para hacerlos más claros."""

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Iterable, List, Sequence
+from typing import Callable, Iterable, List, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,14 +17,24 @@ class TagsController:
     """Expone utilidades para crear y asociar tags a licencias."""
 
     @classmethod
+    async def _get_all_tag_names(cls, db: AsyncSession) -> List[str]:
+        """Obtiene todos los nombres de tags existentes en la BD."""
+        result = await db.execute(select(Tag.name))
+        return [row[0] for row in result.fetchall()]
+
+    @classmethod
     async def generate_tags_for_licenses(
         cls,
         db: AsyncSession,
         licenses: Sequence,
-        raw_tag_generator,
+        raw_tag_generator: Callable[[str, List[str]], str],
     ) -> None:
         if not licenses:
             return
+
+        # Obtener tags existentes una sola vez
+        existing_tags = await cls._get_all_tag_names(db)
+        logger.info(f"Tags existentes para contexto: {len(existing_tags)}")
 
         for license_model in licenses:
             await db.refresh(license_model, attribute_names=["tag_links"])
@@ -33,7 +43,7 @@ class TagsController:
                 continue
 
             try:
-                raw_response = raw_tag_generator(prompt)
+                raw_response = raw_tag_generator(prompt, existing_tags)
             except Exception:  # pragma: no cover - solo logueamos
                 logger.exception(
                     "No se pudo obtener la sugerencia de tags del LLM para la licencia %s",
@@ -52,7 +62,7 @@ class TagsController:
         cls,
         db: AsyncSession,
         service_request,
-        raw_tag_generator,
+        raw_tag_generator: Callable[[str, List[str]], str],
     ) -> None:
         if service_request is None:
             return
@@ -60,12 +70,16 @@ class TagsController:
         await db.flush()
         await db.refresh(service_request, attribute_names=["tag_links"])
 
+        # Obtener tags existentes
+        existing_tags = await cls._get_all_tag_names(db)
+        logger.info(f"Tags existentes para contexto: {len(existing_tags)}")
+
         prompt = cls._compose_request_prompt(service_request)
         if not prompt:
             return
 
         try:
-            raw_response = raw_tag_generator(prompt)
+            raw_response = raw_tag_generator(prompt, existing_tags)
         except Exception:  # pragma: no cover - solo logueamos
             logger.exception(
                 "No se pudo obtener la sugerencia de tags del LLM para la solicitud %s",
