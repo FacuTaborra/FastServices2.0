@@ -187,6 +187,30 @@ export async function getPaymentHistory() {
     }
 }
 
+/**
+ * Reescribir título y descripción usando AI para hacerlos más claros.
+ * @param {Object} data - { title, description }
+ * @returns {Promise<Object>} - { title, description } reescritos
+ */
+export async function rewriteWithAI(data) {
+    try {
+        console.log('✨ Reescribiendo con AI...', {
+            titleLength: data?.title?.length ?? 0,
+            descriptionLength: data?.description?.length ?? 0,
+        });
+
+        const response = await api.post('/service-requests/rewrite', data);
+
+        console.log('✅ Reescritura completada');
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error reescribiendo con AI:', { status, message });
+        throw error;
+    }
+}
+
 export default {
     createServiceRequest,
     getActiveServiceRequests,
@@ -199,4 +223,5 @@ export default {
     markServiceInProgress,
     submitServiceReview,
     getPaymentHistory,
+    rewriteWithAI,
 };

@@ -301,3 +301,21 @@ class PaymentHistoryItem(BaseModel):
     status: ServiceStatus
 
     model_config = dict(from_attributes=True)
+
+
+class ServiceRequestRewriteInput(BaseModel):
+    """Payload para reescribir título y descripción con AI."""
+
+    title: str = Field(..., min_length=1, max_length=150)
+    description: str = Field(..., min_length=1, max_length=2000)
+
+
+class ServiceRequestRewriteOutput(BaseModel):
+    """Respuesta con título y descripción reescritos por AI."""
+
+    title: str
+    description: str
+    request_type: Optional[ServiceRequestType] = Field(
+        default=None,
+        description="Tipo de solicitud recomendado: FAST (urgente) o LICITACION (puede esperar)",
+    )

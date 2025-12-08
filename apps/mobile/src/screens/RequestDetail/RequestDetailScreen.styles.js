@@ -56,6 +56,15 @@ export default StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     backgroundColor: '#EEF2FF',
+    gap: 6,
+  },
+  rewriteButtonDisabled: {
+    opacity: 0.7,
+  },
+  rewriteButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6366F1',
   },
   rewriteIcon: {
     marginLeft: 4,

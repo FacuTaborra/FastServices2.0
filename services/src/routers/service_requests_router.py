@@ -10,11 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth.auth_utils import check_user_login
 from controllers.service_request_controller import ServiceRequestController
 from database.database import get_db
+from controllers.llm_controller import LLMController
+from models.ServiceRequest import ServiceRequestType
 from models.ServiceRequestSchemas import (
     ServiceCancelRequest,
     ServiceRequestConfirmPayment,
     ServiceRequestCreate,
     ServiceRequestResponse,
+    ServiceRequestRewriteInput,
+    ServiceRequestRewriteOutput,
     ServiceRequestUpdate,
     ServiceReviewCreate,
     PaymentHistoryItem,
@@ -72,6 +76,36 @@ async def get_payment_history_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> List[PaymentHistoryItem]:
     return await ServiceRequestController.get_payment_history(db, current_user)
+
+
+@router.post(
+    "/rewrite",
+    response_model=ServiceRequestRewriteOutput,
+    summary="Reescribir título y descripción con AI",
+)
+async def rewrite_service_request_endpoint(
+    payload: ServiceRequestRewriteInput,
+    current_user: User = Depends(check_user_login),
+) -> ServiceRequestRewriteOutput:
+    """Usa AI para reescribir el título y descripción de forma más clara."""
+    llm_controller = LLMController()
+    result = llm_controller.rewrite_service_request(
+        title=payload.title,
+        description=payload.description,
+    )
+
+    request_type_str = result.get("request_type", "").upper()
+    request_type = None
+    if request_type_str == "FAST":
+        request_type = ServiceRequestType.FAST
+    elif request_type_str == "LICITACION":
+        request_type = ServiceRequestType.LICITACION
+
+    return ServiceRequestRewriteOutput(
+        title=result.get("title", payload.title),
+        description=result.get("description", payload.description),
+        request_type=request_type,
+    )
 
 
 @router.get(

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import styles from './RequestDetailScreen.styles';
 import { useMyAddresses } from '../../hooks/useAddresses';
 import { useCreateServiceRequest } from '../../hooks/useServiceRequests';
 import { uploadServiceRequestImage } from '../../services/images.service';
+import { rewriteWithAI } from '../../services/serviceRequests.service';
 
 const MAX_ATTACHMENTS = 6;
 const MAX_BIDDING_WINDOW_MS = 72 * 60 * 60 * 1000;
@@ -36,6 +37,9 @@ const RequestDetailScreen = () => {
   const [selectedAddressId, setSelectedAddressId] = useState(null);
 
   const createRequestMutation = useCreateServiceRequest();
+
+  const [isRewriting, setIsRewriting] = useState(false);
+  const typingIntervalRef = useRef(null);
 
   useEffect(() => {
     if (!addressesQuery.isLoading && addressList.length > 0 && !selectedAddressId) {
@@ -200,7 +204,91 @@ const RequestDetailScreen = () => {
     );
   };
 
-  const handleRewriteDescription = () => { };
+  const animateTyping = useCallback((targetTitle, targetDescription, onComplete) => {
+    let titleIndex = 0;
+    let descIndex = 0;
+    let phase = 'title';
+
+    setTitle('');
+    setDescription('');
+
+    typingIntervalRef.current = setInterval(() => {
+      if (phase === 'title') {
+        if (titleIndex < targetTitle.length) {
+          setTitle(targetTitle.slice(0, titleIndex + 1));
+          titleIndex += 1;
+        } else {
+          phase = 'description';
+        }
+      } else if (phase === 'description') {
+        if (descIndex < targetDescription.length) {
+          setDescription(targetDescription.slice(0, descIndex + 1));
+          descIndex += 1;
+        } else {
+          clearInterval(typingIntervalRef.current);
+          typingIntervalRef.current = null;
+          if (onComplete) {
+            onComplete();
+          }
+        }
+      }
+    }, 15);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const handleRewriteDescription = async () => {
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+
+    if (!trimmedTitle && !trimmedDescription) {
+      Alert.alert(
+        'Campos vacíos',
+        'Escribí un título y una descripción antes de reescribir con AI.',
+      );
+      return;
+    }
+
+    if (trimmedDescription.length < 10) {
+      Alert.alert(
+        'Descripción muy corta',
+        'Escribí una descripción más detallada para que la AI pueda mejorarla.',
+      );
+      return;
+    }
+
+    setIsRewriting(true);
+
+    try {
+      const result = await rewriteWithAI({
+        title: trimmedTitle || 'Sin título',
+        description: trimmedDescription,
+      });
+
+      const newTitle = result.title || trimmedTitle;
+      const newDescription = result.description || trimmedDescription;
+
+      if (result.request_type && ['FAST', 'LICITACION'].includes(result.request_type)) {
+        setRequestType(result.request_type);
+      }
+
+      animateTyping(newTitle, newDescription, () => {
+        setIsRewriting(false);
+      });
+    } catch (error) {
+      setIsRewriting(false);
+      Alert.alert(
+        'Error al reescribir',
+        'No pudimos procesar tu solicitud. Intentá nuevamente.',
+      );
+    }
+  };
 
   const buildPayload = () => {
     const trimmedTitle = title.trim();
@@ -432,7 +520,26 @@ const RequestDetailScreen = () => {
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Título*</Text>
+          <View style={styles.labelRow}>
+            <Text style={[styles.label, styles.labelNoSpacing]}>Título*</Text>
+            <TouchableOpacity
+              style={[styles.rewriteButton, isRewriting && styles.rewriteButtonDisabled]}
+              activeOpacity={0.85}
+              onPress={handleRewriteDescription}
+              disabled={isRewriting}
+              accessibilityRole="button"
+              accessibilityLabel="Reescribir con AI"
+            >
+              {isRewriting ? (
+                <ActivityIndicator size="small" color="#6366F1" />
+              ) : (
+                <FontAwesome6 name="wand-magic-sparkles" size={14} color="#6366F1" />
+              )}
+              <Text style={styles.rewriteButtonText}>
+                {isRewriting ? 'Reescribiendo...' : 'Reescribir con AI'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <TextInput
             style={styles.textInput}
             placeholder="Ej: Instalación de lámpara en comedor"
@@ -447,18 +554,7 @@ const RequestDetailScreen = () => {
         </View>
 
         <View style={styles.formGroup}>
-          <View style={styles.labelRow}>
-            <Text style={[styles.label, styles.labelNoSpacing]}>Descripción*</Text>
-            <TouchableOpacity
-              style={styles.rewriteButton}
-              activeOpacity={0.85}
-              onPress={handleRewriteDescription}
-              accessibilityRole="button"
-              accessibilityLabel="Reescribir descripción"
-            >
-              <FontAwesome6 name="pen" size={16} color="black" />
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.label}>Descripción*</Text>
           <TextInput
             style={[styles.textInput, styles.multilineInput]}
             placeholder="Contanos qué necesitás. Incluí detalles, urgencia, materiales, etc."
