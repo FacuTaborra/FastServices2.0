@@ -162,3 +162,27 @@ export async function getProviderCurrencies() {
         throw error;
     }
 }
+
+/**
+ * Reescribir notas de presupuesto usando AI.
+ * @param {Object} data - { request_id, notes }
+ * @returns {Promise<Object>} - { notes } reescritas
+ */
+export async function rewriteProposalNotes(data) {
+    try {
+        console.log('✨ Reescribiendo notas con AI...', {
+            requestId: data?.request_id,
+            notesLength: data?.notes?.length ?? 0,
+        });
+
+        const response = await api.post('/providers/proposals/rewrite-notes', data);
+
+        console.log('✅ Reescritura de notas completada');
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error reescribiendo notas con AI:', { status, message });
+        throw error;
+    }
+}

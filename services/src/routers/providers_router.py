@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.database import get_db
 from models.ProviderProfile import (
@@ -13,10 +14,14 @@ from models.ProviderProfile import (
     ProviderOverviewKpisResponse,
     ProviderRevenueStatsResponse,
     ProviderRatingDistributionResponse,
+    ProposalNotesRewriteInput,
+    ProposalNotesRewriteOutput,
 )
 from models.User import UserRole
+from models.ServiceRequest import ServiceRequest
 from models.ServiceRequestSchemas import ServiceRequestResponse, CurrencyResponse
 from controllers.provider_controller import ProviderController
+from controllers.llm_controller import LLMController
 from auth.auth_utils import get_current_user
 
 router = APIRouter(prefix="/providers")
@@ -136,6 +141,46 @@ async def list_currencies(
         )
 
     return await ProviderController.list_currencies(db)
+
+
+@router.post(
+    "/proposals/rewrite-notes",
+    response_model=ProposalNotesRewriteOutput,
+    summary="Reescribir notas de presupuesto con AI",
+    description="Usa AI para mejorar la redacción de las notas de un presupuesto",
+)
+async def rewrite_proposal_notes_endpoint(
+    payload: ProposalNotesRewriteInput,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ProposalNotesRewriteOutput:
+    current_role = getattr(current_user.role, "value", current_user.role)
+    if current_role != UserRole.PROVIDER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: Solo para proveedores de servicios",
+        )
+
+    stmt = select(ServiceRequest).where(ServiceRequest.id == payload.request_id)
+    result = await db.execute(stmt)
+    service_request = result.scalar_one_or_none()
+
+    if not service_request:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="La solicitud indicada no existe",
+        )
+
+    llm_controller = LLMController()
+    rewritten = llm_controller.rewrite_proposal_notes(
+        request_title=service_request.title or "",
+        request_description=service_request.description or "",
+        notes=payload.notes,
+    )
+
+    return ProposalNotesRewriteOutput(
+        notes=rewritten.get("notes", payload.notes),
+    )
 
 
 @router.get(

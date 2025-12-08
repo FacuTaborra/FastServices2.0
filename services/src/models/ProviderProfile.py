@@ -513,3 +513,18 @@ class ProviderRatingDistributionResponse(BaseModel):
     points: List[ProviderRatingDistributionPoint] = Field(
         default_factory=list, description="Distribución mensual de calificaciones"
     )
+
+
+class ProposalNotesRewriteInput(BaseModel):
+    """Payload para reescribir notas de un presupuesto con AI."""
+
+    request_id: int = Field(..., gt=0, description="ID de la solicitud original")
+    notes: str = Field(
+        ..., min_length=1, max_length=500, description="Notas a reescribir"
+    )
+
+
+class ProposalNotesRewriteOutput(BaseModel):
+    """Respuesta con las notas reescritas por AI."""
+
+    notes: str = Field(..., description="Notas reescritas")

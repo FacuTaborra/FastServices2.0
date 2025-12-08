@@ -59,6 +59,32 @@ export default StyleSheet.create({
         letterSpacing: 0.8,
         marginBottom: 8,
     },
+    sectionLabelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    sectionLabelNoSpacing: {
+        marginBottom: 0,
+    },
+    rewriteButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 999,
+        backgroundColor: '#EEF2FF',
+        gap: 6,
+    },
+    rewriteButtonDisabled: {
+        opacity: 0.7,
+    },
+    rewriteButtonText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#6366F1',
+    },
     input: {
         borderRadius: 12,
         borderWidth: 1,

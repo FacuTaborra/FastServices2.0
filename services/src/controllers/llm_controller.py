@@ -5,6 +5,7 @@ from templates.prompts import (
     GENERATE_TAGS_FOR_LICENCE_DESCRIPTION,
     GENERATE_TAGS_FOR_REQUEST_DESCRIPTION,
     REWRITE_SERVICE_REQUEST,
+    REWRITE_PROPOSAL_NOTES,
 )
 
 
@@ -37,3 +38,20 @@ class LLMController:
             return json.loads(response)
         except json.JSONDecodeError:
             return {"title": title, "description": description}
+
+    def rewrite_proposal_notes(
+        self, request_title: str, request_description: str, notes: str
+    ) -> dict:
+        """Reescribe las notas de un presupuesto para hacerlas más claras."""
+        prompt = REWRITE_PROPOSAL_NOTES.format(
+            request_title=request_title or "Sin título",
+            request_description=request_description or "Sin descripción",
+        )
+        response = self.openai_service.run(
+            role_system=prompt,
+            message=f"Notas del prestador:\n{notes}",
+        )
+        try:
+            return json.loads(response)
+        except json.JSONDecodeError:
+            return {"notes": notes}

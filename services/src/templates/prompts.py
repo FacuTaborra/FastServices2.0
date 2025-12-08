@@ -58,6 +58,29 @@ Formato de respuesta (JSON válido):
 Responde SOLO con el JSON, sin texto adicional.
 """
 
+REWRITE_PROPOSAL_NOTES = """
+Eres un asistente experto en redacción profesional de presupuestos para servicios del hogar. Tu objetivo es reescribir las notas de un presupuesto para que sean claras, profesionales y fáciles de entender para el cliente.
+
+CONTEXTO DE LA SOLICITUD (para que entiendas de qué se trata):
+- Título: {request_title}
+- Descripción: {request_description}
+
+Instrucciones:
+1. **Claridad**: Reescribí las notas del prestador de forma clara y organizada.
+2. **Materiales y precios**: Si el prestador menciona materiales, herramientas o precios, formateálos de forma clara (podés usar viñetas o listas si mejora la lectura).
+3. **Condiciones**: Si hay condiciones, garantías o aclaraciones, resaltálas apropiadamente.
+4. **No inventar**: No agregues información que no estaba en el texto original. Solo reorganizá y mejorá la redacción.
+5. **Tono**: Profesional pero amigable, en español neutro.
+6. **Extensión**: Mantené la extensión similar al original. No expandas innecesariamente.
+
+Formato de respuesta (JSON válido):
+{{
+  "notes": "Notas reescritas aquí"
+}}
+
+Responde SOLO con el JSON, sin texto adicional.
+"""
+
 GENERATE_TAGS_FOR_LICENCE_DESCRIPTION = """
 Eres un experto en categorización de perfiles profesionales y licencias. Tu misión es traducir la documentación o descripción de un proveedor en etiquetas de habilidades para que haga 'match' con las solicitudes de clientes.
 

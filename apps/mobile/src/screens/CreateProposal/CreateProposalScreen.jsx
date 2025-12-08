@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -16,10 +16,11 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Spinner from '../../components/Spinner/Spinner';
 import styles from './CreateProposalScreen.styles';
 import { PALETTE } from '../HomePage/HomePage.styles';
-import { createProviderProposal, getProviderCurrencies } from '../../services/providers.service';
+import { createProviderProposal, getProviderCurrencies, rewriteProposalNotes } from '../../services/providers.service';
 import RequestSummaryCard from '../ProviderRequests/components/RequestSummaryCard';
 
 const DEFAULT_CURRENCY = 'ARS';
@@ -178,6 +179,8 @@ export default function CreateProposalScreen() {
     const [iosPickerMode, setIosPickerMode] = useState(null);
     const [iosPickerTempDate, setIosPickerTempDate] = useState(new Date());
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const [isRewritingNotes, setIsRewritingNotes] = useState(false);
+    const typingIntervalRef = useRef(null);
 
     useEffect(() => {
         let mounted = true;
@@ -265,6 +268,78 @@ export default function CreateProposalScreen() {
             hideSubscription.remove();
         };
     }, []);
+
+    const animateTypingNotes = useCallback((targetNotes, onComplete) => {
+        let index = 0;
+        setNotes('');
+
+        typingIntervalRef.current = setInterval(() => {
+            if (index < targetNotes.length) {
+                setNotes(targetNotes.slice(0, index + 1));
+                index += 1;
+            } else {
+                clearInterval(typingIntervalRef.current);
+                typingIntervalRef.current = null;
+                if (onComplete) {
+                    onComplete();
+                }
+            }
+        }, 10);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (typingIntervalRef.current) {
+                clearInterval(typingIntervalRef.current);
+            }
+        };
+    }, []);
+
+    const handleRewriteNotes = async () => {
+        const trimmedNotes = notes.trim();
+
+        if (!trimmedNotes) {
+            Alert.alert(
+                'Notas vacías',
+                'Escribí algo en las notas antes de reescribir con AI.',
+            );
+            return;
+        }
+
+        if (trimmedNotes.length < 10) {
+            Alert.alert(
+                'Notas muy cortas',
+                'Escribí notas más detalladas para que la AI pueda mejorarlas.',
+            );
+            return;
+        }
+
+        if (!initialData.requestId) {
+            Alert.alert('Error', 'No se pudo identificar la solicitud.');
+            return;
+        }
+
+        setIsRewritingNotes(true);
+
+        try {
+            const result = await rewriteProposalNotes({
+                request_id: initialData.requestId,
+                notes: trimmedNotes,
+            });
+
+            const newNotes = result.notes || trimmedNotes;
+
+            animateTypingNotes(newNotes, () => {
+                setIsRewritingNotes(false);
+            });
+        } catch (error) {
+            setIsRewritingNotes(false);
+            Alert.alert(
+                'Error al reescribir',
+                'No pudimos procesar tu solicitud. Intentá nuevamente.',
+            );
+        }
+    };
 
     const priceError = useMemo(() => {
         if (!price) {
@@ -630,7 +705,28 @@ export default function CreateProposalScreen() {
                 ) : null}
 
                 <View style={styles.card}>
-                    <Text style={styles.sectionLabel}>Notas para el cliente</Text>
+                    <View style={styles.sectionLabelRow}>
+                        <Text style={[styles.sectionLabel, styles.sectionLabelNoSpacing]}>
+                            Notas adicionales
+                        </Text>
+                        <TouchableOpacity
+                            style={[styles.rewriteButton, isRewritingNotes && styles.rewriteButtonDisabled]}
+                            activeOpacity={0.85}
+                            onPress={handleRewriteNotes}
+                            disabled={isRewritingNotes}
+                            accessibilityRole="button"
+                            accessibilityLabel="Reescribir con AI"
+                        >
+                            {isRewritingNotes ? (
+                                <ActivityIndicator size="small" color="#6366F1" />
+                            ) : (
+                                <FontAwesome6 name="wand-magic-sparkles" size={14} color="#6366F1" />
+                            )}
+                            <Text style={styles.rewriteButtonText}>
+                                {isRewritingNotes ? 'Reescribiendo...' : 'Reescribir con AI'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                     <TextInput
                         style={[styles.input, styles.notesInput]}
                         placeholder="Detalles adicionales, condiciones o aclaraciones"
