@@ -18,6 +18,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { parseISO, differenceInMilliseconds, differenceInCalendarDays, format, isValid } from 'date-fns';
+import { es } from 'date-fns/locale';
 import styles from './LicitacionScreen.styles';
 import {
     useActiveServiceRequests,
@@ -26,14 +28,25 @@ import {
 } from '../../hooks/useServiceRequests';
 
 const TIMER_TICK_INTERVAL_MS = 60 * 1000;
+const LICITACION_WINDOW_MS = 72 * 60 * 60 * 1000; // 72 horas en milisegundos
 
-const computeRemainingMs = (deadlineIso, nowMs) => {
-    const deadlineDate = parseIsoDate(deadlineIso);
-    if (!deadlineDate) {
-        return 0;
+// Calcular tiempo restante igual que FastMatch: created_at + ventana de tiempo
+const computeRemainingMs = (createdAtIso, nowMs) => {
+    if (!createdAtIso) {
+        return LICITACION_WINDOW_MS;
     }
 
-    return Math.max(0, deadlineDate.getTime() - nowMs);
+    const createdAt = parseISO(createdAtIso);
+    if (!isValid(createdAt)) {
+        return LICITACION_WINDOW_MS;
+    }
+
+    // Cuánto tiempo pasó desde que se creó
+    const elapsedMs = differenceInMilliseconds(nowMs, createdAt);
+    const safeElapsed = Math.max(0, elapsedMs);
+
+    // Tiempo restante = 72 horas - tiempo transcurrido
+    return Math.max(0, LICITACION_WINDOW_MS - safeElapsed);
 };
 
 const formatRemainingTime = (remainingMs, isClosed) => {
@@ -79,33 +92,18 @@ const getProposalIdentifier = (proposal) => {
 };
 
 const parseIsoDate = (isoDate) => {
-    if (!isoDate) {
-        return null;
-    }
+    if (!isoDate) return null;
+    if (isoDate instanceof Date) return isValid(isoDate) ? isoDate : null;
+    if (typeof isoDate !== 'string') return null;
 
-    if (isoDate instanceof Date) {
-        return Number.isNaN(isoDate.getTime()) ? null : isoDate;
-    }
+    const stringToParse = isoDate.trim();
+    if (!stringToParse) return null;
 
-    if (typeof isoDate !== 'string') {
-        return null;
-    }
-
-    const trimmed = isoDate.trim();
-    if (!trimmed) {
-        return null;
-    }
-
-    const hasExplicitTimezone = /[zZ]|[+-]\d{2}:\d{2}$/.test(trimmed);
-    const normalized = hasExplicitTimezone ? trimmed : `${trimmed}Z`;
-    const parsed = new Date(normalized);
-
-    if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-    }
-
-    const fallbackParsed = new Date(trimmed);
-    return Number.isNaN(fallbackParsed.getTime()) ? null : fallbackParsed;
+    // parseISO maneja correctamente ISO strings sin zona horaria (usa local)
+    // o con zona horaria. Es más robusto que new Date().
+    // El backend guarda en hora Argentina naive.
+    const parsed = parseISO(stringToParse);
+    return isValid(parsed) ? parsed : null;
 };
 
 const formatLongDate = (date) => {
@@ -327,8 +325,8 @@ export default function LicitacionScreen() {
     }, []);
 
     const remainingMs = useMemo(
-        () => computeRemainingMs(biddingDeadlineIso, nowMs),
-        [biddingDeadlineIso, nowMs],
+        () => computeRemainingMs(requestCreatedAt, nowMs),
+        [requestCreatedAt, nowMs],
     );
 
     const isClosed = useMemo(
@@ -1263,11 +1261,11 @@ export default function LicitacionScreen() {
                                 && styles.cancelButtonTextDisabled,
                             ]}
                         >
-                            Cancelar licitación
+                            Cancelar solicitud
                         </Text>
                     </TouchableOpacity>
                     <Text style={styles.helperCaption}>
-                        Las licitaciones permanecen abiertas por 72 horas. Podés cancelarla si ya no necesitás el servicio.
+                        Las solicitudes presupuestadas permanecen abiertas por 72 horas. Podés cancelarla si ya no necesitás el servicio.
                     </Text>
                 </View>
             </ScrollView>

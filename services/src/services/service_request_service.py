@@ -67,11 +67,11 @@ class ServiceRequestService:
             payload.request_type == ServiceRequestType.LICITACION
             and payload.bidding_deadline is None
         ):
-            now = datetime.now(timezone(timedelta(hours=-3)))
-            auto_deadline = (now + timedelta(hours=72)).replace(
-                minute=0, second=0, microsecond=0
+            # Guardar en hora Argentina (UTC-3) naive, consistente con created_at
+            now_ar = datetime.now(timezone(timedelta(hours=-3)))
+            payload.bidding_deadline = (now_ar + timedelta(hours=72)).replace(
+                tzinfo=None
             )
-            payload.bidding_deadline = auto_deadline
 
         address = await ServiceRequestService._get_user_address(
             db, user_id=current_user.id, address_id=payload.address_id
@@ -494,11 +494,11 @@ class ServiceRequestService:
                 has_changes = True
 
                 if payload.request_type == ServiceRequestType.LICITACION:
-                    now = datetime.now(timezone(timedelta(hours=-3)))
-                    bidding_deadline = (now + timedelta(hours=72)).replace(
-                        minute=0, second=0, microsecond=0
-                    )
-                    service_request.bidding_deadline = bidding_deadline
+                    # Guardar en hora Argentina (UTC-3) naive, consistente con created_at
+                    now_ar = datetime.now(timezone(timedelta(hours=-3)))
+                    service_request.bidding_deadline = (
+                        now_ar + timedelta(hours=72)
+                    ).replace(tzinfo=None)
                 elif payload.request_type == ServiceRequestType.FAST:
                     service_request.bidding_deadline = None
 
