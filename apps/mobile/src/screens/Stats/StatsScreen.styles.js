@@ -1,6 +1,9 @@
 import { StyleSheet } from 'react-native';
 
 export default StyleSheet.create({
+  // ═══════════════════════════════════════════════════════════════════
+  // BASE & LAYOUT
+  // ═══════════════════════════════════════════════════════════════════
   safeArea: {
     flex: 1,
     backgroundColor: '#f8faff',
@@ -9,6 +12,10 @@ export default StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 40,
   },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // HEADER
+  // ═══════════════════════════════════════════════════════════════════
   headerContainer: {
     marginTop: 16,
     marginBottom: 24,
@@ -29,44 +36,263 @@ export default StyleSheet.create({
     resizeMode: 'contain',
   },
   brandTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
     color: '#0f172a',
-  },
-  overviewRow: {
-    marginHorizontal: -20,
-    paddingLeft: 20,
-    marginBottom: 16,
-  },
-  overviewCarouselContent: {
-    paddingRight: 20,
-  },
-  overviewCardWrapper: {
-    height: '100%',
   },
   brandSubtitle: {
     fontSize: 14,
     color: '#64748b',
     marginTop: 2,
   },
-  sectionHeader: {
+  currencySelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  rangeToggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 4,
+    marginTop: 16,
     backgroundColor: '#e2e8f0',
     borderRadius: 24,
     padding: 4,
+    alignSelf: 'flex-start',
+  },
+  currencyButton: {
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  currencyButtonActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  currencyButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  currencyButtonTextActive: {
+    color: '#2563eb',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // SECTION HEADERS
+  // ═══════════════════════════════════════════════════════════════════
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // HISTORIC CARD (Tu historial)
+  // ═══════════════════════════════════════════════════════════════════
+  historicCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+    marginBottom: 24,
+  },
+  historicMainMetric: {
+    alignItems: 'center',
+    paddingBottom: 16,
+  },
+  historicMainLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  historicMainValue: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#0f172a',
+    letterSpacing: -1,
+  },
+  historicMainHelper: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 4,
+  },
+  historicDivider: {
+    height: 1,
+    backgroundColor: '#e2e8f0',
+    marginVertical: 16,
+  },
+  historicMetricsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  historicMetricItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  historicMetricDivider: {
+    width: 1,
+    backgroundColor: '#e2e8f0',
+    marginHorizontal: 8,
+  },
+  historicMetricValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  historicMetricLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748b',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  historicMetricHelper: {
+    fontSize: 10,
+    color: '#94a3b8',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  ratingValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  ratingMaxValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#94a3b8',
+    marginLeft: 2,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // CURRENT MONTH CARD (Este mes)
+  // ═══════════════════════════════════════════════════════════════════
+  currentMonthCard: {
+    backgroundColor: '#6366f1',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#6366f1',
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+    marginBottom: 24,
+  },
+  currentMonthLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  currentMonthMain: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  currentMonthRevenueContainer: {
+    flex: 1,
+  },
+  currentMonthLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 4,
+  },
+  currentMonthValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: -1,
+  },
+  currentMonthTrendBadge: {
+    alignItems: 'flex-end',
+    paddingLeft: 12,
+  },
+  currentMonthTrendText: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  currentMonthTrendHelper: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: 2,
+  },
+  currentMonthDetails: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  currentMonthDetailItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  currentMonthDetailDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginHorizontal: 8,
+  },
+  currentMonthDetailValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  currentMonthDetailLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
+  },
+  currentMonthPrevious: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
+    textAlign: 'center',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // TREND STYLES
+  // ═══════════════════════════════════════════════════════════════════
+  trendPositive: {
+    color: '#86efac',
+  },
+  trendNegative: {
+    color: '#fca5a5',
+  },
+  trendNeutral: {
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // RANGE TOGGLE
+  // ═══════════════════════════════════════════════════════════════════
+  rangeToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e2e8f0',
+    borderRadius: 24,
+    padding: 4,
+    marginBottom: 12,
   },
   rangeToggleButton: {
     flex: 1,
     borderRadius: 20,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   rangeToggleButtonActive: {
@@ -86,17 +312,43 @@ export default StyleSheet.create({
     color: '#2563eb',
     fontWeight: '600',
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#0f172a',
+
+  // ═══════════════════════════════════════════════════════════════════
+  // EVOLUTION TABS
+  // ═══════════════════════════════════════════════════════════════════
+  evolutionTabsContainer: {
+    flexDirection: 'row',
     marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
-  kpiCard: {
+  evolutionTab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  evolutionTabActive: {
+    borderBottomColor: '#6366f1',
+  },
+  evolutionTabText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#64748b',
+  },
+  evolutionTabTextActive: {
+    color: '#6366f1',
+    fontWeight: '600',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // EVOLUTION CARD
+  // ═══════════════════════════════════════════════════════════════════
+  evolutionCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
+    borderRadius: 20,
+    padding: 20,
     shadowColor: '#0f172a',
     shadowOpacity: 0.05,
     shadowRadius: 12,
@@ -104,104 +356,93 @@ export default StyleSheet.create({
     elevation: 3,
     marginBottom: 16,
   },
-  kpiCardCompact: {
-    flex: 1,
-    marginHorizontal: 6,
-    marginBottom: 0,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    minHeight: 112,
-  },
-  kpiLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#475569',
-    marginBottom: 6,
-  },
-  kpiValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  kpiValueCompact: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 6,
-  },
-  kpiHelper: {
-    fontSize: 13,
-    color: '#64748b',
-  },
-  trendText: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  trendPositive: {
-    color: '#16a34a',
-  },
-  trendNegative: {
-    color: '#dc2626',
-  },
-  trendNeutral: {
-    color: '#64748b',
-  },
-  revenueCard: {
-    paddingBottom: 12,
-  },
-  revenueDivider: {
-    height: 1,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 12,
-  },
-  revenueLoading: {
+  evolutionLoading: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 24,
   },
-  revenueLoadingLabel: {
+  evolutionLoadingLabel: {
     marginTop: 8,
     fontSize: 14,
     color: '#475569',
   },
-  revenueEmpty: {
-    paddingVertical: 16,
-  },
-  revenueEmptyText: {
-    fontSize: 14,
-    color: '#64748b',
-  },
-  revenueError: {
-    paddingVertical: 16,
+  evolutionEmpty: {
+    paddingVertical: 24,
     alignItems: 'center',
   },
-  revenueErrorText: {
+  evolutionEmptyText: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  evolutionError: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  evolutionErrorText: {
     fontSize: 14,
     color: '#dc2626',
     textAlign: 'center',
+    marginBottom: 12,
   },
-  retryButtonSecondary: {
-    marginTop: 10,
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: '#2563eb',
+  evolutionSummary: {
+    flexDirection: 'row',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
   },
-  retryButtonSecondaryText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
+  evolutionSummaryItem: {
+    flex: 1,
+    alignItems: 'center',
   },
+  evolutionSummaryDivider: {
+    width: 1,
+    backgroundColor: '#e2e8f0',
+    marginHorizontal: 8,
+  },
+  evolutionSummaryLabel: {
+    fontSize: 11,
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  evolutionSummaryValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  evolutionDivider: {
+    height: 1,
+    backgroundColor: '#e2e8f0',
+    marginBottom: 16,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // REVENUE ITEMS
+  // ═══════════════════════════════════════════════════════════════════
   revenueItem: {
-    marginBottom: 14,
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  revenueItemCurrent: {
+    backgroundColor: '#f0fdf4',
+    marginHorizontal: -12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    borderRadius: 12,
+    borderBottomWidth: 0,
   },
   revenueItemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  revenueMonthContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   revenueMonth: {
     fontSize: 15,
@@ -211,7 +452,7 @@ export default StyleSheet.create({
   },
   revenueAmount: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#0f172a',
   },
   revenueBarTrack: {
@@ -230,47 +471,42 @@ export default StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
   },
-  ratingCard: {
-    paddingBottom: 12,
+  currentMonthBadge: {
+    backgroundColor: '#22c55e',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 8,
   },
-  ratingLoading: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
+  currentMonthBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#ffffff',
   },
-  ratingLoadingLabel: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#475569',
-  },
-  ratingError: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  ratingErrorText: {
-    fontSize: 14,
-    color: '#dc2626',
-    textAlign: 'center',
-  },
-  ratingEmpty: {
-    paddingVertical: 16,
-  },
-  ratingEmptyText: {
-    fontSize: 14,
-    color: '#64748b',
-    textAlign: 'center',
-  },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // RATING ITEMS
+  // ═══════════════════════════════════════════════════════════════════
   ratingItem: {
     marginBottom: 18,
+    paddingBottom: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
   ratingItemLast: {
     marginBottom: 0,
+    paddingBottom: 0,
+    borderBottomWidth: 0,
   },
   ratingItemHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 10,
+  },
+  ratingMonthContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   ratingMonth: {
     fontSize: 15,
@@ -330,6 +566,10 @@ export default StyleSheet.create({
     color: '#94a3b8',
     marginTop: 4,
   },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // LOADING & ERROR STATES
+  // ═══════════════════════════════════════════════════════════════════
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
@@ -373,6 +613,18 @@ export default StyleSheet.create({
   retryButtonText: {
     color: '#ffffff',
     fontSize: 15,
+    fontWeight: '600',
+  },
+  retryButtonSecondary: {
+    marginTop: 10,
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: '#2563eb',
+  },
+  retryButtonSecondaryText: {
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '600',
   },
 });

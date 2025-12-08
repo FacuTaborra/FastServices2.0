@@ -476,6 +476,9 @@ class ProviderRevenueStatsResponse(BaseModel):
     points: List[ProviderRevenuePoint] = Field(
         default_factory=list, description="Datos mensuales de facturación"
     )
+    server_current_month: Optional[str] = Field(
+        None, description="Mes actual según el servidor (debug)"
+    )
 
 
 class ProviderRatingBucket(BaseModel):
@@ -512,6 +515,9 @@ class ProviderRatingDistributionResponse(BaseModel):
     range_months: int = Field(..., description="Cantidad de meses considerados")
     points: List[ProviderRatingDistributionPoint] = Field(
         default_factory=list, description="Distribución mensual de calificaciones"
+    )
+    server_current_month: Optional[str] = Field(
+        None, description="Mes actual según el servidor (debug)"
     )
 
 

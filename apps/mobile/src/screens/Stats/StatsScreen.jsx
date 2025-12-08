@@ -7,7 +7,6 @@ import {
   RefreshControl,
   TouchableOpacity,
   Image,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -27,6 +26,10 @@ const toNumber = (value) => {
 };
 
 const RANGE_MONTH_OPTIONS = [3, 6, 12];
+const EVOLUTION_TABS = [
+  { key: 'revenue', label: 'Ingresos' },
+  { key: 'satisfaction', label: 'Satisfacción' },
+];
 const RATING_COLORS = {
   5: '#15803d',
   4: '#22c55e',
@@ -36,13 +39,11 @@ const RATING_COLORS = {
 };
 const brandIcon = require('../../../assets/icon.png');
 
-const WINDOW_WIDTH = Dimensions.get('window').width;
-const OVERVIEW_CARD_WIDTH = Math.max(240, WINDOW_WIDTH - 80);
-const OVERVIEW_CARD_GAP = 12;
-
 export default function StatsScreen() {
   const { data: currenciesData } = useProviderCurrencies();
   const [selectedCurrency, setSelectedCurrency] = useState(null);
+  const [selectedRange, setSelectedRange] = useState(6);
+  const [evolutionTab, setEvolutionTab] = useState('revenue');
 
   useEffect(() => {
     if (currenciesData?.length > 0 && !selectedCurrency) {
@@ -58,8 +59,6 @@ export default function StatsScreen() {
     error,
     refetch,
   } = useProviderOverviewStats(selectedCurrency);
-
-  const [selectedRange, setSelectedRange] = useState(6);
 
   const {
     data: revenueData,
@@ -88,6 +87,14 @@ export default function StatsScreen() {
     || (revenueFetching && !revenueLoading)
     || (ratingFetching && !ratingLoading);
 
+  // Debug: Log del mes actual del servidor
+  useEffect(() => {
+    if (revenueData?.server_current_month) {
+      console.log('📊 Stats Debug - Mes actual del servidor:', revenueData.server_current_month);
+      console.log('📊 Stats Debug - Meses disponibles:', revenueData.points?.map((p) => p.month));
+    }
+  }, [revenueData]);
+
   const overviewCurrency = typeof data?.currency === 'string' && data.currency
     ? data.currency
     : null;
@@ -102,43 +109,129 @@ export default function StatsScreen() {
       if (!Number.isFinite(numeric)) {
         return `${currency} 0`;
       }
+
+      // Mapear códigos de moneda no estándar a códigos ISO válidos
+      const currencyMap = {
+        ARG: 'ARS', // Peso Argentino
+      };
+      const isoCurrency = currencyMap[currency] || currency;
+
       try {
         return numeric.toLocaleString('es-AR', {
           style: 'currency',
-          currency,
+          currency: isoCurrency,
           minimumFractionDigits: numeric % 1 === 0 ? 0 : 2,
           maximumFractionDigits: 2,
         });
       } catch (formatError) {
-        return `${currency} ${numeric.toFixed(2)}`;
+        // Fallback con símbolo manual
+        const symbols = { USD: 'US$', ARS: '$', ARG: '$' };
+        const symbol = symbols[currency] || currency;
+        const formatted = numeric.toLocaleString('es-AR', {
+          minimumFractionDigits: numeric % 1 === 0 ? 0 : 2,
+          maximumFractionDigits: 2,
+        });
+        return `${symbol} ${formatted}`;
       }
     },
     [currency],
   );
 
+  // Parsear fecha YYYY-MM-01 evitando problemas de timezone
+  const parseMonthKey = useCallback((value) => {
+    if (!value) return null;
+    // Parsear manualmente para evitar problemas de timezone
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1; // JavaScript months are 0-indexed
+    return new Date(year, month, 1, 12, 0, 0); // Usar mediodía para evitar issues de DST
+  }, []);
+
   const formatMonthLabel = useCallback((value) => {
     if (!value) {
       return '—';
     }
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
+    const parsed = parseMonthKey(value);
+    if (!parsed || Number.isNaN(parsed.getTime())) {
       return value;
     }
     return parsed.toLocaleDateString('es-AR', {
       month: 'short',
       year: 'numeric',
     });
-  }, []);
+  }, [parseMonthKey]);
 
-  const revenuePoints = useMemo(
-    () => (Array.isArray(revenueData?.points) ? revenueData.points : []),
-    [revenueData],
-  );
+  // Mes actual según el servidor (más confiable) o fallback al dispositivo
+  const serverCurrentMonth = revenueData?.server_current_month;
 
-  const ratingPoints = useMemo(
-    () => (Array.isArray(ratingData?.points) ? ratingData.points : []),
-    [ratingData],
-  );
+  const currentMonthKey = useMemo(() => {
+    // Usar el mes del servidor si está disponible
+    if (serverCurrentMonth) {
+      return serverCurrentMonth;
+    }
+    // Fallback: usar la fecha del dispositivo
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}-01`;
+  }, [serverCurrentMonth]);
+
+  // Nombre del mes actual para mostrar en la UI
+  const currentMonthName = useMemo(() => {
+    // Si tenemos el mes del servidor, usarlo para el nombre
+    if (currentMonthKey) {
+      const parsed = parseMonthKey(currentMonthKey);
+      if (parsed && !Number.isNaN(parsed.getTime())) {
+        const monthName = parsed.toLocaleDateString('es-AR', { month: 'long' });
+        const year = parsed.getFullYear();
+        return `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`;
+      }
+    }
+    // Fallback
+    const now = new Date();
+    const monthName = now.toLocaleDateString('es-AR', { month: 'long' });
+    const year = now.getFullYear();
+    return `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`;
+  }, [currentMonthKey, parseMonthKey]);
+
+  // Puntos ordenados de más reciente a más antiguo (descendente)
+  const revenuePoints = useMemo(() => {
+    const points = Array.isArray(revenueData?.points) ? revenueData.points : [];
+    return [...points].reverse();
+  }, [revenueData]);
+
+  const ratingPoints = useMemo(() => {
+    const points = Array.isArray(ratingData?.points) ? ratingData.points : [];
+    return [...points].reverse();
+  }, [ratingData]);
+
+  // Función para verificar si un punto es del mes actual (usa el mes del servidor)
+  const isCurrentMonth = useCallback((monthKey) => {
+    if (!monthKey || !currentMonthKey) return false;
+    return monthKey === currentMonthKey;
+  }, [currentMonthKey]);
+
+  // Datos del mes actual - el primer punto (más reciente) después del reverse
+  const currentMonthData = useMemo(() => {
+    if (revenuePoints.length === 0) return null;
+    // El mes actual debería ser el primero (más reciente) después del reverse
+    return revenuePoints[0];
+  }, [revenuePoints]);
+
+  // Datos del mes anterior - el segundo punto después del reverse
+  const previousMonthData = useMemo(() => {
+    if (revenuePoints.length < 2) return null;
+    return revenuePoints[1];
+  }, [revenuePoints, currentMonthKey]);
+
+  // Calcular variación mensual
+  const monthlyChange = useMemo(() => {
+    const currentRevenue = toNumber(currentMonthData?.total_revenue) ?? 0;
+    const previousRevenue = toNumber(previousMonthData?.total_revenue) ?? 0;
+    if (previousRevenue === 0) return null;
+    return ((currentRevenue - previousRevenue) / previousRevenue) * 100;
+  }, [currentMonthData, previousMonthData]);
 
   const hasRatingActivity = useMemo(
     () => ratingPoints.some((point) => Number(point?.total_reviews) > 0),
@@ -203,6 +296,7 @@ export default function StatsScreen() {
     );
   }
 
+  // Datos históricos del overview
   const totalServices = toNumber(data?.total_services) ?? 0;
   const completedServices = toNumber(data?.completed_services) ?? 0;
   const totalProposals = toNumber(data?.total_proposals) ?? 0;
@@ -210,55 +304,273 @@ export default function StatsScreen() {
   const acceptanceRate = toNumber(data?.acceptance_rate);
   const averageRating = toNumber(data?.average_rating);
   const totalReviews = toNumber(data?.total_reviews) ?? 0;
-  const totalRevenue = toNumber(data?.total_revenue) ?? 0;
-  const previousRevenue = toNumber(data?.revenue_previous_month) ?? 0;
-  const revenueChange = toNumber(data?.revenue_change_percentage);
+  const totalRevenueHistoric = toNumber(data?.total_revenue) ?? 0;
 
-  const revenueDisplay = formatCurrency(totalRevenue);
-  const previousRevenueDisplay = formatCurrency(previousRevenue);
+  // Datos del mes actual
+  const currentMonthRevenue = toNumber(currentMonthData?.total_revenue) ?? 0;
+  const currentMonthServices = Number(currentMonthData?.completed_services) || 0;
+  const currentMonthAvgTicket = toNumber(currentMonthData?.avg_ticket);
+
+  // Formateo de displays
+  const historicRevenueDisplay = formatCurrency(totalRevenueHistoric);
+  const currentMonthRevenueDisplay = formatCurrency(currentMonthRevenue);
+  const previousMonthRevenueDisplay = previousMonthData
+    ? formatCurrency(toNumber(previousMonthData?.total_revenue) ?? 0)
+    : null;
+
   const acceptanceDisplay = acceptanceRate !== null
     ? `${acceptanceRate.toFixed(1)}%`
     : 'Sin datos';
   const proposalsBreakdown = totalProposals > 0
-    ? `${acceptedProposals} de ${totalProposals} propuestas`
+    ? `${acceptedProposals} aceptadas de ${totalProposals}`
     : 'Aún sin propuestas';
   const ratingDisplay = averageRating !== null
-    ? `${averageRating.toFixed(2)} / 5`
-    : 'Sin calificaciones';
+    ? averageRating.toFixed(2)
+    : '—';
   const reviewsSubtitle = totalReviews === 0
-    ? 'Sin reseñas registradas'
+    ? 'Sin reseñas'
     : totalReviews === 1
       ? '1 reseña'
       : `${totalReviews} reseñas`;
-  const revenueTrendLabel = revenueChange !== null
-    ? `${revenueChange > 0 ? '+' : ''}${revenueChange.toFixed(1)}%`
-    : 'Sin datos';
-  const revenueTrendStyle = revenueChange === null
+
+  const monthlyChangeLabel = monthlyChange !== null
+    ? `${monthlyChange > 0 ? '+' : ''}${monthlyChange.toFixed(1)}%`
+    : null;
+  const monthlyChangeStyle = monthlyChange === null
     ? styles.trendNeutral
-    : revenueChange >= 0
+    : monthlyChange >= 0
       ? styles.trendPositive
       : styles.trendNegative;
 
-  const overviewMetrics = [
-    {
-      key: 'rating',
-      label: 'Calificación promedio',
-      value: ratingDisplay,
-      helper: reviewsSubtitle,
-    },
-    {
-      key: 'acceptance',
-      label: 'Tasa de aceptación',
-      value: acceptanceDisplay,
-      helper: proposalsBreakdown,
-    },
-    {
-      key: 'services',
-      label: 'Servicios atendidos',
-      value: totalServices,
-      helper: `${completedServices} completados`,
-    },
-  ];
+  const renderRevenueEvolution = () => {
+    if (revenueLoading && !revenueData) {
+      return (
+        <View style={styles.evolutionLoading}>
+          <ActivityIndicator size="small" color="#6366f1" />
+          <Text style={styles.evolutionLoadingLabel}>Cargando ingresos...</Text>
+        </View>
+      );
+    }
+
+    if (revenueError) {
+      return (
+        <View style={styles.evolutionError}>
+          <Text style={styles.evolutionErrorText}>
+            No pudimos cargar los ingresos para este período.
+          </Text>
+          <TouchableOpacity style={styles.retryButtonSecondary} onPress={refetchRevenue}>
+            <Text style={styles.retryButtonSecondaryText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (revenuePoints.length === 0) {
+      return (
+        <View style={styles.evolutionEmpty}>
+          <Text style={styles.evolutionEmptyText}>
+            Aún no registramos servicios completados en este rango.
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <>
+        <View style={styles.evolutionSummary}>
+          <View style={styles.evolutionSummaryItem}>
+            <Text style={styles.evolutionSummaryLabel}>Total del período</Text>
+            <Text style={styles.evolutionSummaryValue}>{formatCurrency(totalRevenueWindow)}</Text>
+          </View>
+          <View style={styles.evolutionSummaryDivider} />
+          <View style={styles.evolutionSummaryItem}>
+            <Text style={styles.evolutionSummaryLabel}>Ticket promedio</Text>
+            <Text style={styles.evolutionSummaryValue}>
+              {aggregatedAvgTicket !== null ? formatCurrency(aggregatedAvgTicket) : '—'}
+            </Text>
+          </View>
+          <View style={styles.evolutionSummaryDivider} />
+          <View style={styles.evolutionSummaryItem}>
+            <Text style={styles.evolutionSummaryLabel}>Servicios</Text>
+            <Text style={styles.evolutionSummaryValue}>{totalServicesWindow}</Text>
+          </View>
+        </View>
+
+        <View style={styles.evolutionDivider} />
+
+        {revenuePoints.map((point) => {
+          const revenueValue = toNumber(point?.total_revenue);
+          const safeRevenueValue = revenueValue !== null ? revenueValue : 0;
+          const avgTicketValue = toNumber(point?.avg_ticket);
+          const servicesCount = Number(point?.completed_services) || 0;
+          const rawWidth = maxRevenue > 0
+            ? (safeRevenueValue / maxRevenue) * 100
+            : 0;
+          const barWidth = safeRevenueValue > 0
+            ? Math.max(12, rawWidth)
+            : 0;
+          const isCurrent = isCurrentMonth(point.month);
+
+          return (
+            <View
+              key={point.month}
+              style={[styles.revenueItem, isCurrent && styles.revenueItemCurrent]}
+            >
+              <View style={styles.revenueItemHeader}>
+                <View style={styles.revenueMonthContainer}>
+                  <Text style={styles.revenueMonth}>{formatMonthLabel(point.month)}</Text>
+                  {isCurrent && (
+                    <View style={styles.currentMonthBadge}>
+                      <Text style={styles.currentMonthBadgeText}>Actual</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.revenueAmount}>{formatCurrency(safeRevenueValue)}</Text>
+              </View>
+              <View style={styles.revenueBarTrack}>
+                <View style={[styles.revenueBarFill, { width: `${Math.min(barWidth, 100)}%` }]} />
+              </View>
+              <Text style={styles.revenueTicket}>
+                {avgTicketValue !== null
+                  ? `Ticket: ${formatCurrency(avgTicketValue)}`
+                  : 'Sin ticket'} · {servicesCount}{' '}
+                {servicesCount === 1 ? 'servicio' : 'servicios'}
+              </Text>
+            </View>
+          );
+        })}
+      </>
+    );
+  };
+
+  const renderSatisfactionEvolution = () => {
+    if (ratingLoading && !ratingData) {
+      return (
+        <View style={styles.evolutionLoading}>
+          <ActivityIndicator size="small" color="#6366f1" />
+          <Text style={styles.evolutionLoadingLabel}>Cargando calificaciones...</Text>
+        </View>
+      );
+    }
+
+    if (ratingError) {
+      return (
+        <View style={styles.evolutionError}>
+          <Text style={styles.evolutionErrorText}>
+            No pudimos cargar la distribución de reseñas para este período.
+          </Text>
+          <TouchableOpacity style={styles.retryButtonSecondary} onPress={refetchRatings}>
+            <Text style={styles.retryButtonSecondaryText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (!hasRatingActivity) {
+      return (
+        <View style={styles.evolutionEmpty}>
+          <Text style={styles.evolutionEmptyText}>
+            Aún no registramos reseñas en este rango.
+          </Text>
+        </View>
+      );
+    }
+
+    return ratingPoints.map((point, index) => {
+      const pointTotalReviews = Number(point?.total_reviews) || 0;
+      const averageRatingValue = toNumber(point?.average_rating);
+      const buckets = Array.isArray(point?.buckets) ? point.buckets : [];
+      const orderedBuckets = [5, 4, 3, 2, 1].map((rating) => {
+        const match = buckets.find((bucket) => Number(bucket.rating) === rating);
+        return {
+          rating,
+          count: match ? Number(match.count) || 0 : 0,
+        };
+      });
+      const segments = orderedBuckets.filter((bucket) => bucket.count > 0);
+      const isCurrent = isCurrentMonth(point.month);
+      const isLast = index === ratingPoints.length - 1;
+
+      return (
+        <View
+          key={point.month}
+          style={[
+            styles.ratingItem,
+            isLast ? styles.ratingItemLast : null,
+          ]}
+        >
+          <View style={styles.ratingItemHeader}>
+            <View>
+              <View style={styles.ratingMonthContainer}>
+                <Text style={styles.ratingMonth}>{formatMonthLabel(point.month)}</Text>
+                {isCurrent && (
+                  <View style={styles.currentMonthBadge}>
+                    <Text style={styles.currentMonthBadgeText}>Actual</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.ratingTotal}>
+                {pointTotalReviews === 1 ? '1 reseña' : `${pointTotalReviews} reseñas`}
+              </Text>
+            </View>
+            <View style={styles.ratingAverageBadge}>
+              <Text style={styles.ratingAverageBadgeText}>
+                {averageRatingValue !== null
+                  ? `${averageRatingValue.toFixed(2)} / 5`
+                  : 'Sin datos'}
+              </Text>
+            </View>
+          </View>
+
+          {pointTotalReviews === 0 ? (
+            <Text style={styles.ratingEmptyMonth}>Sin reseñas en este mes.</Text>
+          ) : (
+            <>
+              <View style={styles.ratingBarTrack}>
+                {segments.map((bucket) => (
+                  <View
+                    key={`${point.month}-${bucket.rating}`}
+                    style={[
+                      styles.ratingBarSegment,
+                      {
+                        flex: bucket.count,
+                        backgroundColor: RATING_COLORS[bucket.rating] || '#94a3b8',
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+
+              <View style={styles.ratingLegendRow}>
+                {orderedBuckets.map((bucket) => {
+                  if (!bucket.count) {
+                    return null;
+                  }
+
+                  return (
+                    <View
+                      key={`legend-${point.month}-${bucket.rating}`}
+                      style={styles.ratingLegendItem}
+                    >
+                      <View
+                        style={[
+                          styles.ratingLegendSwatch,
+                          { backgroundColor: RATING_COLORS[bucket.rating] || '#94a3b8' },
+                        ]}
+                      />
+                      <Text style={styles.ratingLegendLabel}>
+                        {`${bucket.rating}★: ${bucket.count}`}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </>
+          )}
+        </View>
+      );
+    });
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -272,95 +584,160 @@ export default function StatsScreen() {
           />
         )}
       >
+        {/* ═══════════════════════════════════════════════════════════════════
+            HEADER
+        ═══════════════════════════════════════════════════════════════════ */}
         <View style={styles.headerContainer}>
           <View style={styles.headerRow}>
             <View style={styles.brandRow}>
               <Image source={brandIcon} style={styles.brandIcon} />
               <View>
-                <Text style={styles.brandTitle}>Fast Services</Text>
-                <Text style={styles.brandSubtitle}>Estadísticas</Text>
+                <Text style={styles.brandTitle}>Tus Estadísticas</Text>
+                <Text style={styles.brandSubtitle}>Fast Services</Text>
               </View>
+            </View>
+          </View>
+
+          {currenciesData?.length > 1 && (
+            <View style={styles.currencySelector}>
+              {currenciesData.map((curr) => {
+                const isActive = selectedCurrency === curr.code;
+                return (
+                  <TouchableOpacity
+                    key={curr.code}
+                    style={[
+                      styles.currencyButton,
+                      isActive && styles.currencyButtonActive,
+                    ]}
+                    onPress={() => setSelectedCurrency(curr.code)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
+                  >
+                    <Text
+                      style={[
+                        styles.currencyButtonText,
+                        isActive && styles.currencyButtonTextActive,
+                      ]}
+                    >
+                      {curr.code}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            SECCIÓN 1: RESUMEN HISTÓRICO
+        ═══════════════════════════════════════════════════════════════════ */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Tu historial</Text>
+          <Text style={styles.sectionSubtitle}>Acumulado total</Text>
+        </View>
+
+        <View style={styles.historicCard}>
+          <View style={styles.historicMainMetric}>
+            <Text style={styles.historicMainLabel}>Total facturado</Text>
+            <Text style={styles.historicMainValue}>{historicRevenueDisplay}</Text>
+            <Text style={styles.historicMainHelper}>Desde que comenzaste en Fast Services</Text>
+          </View>
+
+          <View style={styles.historicDivider} />
+
+          <View style={styles.historicMetricsGrid}>
+            <View style={styles.historicMetricItem}>
+              <Text style={styles.historicMetricValue}>{completedServices}</Text>
+              <Text style={styles.historicMetricLabel}>Servicios completados</Text>
+              <Text style={styles.historicMetricHelper}>{totalServices} totales</Text>
+            </View>
+
+            <View style={styles.historicMetricDivider} />
+
+            <View style={styles.historicMetricItem}>
+              <View style={styles.ratingValueContainer}>
+                <Text style={styles.historicMetricValue}>{ratingDisplay}</Text>
+                <Text style={styles.ratingMaxValue}>/5</Text>
+              </View>
+              <Text style={styles.historicMetricLabel}>Calificación promedio</Text>
+              <Text style={styles.historicMetricHelper}>{reviewsSubtitle}</Text>
+            </View>
+
+            <View style={styles.historicMetricDivider} />
+
+            <View style={styles.historicMetricItem}>
+              <Text style={styles.historicMetricValue}>{acceptanceDisplay}</Text>
+              <Text style={styles.historicMetricLabel}>Tasa de aceptación</Text>
+              <Text style={styles.historicMetricHelper}>{proposalsBreakdown}</Text>
             </View>
           </View>
         </View>
 
-        {currenciesData?.length > 0 && (
-          <View style={[styles.rangeToggleRow, { marginBottom: 20, marginTop: 0 }]}>
-            {currenciesData.map((curr) => {
-              const isActive = selectedCurrency === curr.code;
-              return (
-                <TouchableOpacity
-                  key={curr.code}
-                  style={[
-                    styles.rangeToggleButton,
-                    isActive && styles.rangeToggleButtonActive,
-                  ]}
-                  onPress={() => setSelectedCurrency(curr.code)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isActive }}
-                >
-                  <Text
-                    style={[
-                      styles.rangeToggleText,
-                      isActive && styles.rangeToggleTextActive,
-                    ]}
-                  >
-                    {curr.code}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
+        {/* ═══════════════════════════════════════════════════════════════════
+            SECCIÓN 2: ESTE MES
+        ═══════════════════════════════════════════════════════════════════ */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Panorama general</Text>
-          {isFetching ? <ActivityIndicator size="small" color="#6366f1" /> : null}
+          <Text style={styles.sectionTitle}>Este mes</Text>
+          <Text style={styles.sectionSubtitle}>{currentMonthName}</Text>
         </View>
 
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiLabel}>Facturación acumulada</Text>
-          <Text style={styles.kpiValue}>{revenueDisplay}</Text>
-          <Text style={[styles.trendText, revenueTrendStyle]}>
-            Variación vs. mes anterior: {revenueTrendLabel}
-          </Text>
-          <Text style={styles.kpiHelper}>Mes anterior: {previousRevenueDisplay}</Text>
-        </View>
+        <View style={styles.currentMonthCard}>
+          {revenueLoading && !currentMonthData ? (
+            <View style={styles.currentMonthLoading}>
+              <ActivityIndicator size="small" color="#6366f1" />
+            </View>
+          ) : (
+            <>
+              <View style={styles.currentMonthMain}>
+                <View style={styles.currentMonthRevenueContainer}>
+                  <Text style={styles.currentMonthLabel}>Facturación</Text>
+                  <Text style={styles.currentMonthValue}>{currentMonthRevenueDisplay}</Text>
+                </View>
+                {monthlyChangeLabel && (
+                  <View style={[styles.currentMonthTrendBadge, monthlyChangeStyle]}>
+                    <Text style={[styles.currentMonthTrendText, monthlyChangeStyle]}>
+                      {monthlyChangeLabel}
+                    </Text>
+                    <Text style={styles.currentMonthTrendHelper}>vs. mes anterior</Text>
+                  </View>
+                )}
+              </View>
 
-        <View style={styles.overviewRow}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            snapToInterval={OVERVIEW_CARD_WIDTH + OVERVIEW_CARD_GAP}
-            decelerationRate="fast"
-            snapToAlignment="start"
-            contentContainerStyle={styles.overviewCarouselContent}
-          >
-            {overviewMetrics.map((metric, index) => (
-              <View
-                key={metric.key}
-                style={[
-                  styles.overviewCardWrapper,
-                  {
-                    width: OVERVIEW_CARD_WIDTH,
-                    marginRight:
-                      index === overviewMetrics.length - 1 ? 0 : OVERVIEW_CARD_GAP,
-                  },
-                ]}
-              >
-                <View style={[styles.kpiCard, styles.kpiCardCompact]}>
-                  <Text style={styles.kpiLabel}>{metric.label}</Text>
-                  <Text style={styles.kpiValueCompact}>{metric.value}</Text>
-                  <Text style={styles.kpiHelper}>{metric.helper}</Text>
+              <View style={styles.currentMonthDetails}>
+                <View style={styles.currentMonthDetailItem}>
+                  <Text style={styles.currentMonthDetailValue}>{currentMonthServices}</Text>
+                  <Text style={styles.currentMonthDetailLabel}>
+                    {currentMonthServices === 1 ? 'servicio' : 'servicios'}
+                  </Text>
+                </View>
+                <View style={styles.currentMonthDetailDivider} />
+                <View style={styles.currentMonthDetailItem}>
+                  <Text style={styles.currentMonthDetailValue}>
+                    {currentMonthAvgTicket !== null
+                      ? formatCurrency(currentMonthAvgTicket)
+                      : '—'}
+                  </Text>
+                  <Text style={styles.currentMonthDetailLabel}>ticket promedio</Text>
                 </View>
               </View>
-            ))}
-          </ScrollView>
+
+              {previousMonthRevenueDisplay && (
+                <Text style={styles.currentMonthPrevious}>
+                  Mes anterior: {previousMonthRevenueDisplay}
+                </Text>
+              )}
+            </>
+          )}
         </View>
 
+        {/* ═══════════════════════════════════════════════════════════════════
+            SECCIÓN 3: EVOLUCIÓN
+        ═══════════════════════════════════════════════════════════════════ */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Ingresos y ticket promedio</Text>
-          {revenueFetching ? <ActivityIndicator size="small" color="#6366f1" /> : null}
+          <Text style={styles.sectionTitle}>Evolución</Text>
+          {(revenueFetching || ratingFetching) && (
+            <ActivityIndicator size="small" color="#6366f1" />
+          )}
         </View>
 
         <View style={styles.rangeToggleRow}>
@@ -390,191 +767,29 @@ export default function StatsScreen() {
           })}
         </View>
 
-        <View style={[styles.kpiCard, styles.revenueCard]}>
-          {revenueLoading && !revenueData ? (
-            <View style={styles.revenueLoading}>
-              <ActivityIndicator size="small" color="#6366f1" />
-              <Text style={styles.revenueLoadingLabel}>Cargando ingresos...</Text>
-            </View>
-          ) : revenueError ? (
-            <View style={styles.revenueError}>
-              <Text style={styles.revenueErrorText}>
-                No pudimos cargar los ingresos para este período.
-              </Text>
+        <View style={styles.evolutionTabsContainer}>
+          {EVOLUTION_TABS.map((tab) => {
+            const isActive = evolutionTab === tab.key;
+            return (
               <TouchableOpacity
-                style={styles.retryButtonSecondary}
-                onPress={refetchRevenue}
+                key={tab.key}
+                style={[styles.evolutionTab, isActive && styles.evolutionTabActive]}
+                onPress={() => setEvolutionTab(tab.key)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isActive }}
               >
-                <Text style={styles.retryButtonSecondaryText}>Reintentar</Text>
+                <Text style={[styles.evolutionTabText, isActive && styles.evolutionTabTextActive]}>
+                  {tab.label}
+                </Text>
               </TouchableOpacity>
-            </View>
-          ) : revenuePoints.length === 0 ? (
-            <View style={styles.revenueEmpty}>
-              <Text style={styles.revenueEmptyText}>
-                Aún no registramos servicios completados en este rango.
-              </Text>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.kpiLabel}>Total periodo seleccionado</Text>
-              <Text style={styles.kpiValue}>{formatCurrency(totalRevenueWindow)}</Text>
-              <Text style={styles.kpiHelper}>
-                Ticket promedio: {aggregatedAvgTicket !== null
-                  ? formatCurrency(aggregatedAvgTicket)
-                  : 'Sin datos'} · {totalServicesWindow}{' '}
-                {totalServicesWindow === 1 ? 'servicio completado' : 'servicios completados'}
-              </Text>
-              <View style={styles.revenueDivider} />
-              {revenuePoints.map((point) => {
-                const revenueValue = toNumber(point?.total_revenue);
-                const safeRevenueValue = revenueValue !== null ? revenueValue : 0;
-                const avgTicketValue = toNumber(point?.avg_ticket);
-                const servicesCount = Number(point?.completed_services) || 0;
-                const rawWidth = maxRevenue > 0
-                  ? (safeRevenueValue / maxRevenue) * 100
-                  : 0;
-                const barWidth = safeRevenueValue > 0
-                  ? Math.max(12, rawWidth)
-                  : 0;
-
-                return (
-                  <View key={point.month} style={styles.revenueItem}>
-                    <View style={styles.revenueItemHeader}>
-                      <Text style={styles.revenueMonth}>{formatMonthLabel(point.month)}</Text>
-                      <Text style={styles.revenueAmount}>{formatCurrency(safeRevenueValue)}</Text>
-                    </View>
-                    <View style={styles.revenueBarTrack}>
-                      <View style={[styles.revenueBarFill, { width: `${Math.min(barWidth, 100)}%` }]} />
-                    </View>
-                    <Text style={styles.revenueTicket}>
-                      Ticket promedio: {avgTicketValue !== null
-                        ? formatCurrency(avgTicketValue)
-                        : 'Sin datos'} · {servicesCount}{' '}
-                      {servicesCount === 1 ? 'servicio' : 'servicios'}
-                    </Text>
-                  </View>
-                );
-              })}
-            </>
-          )}
+            );
+          })}
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Satisfacción de clientes</Text>
-          {ratingFetching ? <ActivityIndicator size="small" color="#6366f1" /> : null}
-        </View>
-
-        <View style={[styles.kpiCard, styles.ratingCard]}>
-          {ratingLoading && !ratingData ? (
-            <View style={styles.ratingLoading}>
-              <ActivityIndicator size="small" color="#6366f1" />
-              <Text style={styles.ratingLoadingLabel}>Cargando calificaciones...</Text>
-            </View>
-          ) : ratingError ? (
-            <View style={styles.ratingError}>
-              <Text style={styles.ratingErrorText}>
-                No pudimos cargar la distribución de reseñas para este período.
-              </Text>
-              <TouchableOpacity
-                style={styles.retryButtonSecondary}
-                onPress={refetchRatings}
-              >
-                <Text style={styles.retryButtonSecondaryText}>Reintentar</Text>
-              </TouchableOpacity>
-            </View>
-          ) : !hasRatingActivity ? (
-            <View style={styles.ratingEmpty}>
-              <Text style={styles.ratingEmptyText}>
-                Aún no registramos reseñas en este rango.
-              </Text>
-            </View>
-          ) : (
-            ratingPoints.map((point, index) => {
-              const totalReviews = Number(point?.total_reviews) || 0;
-              const averageRatingValue = toNumber(point?.average_rating);
-              const buckets = Array.isArray(point?.buckets) ? point.buckets : [];
-              const orderedBuckets = [5, 4, 3, 2, 1].map((rating) => {
-                const match = buckets.find((bucket) => Number(bucket.rating) === rating);
-                return {
-                  rating,
-                  count: match ? Number(match.count) || 0 : 0,
-                };
-              });
-              const segments = orderedBuckets.filter((bucket) => bucket.count > 0);
-
-              return (
-                <View
-                  key={point.month}
-                  style={[
-                    styles.ratingItem,
-                    index === ratingPoints.length - 1 ? styles.ratingItemLast : null,
-                  ]}
-                >
-                  <View style={styles.ratingItemHeader}>
-                    <View>
-                      <Text style={styles.ratingMonth}>{formatMonthLabel(point.month)}</Text>
-                      <Text style={styles.ratingTotal}>
-                        {totalReviews === 1 ? '1 reseña' : `${totalReviews} reseñas`}
-                      </Text>
-                    </View>
-                    <View style={styles.ratingAverageBadge}>
-                      <Text style={styles.ratingAverageBadgeText}>
-                        {averageRatingValue !== null
-                          ? `${averageRatingValue.toFixed(2)} / 5`
-                          : 'Sin datos'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {totalReviews === 0 ? (
-                    <Text style={styles.ratingEmptyMonth}>Sin reseñas en este mes.</Text>
-                  ) : (
-                    <>
-                      <View style={styles.ratingBarTrack}>
-                        {segments.map((bucket) => (
-                          <View
-                            key={`${point.month}-${bucket.rating}`}
-                            style={[
-                              styles.ratingBarSegment,
-                              {
-                                flex: bucket.count,
-                                backgroundColor: RATING_COLORS[bucket.rating] || '#94a3b8',
-                              },
-                            ]}
-                          />
-                        ))}
-                      </View>
-
-                      <View style={styles.ratingLegendRow}>
-                        {orderedBuckets.map((bucket) => {
-                          if (!bucket.count) {
-                            return null;
-                          }
-
-                          return (
-                            <View
-                              key={`legend-${point.month}-${bucket.rating}`}
-                              style={styles.ratingLegendItem}
-                            >
-                              <View
-                                style={[
-                                  styles.ratingLegendSwatch,
-                                  { backgroundColor: RATING_COLORS[bucket.rating] || '#94a3b8' },
-                                ]}
-                              />
-                              <Text style={styles.ratingLegendLabel}>
-                                {`${bucket.rating} estrellas: ${bucket.count}`}
-                              </Text>
-                            </View>
-                          );
-                        })}
-                      </View>
-                    </>
-                  )}
-                </View>
-              );
-            })
-          )}
+        <View style={styles.evolutionCard}>
+          {evolutionTab === 'revenue'
+            ? renderRevenueEvolution()
+            : renderSatisfactionEvolution()}
         </View>
       </ScrollView>
     </SafeAreaView>

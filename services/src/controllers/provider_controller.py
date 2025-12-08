@@ -1571,9 +1571,11 @@ class ProviderController:
 
         normalized_months = max(1, min(months, 12))
 
-        # Usar hora actual Argentina (UTC-3)
-        now_utc = datetime.now(timezone(timedelta(hours=-3))).replace(
-            day=1, hour=0, minute=0, second=0, microsecond=0
+        # Usar fecha actual Argentina (UTC-3) - incluye el mes actual
+        argentina_tz = timezone(timedelta(hours=-3))
+        now_argentina = datetime.now(argentina_tz)
+        current_month_start = datetime(
+            now_argentina.year, now_argentina.month, 1, 0, 0, 0, tzinfo=argentina_tz
         )
 
         def _add_months(date_value: datetime, offset: int) -> datetime:
@@ -1587,7 +1589,8 @@ class ProviderController:
                 year -= 1
             return date_value.replace(year=year, month=month, day=1)
 
-        start_month = _add_months(now_utc, -(normalized_months - 1))
+        # Calcular el mes de inicio: retrocedemos (months - 1) meses desde el actual
+        start_month = _add_months(current_month_start, -(normalized_months - 1))
         start_month_naive = start_month.replace(tzinfo=None)
 
         completed_history_subq = (
@@ -1706,10 +1709,14 @@ class ProviderController:
 
             month_cursor = _add_months(month_cursor, 1)
 
+        # Incluir el mes actual del servidor para diagnóstico
+        server_current_month = current_month_start.strftime("%Y-%m-01")
+
         return ProviderRevenueStatsResponse(
             range_months=normalized_months,
             currency=currency_code,
             points=points,
+            server_current_month=server_current_month,
         )
 
     @staticmethod
@@ -1733,9 +1740,11 @@ class ProviderController:
 
         normalized_months = max(1, min(months, 12))
 
-        # Usar hora actual Argentina (UTC-3)
-        now_utc = datetime.now(timezone(timedelta(hours=-3))).replace(
-            day=1, hour=0, minute=0, second=0, microsecond=0
+        # Usar fecha actual Argentina (UTC-3) - incluye el mes actual
+        argentina_tz = timezone(timedelta(hours=-3))
+        now_argentina = datetime.now(argentina_tz)
+        current_month_start = datetime(
+            now_argentina.year, now_argentina.month, 1, 0, 0, 0, tzinfo=argentina_tz
         )
 
         def _add_months(date_value: datetime, offset: int) -> datetime:
@@ -1749,7 +1758,8 @@ class ProviderController:
                 year -= 1
             return date_value.replace(year=year, month=month, day=1)
 
-        start_month = _add_months(now_utc, -(normalized_months - 1))
+        # Calcular el mes de inicio: retrocedemos (months - 1) meses desde el actual
+        start_month = _add_months(current_month_start, -(normalized_months - 1))
         start_month_naive = start_month.replace(tzinfo=None)
 
         period_expr = func.date_format(ServiceReview.created_at, "%Y-%m-01")
@@ -1841,9 +1851,13 @@ class ProviderController:
 
             month_cursor = _add_months(month_cursor, 1)
 
+        # Incluir el mes actual del servidor para diagnóstico
+        server_current_month = current_month_start.strftime("%Y-%m-01")
+
         return ProviderRatingDistributionResponse(
             range_months=normalized_months,
             points=points,
+            server_current_month=server_current_month,
         )
 
 
