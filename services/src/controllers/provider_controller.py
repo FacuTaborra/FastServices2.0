@@ -59,6 +59,11 @@ logger = logging.getLogger(__name__)
 
 llm_controller = LLMController()
 
+# Fee de gestión (2%) - el proveedor no debe ver este monto en sus stats
+# porque es el cargo que se le cobra al cliente, no ingreso del proveedor
+MANAGEMENT_FEE_RATE = Decimal("0.02")
+PROVIDER_NET_DIVISOR = Decimal("1") + MANAGEMENT_FEE_RATE  # 1.02
+
 
 def _normalize_to_utc_naive(value: Optional[datetime]) -> Optional[datetime]:
     """Devuelve un datetime naive en UTC-3 (Argentina) para almacenar o comparar."""
@@ -1312,12 +1317,21 @@ class ProviderController:
                 )
                 break
 
+        # Calcular precio neto (sin el 2% de fee de gestión que es para la plataforma)
+        net_total_price = (
+            (service.total_price / PROVIDER_NET_DIVISOR).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            if service.total_price is not None
+            else None
+        )
+
         return ProviderServiceResponse(
             id=service.id,
             status=service.status,
             scheduled_start_at=service.scheduled_start_at,
             scheduled_end_at=service.scheduled_end_at,
-            total_price=service.total_price,
+            total_price=net_total_price,
             quoted_price=quoted_price,
             currency=currency,
             proposal_id=service.proposal_id,
@@ -1393,8 +1407,10 @@ class ProviderController:
             .subquery()
         )
 
+        # Calcular ingresos netos (sin el 2% de fee de gestión que es para la plataforma)
+        net_price_expr = Service.total_price / PROVIDER_NET_DIVISOR
         revenue_base = (
-            select(func.coalesce(func.sum(Service.total_price), 0).label("amount"))
+            select(func.coalesce(func.sum(net_price_expr), 0).label("amount"))
             .join(
                 completed_history_subq,
                 completed_history_subq.c.service_id == Service.id,
@@ -1639,12 +1655,14 @@ class ProviderController:
             db_currency = currency_result.scalar_one_or_none()
             currency_code = db_currency or getattr(profile, "currency", None) or "ARS"
 
+        # Calcular ingresos netos (sin el 2% de fee de gestión que es para la plataforma)
+        net_price_expr = Service.total_price / PROVIDER_NET_DIVISOR
         revenue_stmt = (
             select(
                 period_expr.label("period"),
                 func.count(Service.id).label("completed_services"),
-                func.coalesce(func.sum(Service.total_price), 0).label("total_revenue"),
-                func.avg(Service.total_price).label("avg_ticket"),
+                func.coalesce(func.sum(net_price_expr), 0).label("total_revenue"),
+                func.avg(net_price_expr).label("avg_ticket"),
             )
             .select_from(Service)
             .join(
