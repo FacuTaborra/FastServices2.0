@@ -566,8 +566,18 @@ class ProviderController:
             else:
                 target_date = datetime.now(argentina_tz).date()
 
-            day_start = datetime.combine(target_date, datetime.min.time())
-            day_end = datetime.combine(target_date, datetime.max.time())
+            # Crear rangos en timezone Argentina y convertir a UTC para la query
+            # (la DB guarda timestamps en UTC)
+            day_start_arg = datetime.combine(target_date, datetime.min.time()).replace(
+                tzinfo=argentina_tz
+            )
+            day_end_arg = datetime.combine(target_date, datetime.max.time()).replace(
+                tzinfo=argentina_tz
+            )
+
+            # Convertir a UTC naive (sin tzinfo) para comparar con la columna
+            day_start_utc = day_start_arg.astimezone(timezone.utc).replace(tzinfo=None)
+            day_end_utc = day_end_arg.astimezone(timezone.utc).replace(tzinfo=None)
 
             stmt_completed = (
                 select(Service)
@@ -582,8 +592,8 @@ class ProviderController:
                 .where(
                     Service.provider_profile_id == profile.id,
                     Service.status == ServiceStatus.COMPLETED,
-                    Service.updated_at >= day_start,
-                    Service.updated_at <= day_end,
+                    Service.updated_at >= day_start_utc,
+                    Service.updated_at <= day_end_utc,
                 )
                 .order_by(Service.updated_at.desc())
             )

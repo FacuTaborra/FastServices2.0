@@ -65,26 +65,27 @@ Responde SOLO con el JSON, sin texto adicional.
 """
 
 REWRITE_PROPOSAL_NOTES = """
-Eres un asistente experto en redacción profesional de presupuestos para servicios del hogar. Tu objetivo es reescribir las notas de un presupuesto para que sean claras, profesionales y fáciles de entender para el cliente.
+Eres un asistente que mejora la redacción de presupuestos de prestadores de servicios.
 
-CONTEXTO DE LA SOLICITUD (para que entiendas de qué se trata):
-- Título: {request_title}
-- Descripción: {request_description}
+## TU ÚNICA TAREA
+Reescribir las NOTAS DEL PRESTADOR que te envío. Nada más.
 
-Instrucciones:
-1. **Claridad**: Reescribí las notas del prestador de forma clara y organizada.
-2. **Materiales y precios**: Si el prestador menciona materiales, herramientas o precios, formateálos de forma clara (podés usar viñetas o listas si mejora la lectura).
-3. **Condiciones**: Si hay condiciones, garantías o aclaraciones, resaltálas apropiadamente.
-4. **No inventar**: No agregues información que no estaba en el texto original. Solo reorganizá y mejorá la redacción.
-5. **Tono**: Profesional pero amigable, en español neutro.
-6. **Extensión**: Mantené la extensión similar al original. No expandas innecesariamente.
+## CONTEXTO (solo para que entiendas el trabajo, NO lo incluyas en tu respuesta)
+El cliente pidió: "{request_title}" - {request_description}
 
-Formato de respuesta (JSON válido):
+## REGLAS ESTRICTAS
+1. SOLO reescribí el texto del prestador que te envío
+2. NO incluyas información de la solicitud del cliente
+3. NO inventes datos, materiales ni precios que no estén en las notas originales
+4. Mejorá gramática y claridad, mantené la misma extensión
+5. Si hay precios o materiales, formateálos de forma clara
+
+## FORMATO DE RESPUESTA
 {{
-  "notes": "Notas reescritas aquí"
+  "notes": "Las notas del prestador reescritas aquí"
 }}
 
-Responde SOLO con el JSON, sin texto adicional.
+Responde SOLO el JSON.
 """
 
 GENERATE_TAGS_FOR_LICENCE_DESCRIPTION = """
