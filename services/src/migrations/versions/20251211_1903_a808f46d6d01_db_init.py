@@ -1,8 +1,8 @@
-"""upgrade
+"""db init
 
-Revision ID: a4a15f767384
-Revises: a996d6c74345
-Create Date: 2025-10-22 18:20:47.830627
+Revision ID: a808f46d6d01
+Revises: 
+Create Date: 2025-12-11 19:03:59.791627
 
 """
 from alembic import op
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'a4a15f767384'
-down_revision = 'a996d6c74345'
+revision = 'a808f46d6d01'
+down_revision = None
 branch_labels = None
 depends_on = None
 
@@ -85,12 +85,24 @@ def upgrade() -> None:
     sa.UniqueConstraint('user_id')
     )
     op.create_index(op.f('ix_provider_profiles_id'), 'provider_profiles', ['id'], unique=False)
+    op.create_table('push_tokens',
+    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('user_id', sa.BigInteger(), nullable=False),
+    sa.Column('token', sa.String(length=255), nullable=False),
+    sa.Column('device_name', sa.String(length=100), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_push_tokens_id'), 'push_tokens', ['id'], unique=False)
+    op.create_index(op.f('ix_push_tokens_token'), 'push_tokens', ['token'], unique=True)
     op.create_table('provider_licenses',
     sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('provider_profile_id', sa.BigInteger(), nullable=False),
     sa.Column('title', sa.String(length=150), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
-    sa.Column('license_number', sa.String(length=120), nullable=False),
+    sa.Column('license_number', sa.String(length=120), nullable=True),
     sa.Column('issued_by', sa.String(length=120), nullable=True),
     sa.Column('issued_at', sa.Date(), nullable=True),
     sa.Column('expires_at', sa.Date(), nullable=True),
@@ -193,11 +205,13 @@ def upgrade() -> None:
     sa.Column('address_snapshot', sa.JSON(), nullable=True),
     sa.Column('scheduled_start_at', sa.DateTime(), nullable=True),
     sa.Column('scheduled_end_at', sa.DateTime(), nullable=True),
-    sa.Column('status', sa.Enum('CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELED', name='service_status'), nullable=False),
+    sa.Column('status', sa.Enum('CONFIRMED', 'ON_ROUTE', 'IN_PROGRESS', 'COMPLETED', 'CANCELED', name='service_status'), nullable=False),
     sa.Column('total_price', sa.Numeric(precision=12, scale=2), nullable=True),
+    sa.Column('currency', sa.String(length=3), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.ForeignKeyConstraint(['client_id'], ['users.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['currency'], ['currencies.code'], ondelete='RESTRICT'),
     sa.ForeignKeyConstraint(['proposal_id'], ['service_request_proposals.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['provider_profile_id'], ['provider_profiles.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['request_id'], ['service_requests.id'], ondelete='SET NULL'),
@@ -260,6 +274,9 @@ def downgrade() -> None:
     op.drop_table('service_requests')
     op.drop_index(op.f('ix_provider_licenses_id'), table_name='provider_licenses')
     op.drop_table('provider_licenses')
+    op.drop_index(op.f('ix_push_tokens_token'), table_name='push_tokens')
+    op.drop_index(op.f('ix_push_tokens_id'), table_name='push_tokens')
+    op.drop_table('push_tokens')
     op.drop_index(op.f('ix_provider_profiles_id'), table_name='provider_profiles')
     op.drop_table('provider_profiles')
     op.drop_table('addresses')

@@ -211,6 +211,31 @@ export async function rewriteWithAI(data) {
     }
 }
 
+/**
+ * Crear una solicitud de recontratación para un servicio completado.
+ * @param {Object} data - { service_id, description, attachments[] }
+ * @returns {Promise<Object>} - Solicitud de recontratación creada
+ */
+export async function createRehireRequest(data) {
+    try {
+        console.log('🔄 Creando solicitud de recontratación...', {
+            service_id: data?.service_id,
+            descriptionLength: data?.description?.length ?? 0,
+            attachments: data?.attachments?.length ?? 0,
+        });
+
+        const response = await api.post('/service-requests/rehire', data);
+
+        console.log('✅ Solicitud de recontratación creada con ID:', response.data?.id);
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error creando solicitud de recontratación:', { status, message });
+        throw error;
+    }
+}
+
 export default {
     createServiceRequest,
     getActiveServiceRequests,
@@ -224,4 +249,5 @@ export default {
     submitServiceReview,
     getPaymentHistory,
     rewriteWithAI,
+    createRehireRequest,
 };

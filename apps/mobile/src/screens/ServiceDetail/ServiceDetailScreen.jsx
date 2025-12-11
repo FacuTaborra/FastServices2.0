@@ -405,6 +405,19 @@ const ServiceDetailScreen = () => {
         setRatingModalVisible(true);
     }, [ratingSubmitted, isSubmittingReview]);
 
+    const handleRehire = useCallback(() => {
+        if (!serviceData || !providerInfo) {
+            return;
+        }
+        navigation.navigate('RehireRequest', {
+            serviceId: serviceData.id,
+            providerName: providerInfo.name,
+            providerImage: providerInfo.image,
+            providerRating: providerInfo.rating,
+            providerReviews: providerInfo.reviews,
+        });
+    }, [navigation, serviceData, providerInfo]);
+
     const handleCloseRatingModal = useCallback(() => {
         if (isSubmittingReview) {
             return;
@@ -662,26 +675,39 @@ const ServiceDetailScreen = () => {
 
                 <View style={styles.footer}>
                     {isServiceCompleted ? (
-                        ratingSubmitted ? (
-                            <Text style={styles.ratingThankYou}>Gracias por calificar este servicio.</Text>
-                        ) : (
+                        <View style={styles.completedActionsContainer}>
+                            {ratingSubmitted ? (
+                                <Text style={styles.completedMessage}>
+                                    Gracias por calificar este servicio.
+                                </Text>
+                            ) : (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.primaryButton,
+                                        isSubmittingReview && { opacity: 0.7 },
+                                    ]}
+                                    onPress={handleOpenRatingModal}
+                                    disabled={isSubmittingReview}
+                                >
+                                    <Ionicons
+                                        name="star"
+                                        size={20}
+                                        color="#fef9c3"
+                                        style={styles.primaryButtonIcon}
+                                    />
+                                    <Text style={styles.primaryButtonText}>Calificar servicio</Text>
+                                </TouchableOpacity>
+                            )}
                             <TouchableOpacity
-                                style={[
-                                    styles.primaryButton,
-                                    isSubmittingReview && { opacity: 0.7 },
-                                ]}
-                                onPress={handleOpenRatingModal}
-                                disabled={isSubmittingReview}
+                                style={styles.rehireButton}
+                                onPress={handleRehire}
                             >
-                                <Ionicons
-                                    name="star"
-                                    size={20}
-                                    color="#fef9c3"
-                                    style={styles.primaryButtonIcon}
-                                />
-                                <Text style={styles.primaryButtonText}>Calificar servicio</Text>
+                                <Ionicons name="refresh" size={20} color="#FFFFFF" />
+                                <Text style={styles.rehireButtonText}>
+                                    Recontratar al profesional
+                                </Text>
                             </TouchableOpacity>
-                        )
+                        </View>
                     ) : showCancelButton ? (
                         <>
                             <TouchableOpacity

@@ -117,12 +117,6 @@ function useInitialData(routeParams) {
     }, [routeParams]);
 }
 
-function validateDateRange(startDate, endDate) {
-    if (startDate && endDate && endDate < startDate) {
-        return false;
-    }
-    return true;
-}
 
 export default function CreateProposalScreen() {
     const navigation = useNavigation();
@@ -174,7 +168,6 @@ export default function CreateProposalScreen() {
     const [notes, setNotes] = useState('');
     const [validUntil, setValidUntil] = useState(null);
     const [startDate, setStartDate] = useState(null);
-    const [endDate, setEndDate] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [iosPickerMode, setIosPickerMode] = useState(null);
     const [iosPickerTempDate, setIosPickerTempDate] = useState(new Date());
@@ -351,15 +344,6 @@ export default function CreateProposalScreen() {
         return null;
     }, [price]);
 
-    const dateError = useMemo(() => {
-        if (!shouldRenderScheduling) {
-            return null;
-        }
-        if (!validateDateRange(startDate, endDate)) {
-            return 'La fecha de fin no puede ser anterior al inicio';
-        }
-        return null;
-    }, [shouldRenderScheduling, startDate, endDate]);
 
     const selectedCurrency = useMemo(
         () => currencies.find((item) => item.code === currency) || null,
@@ -382,11 +366,6 @@ export default function CreateProposalScreen() {
             return;
         }
 
-        if (!isFastRequest && dateError) {
-            Alert.alert('Error', dateError);
-            return;
-        }
-
         if (!currency) {
             Alert.alert('Error', 'Seleccioná una moneda.');
             return;
@@ -406,7 +385,6 @@ export default function CreateProposalScreen() {
 
             if (!isFastRequest) {
                 payload.proposed_start_at = normalizeDate(startDate);
-                payload.proposed_end_at = normalizeDate(endDate);
                 payload.valid_until = normalizeDate(validUntil);
             }
 
@@ -449,15 +427,6 @@ export default function CreateProposalScreen() {
                 minimumDate = now;
                 applySelection = (selectedDate) => {
                     setStartDate(selectedDate);
-                    if (endDate && selectedDate && endDate < selectedDate) {
-                        setEndDate(null);
-                    }
-                };
-            } else if (mode === 'end') {
-                value = endDate ? new Date(endDate) : startDate ? new Date(startDate) : now;
-                minimumDate = startDate ? new Date(startDate) : now;
-                applySelection = (selectedDate) => {
-                    setEndDate(selectedDate);
                 };
             } else {
                 value = validUntil ? new Date(validUntil) : now;
@@ -514,7 +483,7 @@ export default function CreateProposalScreen() {
 
             return true;
         },
-        [isFastRequest, startDate, endDate, validUntil]
+        [isFastRequest, startDate, validUntil]
     );
 
     const handleSelectCurrency = useCallback((code) => {
@@ -536,26 +505,21 @@ export default function CreateProposalScreen() {
         let baseDate = new Date();
         if (mode === 'start') {
             baseDate = startDate || new Date();
-        } else if (mode === 'end') {
-            baseDate = endDate || startDate || new Date();
         } else {
             baseDate = validUntil || new Date();
         }
 
         setIosPickerTempDate(baseDate);
         setIosPickerMode(mode);
-    }, [isFastRequest, openAndroidPicker, startDate, endDate, validUntil]);
+    }, [isFastRequest, openAndroidPicker, startDate, validUntil]);
 
     const iosPickerVisible = iosPickerMode !== null;
 
     const iosMinimumDate = useMemo(() => {
         const now = new Date();
         now.setSeconds(0, 0);
-        if (iosPickerMode === 'end' && startDate) {
-            return new Date(startDate);
-        }
         return now;
-    }, [iosPickerMode, startDate]);
+    }, []);
 
     const applyIosPicker = useCallback(() => {
         if (!iosPickerMode) {
@@ -564,21 +528,12 @@ export default function CreateProposalScreen() {
 
         if (iosPickerMode === 'start') {
             setStartDate(iosPickerTempDate);
-            if (endDate && iosPickerTempDate && endDate < iosPickerTempDate) {
-                setEndDate(null);
-            }
-        } else if (iosPickerMode === 'end') {
-            if (startDate && iosPickerTempDate < startDate) {
-                Alert.alert('Fecha inválida', 'La fecha de fin debe ser posterior al inicio.');
-                return;
-            }
-            setEndDate(iosPickerTempDate);
         } else {
             setValidUntil(iosPickerTempDate);
         }
 
         setIosPickerMode(null);
-    }, [iosPickerMode, iosPickerTempDate, endDate]);
+    }, [iosPickerMode, iosPickerTempDate]);
 
     const dismissIosPicker = useCallback(() => {
         setIosPickerMode(null);
@@ -665,7 +620,7 @@ export default function CreateProposalScreen() {
 
                 {shouldRenderScheduling ? (
                     <View style={styles.card}>
-                        <Text style={styles.sectionLabel}>Fechas propuestas</Text>
+                        <Text style={styles.sectionLabel}>Fecha propuesta</Text>
                         <TouchableOpacity
                             style={styles.dateButton}
                             onPress={() => handleOpenPicker('start')}
@@ -675,17 +630,6 @@ export default function CreateProposalScreen() {
                                 {startDate ? startDate.toLocaleString('es-AR') : 'Fecha de inicio'}
                             </Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.dateButton, !startDate && styles.dateButtonDisabled]}
-                            onPress={() => handleOpenPicker('end')}
-                            disabled={!startDate}
-                        >
-                            <Ionicons name="calendar-clear-outline" size={18} style={styles.dateIcon} />
-                            <Text style={styles.dateText}>
-                                {endDate ? endDate.toLocaleString('es-AR') : 'Fecha de fin'}
-                            </Text>
-                        </TouchableOpacity>
-                        {dateError ? <Text style={styles.errorText}>{dateError}</Text> : null}
                     </View>
                 ) : null}
 

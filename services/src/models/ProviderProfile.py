@@ -71,6 +71,12 @@ class ProviderProfile(Base):
     reviews_received = relationship(
         "ServiceReview", back_populates="provider_profile", cascade="all"
     )
+    targeted_requests = relationship(
+        "ServiceRequest",
+        back_populates="target_provider",
+        foreign_keys="ServiceRequest.target_provider_profile_id",
+        lazy="selectin",
+    )
 
 
 class ProviderLicense(Base):

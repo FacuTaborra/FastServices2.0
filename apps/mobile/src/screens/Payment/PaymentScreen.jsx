@@ -152,7 +152,10 @@ export default function PaymentScreen() {
             [
               {
                 text: 'OK',
-                onPress: () => navigation.goBack(),
+                onPress: () => navigation.navigate('Main', {
+                  screen: 'MyRequests',
+                  params: { initialTab: 'progreso' },
+                }),
               },
             ],
           );

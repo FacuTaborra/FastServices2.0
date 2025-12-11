@@ -22,6 +22,7 @@ from models.ServiceRequestSchemas import (
     ServiceRequestUpdate,
     ServiceReviewCreate,
     PaymentHistoryItem,
+    RehireRequestCreate,
 )
 from models.User import User
 
@@ -106,6 +107,21 @@ async def rewrite_service_request_endpoint(
         description=result.get("description", payload.description),
         request_type=request_type,
     )
+
+
+@router.post(
+    "/rehire",
+    response_model=ServiceRequestResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Crear solicitud de recontratación",
+)
+async def create_rehire_request_endpoint(
+    payload: RehireRequestCreate,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceRequestResponse:
+    """Crea una nueva solicitud dirigida al proveedor de un servicio completado."""
+    return await ServiceRequestController.create_rehire_request(db, current_user, payload)
 
 
 @router.get(

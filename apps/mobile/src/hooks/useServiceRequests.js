@@ -190,6 +190,26 @@ export function usePaymentHistory(options = {}) {
     });
 }
 
+/**
+ * Hook para crear una solicitud de recontratación
+ */
+export function useCreateRehireRequest() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: serviceRequestService.createRehireRequest,
+        onSuccess: (createdRequest) => {
+            console.log('✅ useCreateRehireRequest éxito:', createdRequest?.id);
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.all });
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.active });
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.history });
+        },
+        onError: (error) => {
+            console.error('❌ useCreateRehireRequest error:', error?.message);
+        },
+    });
+}
+
 export default {
     useCreateServiceRequest,
     useActiveServiceRequests,
@@ -202,4 +222,5 @@ export default {
     useMarkServiceInProgress,
     useSubmitServiceReview,
     usePaymentHistory,
+    useCreateRehireRequest,
 };

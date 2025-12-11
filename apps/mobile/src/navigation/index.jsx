@@ -32,6 +32,8 @@ import ServiceDetailScreen from '../screens/ServiceDetail/ServiceDetailScreen';
 import ProviderServiceDetailScreen from '../screens/MyServicesProvider/ServiceDetail/ProviderServiceDetailScreen';
 import TermsAndConditionsScreen from '../screens/TermsAndConditions/TermsAndConditionsScreen';
 import ForgotPasswordScreen from '../screens/ForgotPassword/ForgotPasswordScreen';
+import RehireRequestScreen from '../screens/RehireRequest/RehireRequestScreen';
+import RehireDetailScreen from '../screens/RehireDetail/RehireDetailScreen';
 import { useNotifications } from '../hooks/useNotifications';
 
 const Stack = createNativeStackNavigator();
@@ -142,6 +144,16 @@ export default function AppNavigator() {
         />
         <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
         <Stack.Screen name="ProviderServiceDetail" component={ProviderServiceDetailScreen} />
+        <Stack.Screen
+          name="RehireRequest"
+          component={RehireRequestScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="RehireDetail"
+          component={RehireDetailScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

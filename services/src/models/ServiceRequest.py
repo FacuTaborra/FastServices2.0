@@ -30,6 +30,7 @@ class ServiceRequestType(str, Enum):
 
     FAST = "FAST"
     LICITACION = "LICITACION"
+    RECONTRATACION = "RECONTRATACION"
 
 
 class ServiceRequestStatus(str, Enum):
@@ -67,7 +68,7 @@ class ServiceRequest(Base):
     __tablename__ = "service_requests"
     __table_args__ = (
         CheckConstraint(
-            "((request_type = 'LICITACION' AND bidding_deadline IS NOT NULL) OR (request_type = 'FAST' AND bidding_deadline IS NULL))",
+            "((request_type = 'LICITACION' AND bidding_deadline IS NOT NULL) OR (request_type IN ('FAST', 'RECONTRATACION') AND bidding_deadline IS NULL))",
             name="ck_service_requests_bidding_deadline",
         ),
         Index("ix_service_requests_city_snapshot", "city_snapshot"),
@@ -78,6 +79,7 @@ class ServiceRequest(Base):
             "city_snapshot",
             "created_at",
         ),
+        Index("ix_service_requests_target_provider", "target_provider_profile_id"),
     )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -86,6 +88,14 @@ class ServiceRequest(Base):
     )
     address_id = Column(
         BigInteger, ForeignKey("addresses.id", ondelete="SET NULL"), nullable=True
+    )
+    parent_service_id = Column(
+        BigInteger, ForeignKey("services.id", ondelete="SET NULL"), nullable=True
+    )
+    target_provider_profile_id = Column(
+        BigInteger,
+        ForeignKey("provider_profiles.id", ondelete="SET NULL"),
+        nullable=True,
     )
     city_snapshot = Column(String(100), nullable=True)
     lat_snapshot = Column(Numeric(9, 6), nullable=True)
@@ -123,11 +133,28 @@ class ServiceRequest(Base):
     proposals = relationship(
         "ServiceRequestProposal", back_populates="request", cascade="all, delete-orphan"
     )
-    service = relationship("Service", back_populates="request", uselist=False)
+    service = relationship(
+        "Service",
+        back_populates="request",
+        uselist=False,
+        foreign_keys="Service.request_id",
+    )
     tag_links = relationship(
         "ServiceRequestTag",
         back_populates="request",
         cascade="all, delete-orphan",
+    )
+    parent_service = relationship(
+        "Service",
+        foreign_keys=[parent_service_id],
+        back_populates="rehire_requests",
+        lazy="selectin",
+    )
+    target_provider = relationship(
+        "ProviderProfile",
+        foreign_keys=[target_provider_profile_id],
+        back_populates="targeted_requests",
+        lazy="selectin",
     )
 
 
@@ -260,7 +287,9 @@ class Service(Base):
         onupdate=func.current_timestamp(),
     )
 
-    request = relationship("ServiceRequest", back_populates="service")
+    request = relationship(
+        "ServiceRequest", back_populates="service", foreign_keys=[request_id]
+    )
     proposal = relationship("ServiceRequestProposal", back_populates="service")
     client = relationship("User", back_populates="services_as_client")
     provider = relationship("ProviderProfile", back_populates="services")
@@ -272,6 +301,12 @@ class Service(Base):
     )
     reviews = relationship(
         "ServiceReview", back_populates="service", cascade="all, delete-orphan"
+    )
+    rehire_requests = relationship(
+        "ServiceRequest",
+        back_populates="parent_service",
+        foreign_keys="ServiceRequest.parent_service_id",
+        lazy="selectin",
     )
 
 

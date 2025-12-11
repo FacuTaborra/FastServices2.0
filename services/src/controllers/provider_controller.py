@@ -417,12 +417,66 @@ class ProviderController:
             if getattr(link, "tag_id", None) is not None
         }
 
+        # Primero obtenemos recontrataciones dirigidas a este proveedor
+        rehire_stmt = (
+            select(ServiceRequest)
+            .options(
+                selectinload(ServiceRequest.client),
+                selectinload(ServiceRequest.images),
+                selectinload(ServiceRequest.tag_links).selectinload(
+                    ServiceRequestTag.tag
+                ),
+                selectinload(ServiceRequest.proposals).options(
+                    selectinload(ServiceRequestProposal.provider).options(
+                        selectinload(ProviderProfile.user)
+                    )
+                ),
+                selectinload(ServiceRequest.service).options(
+                    selectinload(Service.provider).options(
+                        selectinload(ProviderProfile.user)
+                    ),
+                    selectinload(Service.proposal),
+                    selectinload(Service.status_history),
+                ),
+                selectinload(ServiceRequest.address),
+                selectinload(ServiceRequest.parent_service),
+            )
+            .where(
+                ServiceRequest.status == ServiceRequestStatus.PUBLISHED,
+                ServiceRequest.request_type == ServiceRequestType.RECONTRATACION,
+                ServiceRequest.target_provider_profile_id == profile.id,
+            )
+            .order_by(ServiceRequest.created_at.desc())
+        )
+
+        # Filtrar recontrataciones que ya tienen propuesta del proveedor
+        provider_proposal_alias_rehire = aliased(ServiceRequestProposal)
+        rehire_stmt = (
+            rehire_stmt
+            .outerjoin(
+                provider_proposal_alias_rehire,
+                and_(
+                    provider_proposal_alias_rehire.request_id == ServiceRequest.id,
+                    provider_proposal_alias_rehire.provider_profile_id == profile.id,
+                ),
+            )
+            .where(provider_proposal_alias_rehire.id.is_(None))
+        )
+
+        rehire_result = await db.execute(rehire_stmt)
+        rehire_requests = list(rehire_result.scalars().unique().all())
+
+        # Si no hay tags, solo devolvemos recontrataciones
         if not tag_ids:
-            return []
+            return [
+                ServiceRequestController._build_response(request)
+                for request in rehire_requests
+            ]
 
         provider_proposal_alias = aliased(ServiceRequestProposal)
         request_address_alias = aliased(Address)
 
+        # Query para solicitudes FAST y LICITACION matcheadas por tags
         stmt = (
             select(ServiceRequest)
             .join(
@@ -462,6 +516,7 @@ class ProviderController:
             )
             .where(
                 ServiceRequest.status == ServiceRequestStatus.PUBLISHED,
+                ServiceRequest.request_type.in_([ServiceRequestType.FAST, ServiceRequestType.LICITACION]),
                 ServiceRequestTag.tag_id.in_(tag_ids),
                 provider_proposal_alias.id.is_(None),
             )
@@ -498,10 +553,25 @@ class ProviderController:
             stmt = stmt.where(state_expr == normalized_state)
 
         result = await db.execute(stmt)
-        requests = list(result.scalars().unique().all())
+        tag_matched_requests = list(result.scalars().unique().all())
+
+        # Combinar: recontrataciones primero, luego las matcheadas por tag
+        # Eliminar duplicados por ID
+        seen_ids = set()
+        combined_requests = []
+
+        for request in rehire_requests:
+            if request.id not in seen_ids:
+                seen_ids.add(request.id)
+                combined_requests.append(request)
+
+        for request in tag_matched_requests:
+            if request.id not in seen_ids:
+                seen_ids.add(request.id)
+                combined_requests.append(request)
 
         return [
-            ServiceRequestController._build_response(request) for request in requests
+            ServiceRequestController._build_response(request) for request in combined_requests
         ]
 
     @staticmethod

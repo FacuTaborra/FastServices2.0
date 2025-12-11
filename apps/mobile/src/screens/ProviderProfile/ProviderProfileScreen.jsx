@@ -352,7 +352,7 @@ export default function ProviderProfileScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Perfil del Proveedor</Text>
+          <Text style={styles.title}>Perfil</Text>
         </View>
 
         <View style={styles.avatarContainer}>

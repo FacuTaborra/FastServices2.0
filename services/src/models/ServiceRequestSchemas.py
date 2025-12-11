@@ -212,6 +212,12 @@ class ServiceRequestResponse(BaseModel):
     service: Optional[ServiceSummaryResponse] = Field(
         default=None, description="Servicio confirmado asociado a la solicitud"
     )
+    parent_service_id: Optional[int] = Field(
+        default=None, description="ID del servicio original (solo para recontrataciones)"
+    )
+    target_provider_profile_id: Optional[int] = Field(
+        default=None, description="ID del proveedor target (solo para recontrataciones)"
+    )
     created_at: datetime
     updated_at: datetime
 
@@ -319,3 +325,33 @@ class ServiceRequestRewriteOutput(BaseModel):
         default=None,
         description="Tipo de solicitud recomendado: FAST (urgente) o LICITACION (puede esperar)",
     )
+
+
+class RehireRequestCreate(BaseModel):
+    """Payload para crear una solicitud de recontratación."""
+
+    service_id: int = Field(..., gt=0, description="ID del servicio completado original")
+    description: str = Field(
+        ...,
+        min_length=20,
+        max_length=2000,
+        description="Descripción del nuevo trabajo que necesitás",
+    )
+    attachments: List[ServiceRequestAttachment] = Field(
+        default_factory=list,
+        description="Hasta 6 imágenes opcionales para la solicitud",
+    )
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(cls, value: str) -> str:
+        cleaned = " ".join(value.strip().split())
+        return cleaned
+
+    @model_validator(mode="after")
+    def validate_attachments_count(self) -> "RehireRequestCreate":
+        if len(self.attachments) > MAX_ATTACHMENTS:
+            raise ValueError(
+                f"Se permiten como máximo {MAX_ATTACHMENTS} imágenes por solicitud"
+            )
+        return self

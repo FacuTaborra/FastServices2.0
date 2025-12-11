@@ -39,18 +39,32 @@ class S3Service:
             "image/gif",
         }
         self.max_file_size = 10 * 1024 * 1024
-        self._ensure_bucket_exists()
+        self.available = False
+        self._try_connect()
 
-    @error_handler(
-        {
-            "BucketAlreadyOwnedByYou": "El bucket ya existe.",
-            "default": "Error al inicializar el bucket de almacenamiento.",
-        }
-    )
-    def _ensure_bucket_exists(self):
-        found = self.client.bucket_exists(self.bucket_name)
-        if not found:
-            self.client.make_bucket(self.bucket_name)
+    def _try_connect(self):
+        """Intenta conectar a S3/MinIO sin crashear si no está disponible."""
+        try:
+            found = self.client.bucket_exists(self.bucket_name)
+            if not found:
+                self.client.make_bucket(self.bucket_name)
+            self.available = True
+            logger.info("✅ S3/MinIO conectado correctamente")
+        except Exception as e:
+            self.available = False
+            logger.error(
+                f"⚠️ S3/MinIO no disponible: {e}. El servidor continuará sin almacenamiento de archivos."
+            )
+
+    def _ensure_available(self):
+        """Verifica que S3 esté disponible, si no intenta reconectar."""
+        if not self.available:
+            self._try_connect()
+        if not self.available:
+            raise HTTPException(
+                status_code=503,
+                detail="Servicio de almacenamiento no disponible. Intentá más tarde.",
+            )
 
     def _validate_image(self, file: UploadFile) -> None:
         """Validar que el archivo es una imagen válida."""
@@ -116,6 +130,7 @@ class S3Service:
         optimize: bool = True,
         max_width: int = 1200,
     ) -> dict:
+        self._ensure_available()
         self._validate_image(file)
 
         if not file.filename:
@@ -163,6 +178,7 @@ class S3Service:
         if not s3_key:
             return True
 
+        self._ensure_available()
         exists = False
         for obj in self.client.list_objects(
             bucket_name=self.bucket_name, prefix=s3_key, recursive=False
@@ -184,6 +200,7 @@ class S3Service:
         {"default": "No se pudieron listar las imágenes del almacenamiento."}
     )
     def list_images_in_folder(self, folder: str = "", limit: int = 100) -> List[dict]:
+        self._ensure_available()
         prefix = f"{folder.strip('/')}/" if folder else ""
 
         objects = self.client.list_objects(
@@ -219,6 +236,7 @@ class S3Service:
         }
     )
     def image_exists(self, s3_key: str) -> bool:
+        self._ensure_available()
         self.client.stat_object(self.bucket_name, s3_key)
         return True
 

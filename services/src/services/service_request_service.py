@@ -34,6 +34,7 @@ from models.ServiceRequestSchemas import (
     ServiceRequestUpdate,
     ServiceReviewCreate,
     PaymentHistoryItem,
+    RehireRequestCreate,
 )
 from models.User import User, UserRole
 from utils.error_handler import error_handler
@@ -1012,6 +1013,130 @@ class ServiceRequestService:
             history.append(item)
 
         return history
+
+    @staticmethod
+    @error_handler(logger)
+    async def create_rehire_request(
+        db: AsyncSession, *, current_user: User, payload: RehireRequestCreate
+    ) -> ServiceRequest:
+        """Crea una nueva solicitud de recontratación dirigida a un proveedor específico."""
+
+        ServiceRequestService._ensure_client_role(current_user)
+
+        # Obtener el servicio original con sus relaciones
+        stmt = (
+            select(Service)
+            .options(
+                selectinload(Service.request).selectinload(ServiceRequest.address),
+                selectinload(Service.provider).selectinload(ProviderProfile.user),
+            )
+            .where(Service.id == payload.service_id)
+        )
+        result = await db.execute(stmt)
+        original_service = result.scalar_one_or_none()
+
+        if original_service is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="El servicio indicado no existe",
+            )
+
+        # Validar que el servicio pertenece al cliente
+        if original_service.client_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No podés recontratar un servicio que no te pertenece",
+            )
+
+        # Validar que el servicio está completado
+        normalized_status = (
+            original_service.status.value
+            if isinstance(original_service.status, ServiceStatus)
+            else original_service.status
+        )
+        if normalized_status != ServiceStatus.COMPLETED.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Solo podés recontratar servicios que estén completados",
+            )
+
+        # Obtener dirección del servicio original
+        original_request = original_service.request
+        if original_request is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="El servicio no tiene una solicitud asociada",
+            )
+
+        address = original_request.address
+        address_id = original_request.address_id
+
+        # Obtener proveedor target
+        provider_profile = original_service.provider
+        if provider_profile is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="El servicio no tiene un proveedor asociado",
+            )
+
+        # Generar título automático basado en el servicio original
+        original_title = original_request.title or "Servicio anterior"
+        generated_title = f"[RECONTRATACIÓN] {original_title}"
+        if len(generated_title) > 150:
+            generated_title = generated_title[:147].rstrip() + "..."
+
+        city_snapshot = address.city if address else original_request.city_snapshot
+        lat_snapshot = address.latitude if address else original_request.lat_snapshot
+        lon_snapshot = address.longitude if address else original_request.lon_snapshot
+
+        # Crear la nueva solicitud
+        new_request = ServiceRequest(
+            client_id=current_user.id,
+            address_id=address_id,
+            parent_service_id=original_service.id,
+            target_provider_profile_id=provider_profile.id,
+            title=generated_title,
+            description=payload.description,
+            request_type=ServiceRequestType.RECONTRATACION,
+            status=ServiceRequestStatus.PUBLISHED,
+            city_snapshot=city_snapshot,
+            lat_snapshot=lat_snapshot,
+            lon_snapshot=lon_snapshot,
+            created_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
+            updated_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
+        )
+
+        db.add(new_request)
+        await db.flush()
+
+        # Adjuntar imágenes si las hay
+        ServiceRequestService._validate_attachments(payload.attachments)
+        await ServiceRequestService._attach_images(
+            db, request_id=new_request.id, attachments=payload.attachments
+        )
+
+        await db.commit()
+
+        # Notificar al proveedor
+        try:
+            provider_user_id = provider_profile.user_id
+            if provider_user_id:
+                provider_name = "Cliente"
+                if current_user.first_name:
+                    provider_name = current_user.first_name
+                await notification_service.send_notification_to_user(
+                    db,
+                    user_id=provider_user_id,
+                    title="¡Nueva solicitud de recontratación!",
+                    body=f"{provider_name} quiere volver a contratarte para un nuevo trabajo.",
+                    data={"requestId": new_request.id, "type": "rehire_request"},
+                )
+        except Exception as e:
+            logger.error(f"Error enviando notificacion push de recontratación: {e}")
+
+        return await ServiceRequestService._fetch_request_with_relations(
+            db, new_request.id
+        )
 
 
 __all__ = ["ServiceRequestService"]

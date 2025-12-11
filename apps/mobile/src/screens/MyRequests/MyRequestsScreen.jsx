@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import TodoRequestCard from '../../components/RequestCards/TodoRequestCard';
 import ProgressRequestCard from '../../components/RequestCards/ProgressRequestCard';
 import CompletedRequestCard from '../../components/RequestCards/CompletedRequestCard';
@@ -163,7 +163,9 @@ const getLatestServiceActivityTimestamp = (request) => {
 
 const MyRequestsScreen = () => {
   const navigation = useNavigation();
-  const [activeTab, setActiveTab] = useState('todos');
+  const route = useRoute();
+  const initialTab = route.params?.initialTab ?? 'todos';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [searchText, setSearchText] = useState('');
 
   const {
@@ -214,8 +216,14 @@ const MyRequestsScreen = () => {
         }
         : null;
       const title = request?.title?.trim() || 'Solicitud sin título';
-      const isLicitacion = request?.request_type === 'LICITACION';
-      const requestTypeLabel = isLicitacion ? 'PRESUPUESTO' : 'FAST';
+      const requestType = request?.request_type;
+      const isLicitacion = requestType === 'LICITACION';
+      const isRecontratacion = requestType === 'RECONTRATACION';
+      const requestTypeLabel = isLicitacion
+        ? 'PRESUPUESTO'
+        : isRecontratacion
+          ? 'RECONTRATACIÓN'
+          : 'FAST';
       const descriptionSnippet = buildDescriptionSnippet(request?.description);
       const locationLabel =
         normalizeSnapshotLabel(request?.service?.address_snapshot) ||
@@ -238,7 +246,7 @@ const MyRequestsScreen = () => {
         locationLabel,
         priceLabel,
         requestTypeLabel,
-        typeAccent: isLicitacion ? 'licitacion' : 'fast',
+        typeAccent: isLicitacion ? 'licitacion' : isRecontratacion ? 'recontratacion' : 'fast',
         attachmentsCount,
         ratingInfo,
         requestStatus,
@@ -416,6 +424,14 @@ const MyRequestsScreen = () => {
 
       if (requestRaw.request_type === 'LICITACION') {
         navigation.navigate('Licitacion', {
+          requestId: requestRaw.id,
+          requestSummary,
+        });
+        return;
+      }
+
+      if (requestRaw.request_type === 'RECONTRATACION') {
+        navigation.navigate('RehireDetail', {
           requestId: requestRaw.id,
           requestSummary,
         });

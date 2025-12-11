@@ -19,6 +19,7 @@ from models.ServiceRequestSchemas import (
     ServiceReviewCreate,
     ServiceReviewResponse,
     PaymentHistoryItem,
+    RehireRequestCreate,
 )
 from models.User import User
 from services.service_request_service import ServiceRequestService
@@ -187,6 +188,16 @@ class ServiceRequestController:
         )
 
     @staticmethod
+    @error_handler(logger)
+    async def create_rehire_request(
+        db: AsyncSession, current_user: User, payload: RehireRequestCreate
+    ) -> ServiceRequestResponse:
+        service_request = await ServiceRequestService.create_rehire_request(
+            db, current_user=current_user, payload=payload
+        )
+        return ServiceRequestController._build_response(service_request)
+
+    @staticmethod
     def _build_response(service_request: ServiceRequest) -> ServiceRequestResponse:
         attachments = ServiceRequestController._serialize_attachments(service_request)
         tag_links = sorted(
@@ -278,6 +289,8 @@ class ServiceRequestController:
             proposal_count=len(proposals),
             proposals=proposals,
             service=service_summary,
+            parent_service_id=getattr(service_request, "parent_service_id", None),
+            target_provider_profile_id=getattr(service_request, "target_provider_profile_id", None),
             created_at=service_request.created_at,
             updated_at=service_request.updated_at,
         )

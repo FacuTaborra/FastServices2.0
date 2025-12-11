@@ -352,6 +352,35 @@ const styles = StyleSheet.create({
     buttonIcon: {
         marginRight: 6,
     },
+    footerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    rehireButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 999,
+        backgroundColor: '#4F46E5',
+        minHeight: 52,
+    },
+    rehireButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#FFFFFF',
+        marginLeft: 8,
+    },
+    completedActionsContainer: {
+        gap: 12,
+    },
+    completedMessage: {
+        fontSize: 14,
+        color: '#0f172a',
+        textAlign: 'center',
+    },
 });
 
 export default styles;
