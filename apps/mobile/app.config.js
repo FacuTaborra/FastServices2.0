@@ -46,5 +46,8 @@ export default {
                 projectId: "87d519b1-9fc7-450f-a9af-481a064391b2"
             }
         },
+        plugins: [
+            "expo-font"
+        ],
     },
 };

@@ -49,14 +49,23 @@ jobs:
               shell: bash
               run: docker compose up -d --build --remove-orphans
 
+            - name: Create Database if not exists
+              working-directory: services
+              shell: bash
+              env:
+                  DB_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
+                  DB_NAME: ${{ secrets.DB_NAME }}
+              run: |
+                  # Esperar a que MySQL esté listo
+                  sleep 15
+                  # Crear la base de datos si no existe (usar root para tener permisos)
+                  docker compose exec -T db mysql -u root -p"${DB_ROOT_PASSWORD:-rootpassword}" -e "CREATE DATABASE IF NOT EXISTS ${DB_NAME};"
+
             - name: Run Database Migrations
               working-directory: services
               shell: bash
               run: |
-                  # Esperar unos segundos para asegurar que la DB esté lista
-                  sleep 10
                   # Ejecutar migraciones dentro del contenedor de la API
-                  # Usamos -w /app/src para que alembic encuentre la carpeta migrations relativa a alembic.ini
                   docker compose exec -w /app/src -T api uv run alembic upgrade head
 
             - name: Prune Docker Images
