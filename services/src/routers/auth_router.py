@@ -20,11 +20,20 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def login_endpoint(
     login_data: LoginRequest, db: AsyncSession = Depends(get_db)
 ) -> Token:
-    return await user_controller.authenticate_and_create_token(
-        db,
-        email=login_data.email,
-        password=login_data.password,
-    )
+    import traceback
+    try:
+        print(f"🔐 Login attempt for: {login_data.email}")
+        result = await user_controller.authenticate_and_create_token(
+            db,
+            email=login_data.email,
+            password=login_data.password,
+        )
+        print(f"✅ Login successful for: {login_data.email}")
+        return result
+    except Exception as e:
+        print(f"❌ Login error: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        raise
 
 
 @router.post(

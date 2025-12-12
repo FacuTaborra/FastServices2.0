@@ -178,6 +178,19 @@ class ServiceSummaryResponse(BaseModel):
     model_config = dict(from_attributes=True)
 
 
+class TargetProviderResponse(BaseModel):
+    """Info del proveedor objetivo para recontrataciones."""
+
+    id: int = Field(..., description="ID del perfil del proveedor")
+    user_id: int = Field(..., description="ID del usuario asociado")
+    name: str = Field(..., description="Nombre del profesional")
+    profile_picture: Optional[str] = Field(None, description="URL de la foto de perfil")
+    average_rating: Optional[Decimal] = Field(None, description="Rating promedio")
+    total_reviews: int = Field(0, description="Total de reseñas")
+
+    model_config = dict(from_attributes=True)
+
+
 class ServiceRequestResponse(BaseModel):
     """Respuesta básica para una solicitud creada."""
 
@@ -217,6 +230,9 @@ class ServiceRequestResponse(BaseModel):
     )
     target_provider_profile_id: Optional[int] = Field(
         default=None, description="ID del proveedor target (solo para recontrataciones)"
+    )
+    target_provider: Optional[TargetProviderResponse] = Field(
+        default=None, description="Datos del proveedor objetivo (solo para recontrataciones)"
     )
     created_at: datetime
     updated_at: datetime
@@ -331,6 +347,12 @@ class RehireRequestCreate(BaseModel):
     """Payload para crear una solicitud de recontratación."""
 
     service_id: int = Field(..., gt=0, description="ID del servicio completado original")
+    title: str = Field(
+        ...,
+        min_length=3,
+        max_length=150,
+        description="Título de la nueva solicitud",
+    )
     description: str = Field(
         ...,
         min_length=20,
@@ -341,6 +363,14 @@ class RehireRequestCreate(BaseModel):
         default_factory=list,
         description="Hasta 6 imágenes opcionales para la solicitud",
     )
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def normalize_title(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("El título es obligatorio")
+        return cleaned
 
     @field_validator("description")
     @classmethod

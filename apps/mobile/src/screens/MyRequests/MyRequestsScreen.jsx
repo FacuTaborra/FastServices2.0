@@ -390,11 +390,14 @@ const MyRequestsScreen = () => {
       created_at: requestRaw.created_at,
       bidding_deadline: requestRaw.bidding_deadline,
       status: requestRaw.status,
+      request_type: requestRaw.request_type,
       proposal_count: requestRaw.proposal_count ?? 0,
       proposals: Array.isArray(requestRaw.proposals) ? requestRaw.proposals : [],
       attachments: Array.isArray(requestRaw.attachments)
         ? requestRaw.attachments
         : [],
+      target_provider_profile_id: requestRaw.target_provider_profile_id,
+      target_provider: requestRaw.target_provider || null,
     };
   }, []);
 
@@ -434,6 +437,15 @@ const MyRequestsScreen = () => {
         navigation.navigate('RehireDetail', {
           requestId: requestRaw.id,
           requestSummary,
+        });
+        return;
+      }
+
+      if (requestRaw.request_type === 'RECONTRATACION') {
+        navigation.navigate('Licitacion', {
+          requestId: requestRaw.id,
+          requestSummary,
+          targetProviderProfileId: requestRaw.target_provider_profile_id,
         });
       }
     },

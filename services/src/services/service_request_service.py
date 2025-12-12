@@ -232,8 +232,14 @@ class ServiceRequestService:
         sanitized = " ".join(description.strip().split())
         words = sanitized.split(" ")
         snippet = " ".join(words[:8]) if words else sanitized
-        prefix = "[LIC]" if request_type == ServiceRequestType.LICITACION else "[FAST]"
-        generated = f"{prefix} {snippet}".strip()
+        
+        # RECONTRATACION no lleva prefijo, se distingue por el badge de color
+        if request_type == ServiceRequestType.RECONTRATACION:
+            generated = snippet.strip()
+        elif request_type == ServiceRequestType.LICITACION:
+            generated = f"[LIC] {snippet}".strip()
+        else:
+            generated = f"[FAST] {snippet}".strip()
 
         if len(generated) <= 150:
             return generated
@@ -329,6 +335,9 @@ class ServiceRequestService:
                     selectinload(Service.reviews),
                 ),
                 selectinload(ServiceRequest.address),
+                selectinload(ServiceRequest.target_provider).selectinload(
+                    ProviderProfile.user
+                ),
             )
             .where(ServiceRequest.id == request_id)
         )
@@ -373,6 +382,9 @@ class ServiceRequestService:
                     selectinload(Service.reviews),
                 ),
                 selectinload(ServiceRequest.address),
+                selectinload(ServiceRequest.target_provider).selectinload(
+                    ProviderProfile.user
+                ),
             )
             .where(
                 ServiceRequest.client_id == client_id,
@@ -416,6 +428,9 @@ class ServiceRequestService:
                     selectinload(Service.reviews),
                 ),
                 selectinload(ServiceRequest.address),
+                selectinload(ServiceRequest.target_provider).selectinload(
+                    ProviderProfile.user
+                ),
             )
             .where(
                 ServiceRequest.client_id == client_id,
@@ -1079,11 +1094,12 @@ class ServiceRequestService:
                 detail="El servicio no tiene un proveedor asociado",
             )
 
-        # Generar título automático basado en el servicio original
-        original_title = original_request.title or "Servicio anterior"
-        generated_title = f"[RECONTRATACIÓN] {original_title}"
-        if len(generated_title) > 150:
-            generated_title = generated_title[:147].rstrip() + "..."
+        # Usar título del payload o generar uno automático
+        generated_title = ServiceRequestService._resolve_title(
+            title=payload.title,
+            description=payload.description,
+            request_type=ServiceRequestType.RECONTRATACION,
+        )
 
         city_snapshot = address.city if address else original_request.city_snapshot
         lat_snapshot = address.latitude if address else original_request.lat_snapshot

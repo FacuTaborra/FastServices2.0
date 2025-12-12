@@ -33,6 +33,7 @@ const RehireRequestScreen = () => {
         providerReviews,
     } = route.params ?? {};
 
+    const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [attachments, setAttachments] = useState([]);
 
@@ -172,7 +173,16 @@ const RehireRequestScreen = () => {
     }, [attachments]);
 
     const handleSubmit = useCallback(() => {
+        const trimmedTitle = title.trim();
         const trimmedDescription = description.trim();
+
+        if (trimmedTitle.length < 3) {
+            Alert.alert(
+                'Título requerido',
+                'Ingresá un título para tu solicitud (mínimo 3 caracteres).'
+            );
+            return;
+        }
 
         if (trimmedDescription.length < MIN_DESCRIPTION_LENGTH) {
             Alert.alert(
@@ -205,33 +215,25 @@ const RehireRequestScreen = () => {
 
         const payload = {
             service_id: serviceId,
+            title: trimmedTitle,
             description: trimmedDescription,
             attachments: sanitizedAttachments,
         };
 
         createRehireMutation.mutate(payload, {
-            onSuccess: (createdRequest) => {
+            onSuccess: () => {
                 Alert.alert(
                     '¡Solicitud enviada!',
                     'Tu solicitud de recontratación fue enviada al profesional. Te notificaremos cuando responda.',
                     [
                         {
-                            text: 'Ver mis solicitudes',
-                            onPress: () => {
-                                navigation.reset({
-                                    index: 0,
-                                    routes: [
-                                        { name: 'Main' },
-                                    ],
-                                });
-                                setTimeout(() => {
-                                    navigation.navigate('MyRequests');
-                                }, 100);
-                            },
+                            text: 'Aceptar',
                         },
                     ],
                     { cancelable: false }
                 );
+                // Navegar a Mis Solicitudes
+                navigation.navigate('Main', { screen: 'MyRequests' });
             },
             onError: (error) => {
                 const status = error?.status ?? error?.response?.status;
@@ -244,6 +246,7 @@ const RehireRequestScreen = () => {
             },
         });
     }, [
+        title,
         description,
         attachments,
         serviceId,
@@ -253,8 +256,10 @@ const RehireRequestScreen = () => {
         navigation,
     ]);
 
+    const titleLength = title.trim().length;
     const descriptionLength = description.trim().length;
     const canSubmit =
+        titleLength >= 3 &&
         descriptionLength >= MIN_DESCRIPTION_LENGTH &&
         !hasPendingUploads &&
         !hasUploadErrors &&
@@ -312,7 +317,22 @@ const RehireRequestScreen = () => {
                     </View>
 
                     <View style={styles.formGroup}>
-                        <Text style={styles.label}>¿Qué necesitás?</Text>
+                        <Text style={styles.label}>Título *</Text>
+                        <TextInput
+                            style={styles.textInput}
+                            placeholder="Ej: Reparación de cañería en baño"
+                            placeholderTextColor="#9CA3AF"
+                            value={title}
+                            onChangeText={setTitle}
+                            maxLength={150}
+                        />
+                        <Text style={styles.helperText}>
+                            Escribí un título claro que resuma lo que necesitás.
+                        </Text>
+                    </View>
+
+                    <View style={styles.formGroup}>
+                        <Text style={styles.label}>Descripción</Text>
                         <TextInput
                             style={[styles.textInput, styles.multilineInput]}
                             placeholder="Describí el trabajo que necesitás. Incluí detalles, materiales, urgencia, etc."
@@ -428,4 +448,5 @@ const RehireRequestScreen = () => {
 };
 
 export default RehireRequestScreen;
+
 

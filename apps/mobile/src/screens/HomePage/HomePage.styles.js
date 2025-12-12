@@ -168,6 +168,10 @@ export default StyleSheet.create({
     borderColor: '#38BDF8',
     backgroundColor: '#F0F9FF',
   },
+  rehireActiveCard: {
+    borderColor: '#8B5CF6',
+    backgroundColor: '#F5F3FF',
+  },
   activeCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -223,6 +227,24 @@ export default StyleSheet.create({
     marginRight: 4,
   },
   licitationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  rehireBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#8B5CF6',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  rehireBadgeIcon: {
+    color: '#FFFFFF',
+    marginRight: 4,
+  },
+  rehireBadgeText: {
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',

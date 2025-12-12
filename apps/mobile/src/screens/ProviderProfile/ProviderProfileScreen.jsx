@@ -363,7 +363,7 @@ export default function ProviderProfileScreen() {
           ) : (
             <Image
               source={{
-                uri: profileImage || 'https://dthezntil550i.cloudfront.net/f4/latest/f41908291942413280009640715/1280_960/1b2d9510-d66d-43a2-971a-cfcbb600e7fe.png'
+                uri: profileImage || 'https://thumbs.dreamstime.com/b/vector-de-perfil-avatar-predeterminado-foto-usuario-medios-sociales-icono-183042379.jpg'
               }}
               style={styles.avatar}
             />

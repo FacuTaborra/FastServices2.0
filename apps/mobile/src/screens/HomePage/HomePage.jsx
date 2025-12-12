@@ -84,6 +84,12 @@ const describeActiveRequest = (request) => {
         : `${request.proposal_count} ofertas`;
       parts.push(label);
     }
+  } else if (request.request_type === 'RECONTRATACION') {
+    parts.push('Recontratación');
+    const providerName = request.target_provider?.name;
+    if (providerName) {
+      parts.push(`para ${providerName}`);
+    }
   }
 
   if (request.city_snapshot) {
@@ -371,6 +377,18 @@ const HomePage = () => {
         requestId: request.id,
         requestSummary: summary,
       });
+      return;
+    }
+
+    if (request.request_type === 'RECONTRATACION') {
+      navigation.navigate('RehireDetail', {
+        requestId: request.id,
+        requestSummary: {
+          ...summary,
+          target_provider: request.target_provider,
+          target_provider_profile_id: request.target_provider_profile_id,
+        },
+      });
     }
   }, [buildRequestSummary, navigation]);
 
@@ -460,8 +478,9 @@ const HomePage = () => {
               const snippet = buildActiveDescriptionSnippet(request.description);
               const isFastRequest = request.request_type === 'FAST';
               const isLicitacionRequest = request.request_type === 'LICITACION';
+              const isRehireRequest = request.request_type === 'RECONTRATACION';
               const fastMetrics = isFastRequest ? computeFastMetrics(request, nowMs) : null;
-              const isPressable = isFastRequest || isLicitacionRequest;
+              const isPressable = isFastRequest || isLicitacionRequest || isRehireRequest;
 
               return (
                 <TouchableOpacity
@@ -470,6 +489,7 @@ const HomePage = () => {
                     styles.activeCard,
                     isFastRequest && styles.fastActiveCard,
                     isLicitacionRequest && styles.licitationActiveCard,
+                    isRehireRequest && styles.rehireActiveCard,
                   ]}
                   onPress={() => handleActiveRequestPress(request)}
                   activeOpacity={isPressable ? 0.92 : 1}
@@ -490,6 +510,12 @@ const HomePage = () => {
                       <View style={styles.licitationBadge}>
                         <Ionicons name="time-outline" size={12} style={styles.licitationBadgeIcon} />
                         <Text style={styles.licitationBadgeText}>PRESUPUESTO</Text>
+                      </View>
+                    ) : null}
+                    {isRehireRequest ? (
+                      <View style={styles.rehireBadge}>
+                        <Ionicons name="refresh" size={12} style={styles.rehireBadgeIcon} />
+                        <Text style={styles.rehireBadgeText}>RECONTRATACIÓN</Text>
                       </View>
                     ) : null}
                   </View>

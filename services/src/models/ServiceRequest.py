@@ -62,6 +62,14 @@ class ServiceStatus(str, Enum):
     CANCELED = "CANCELED"
 
 
+class ServiceType(str, Enum):
+    """Tipo de servicio (original vs derivado de follow-up)."""
+
+    ORIGINAL = "ORIGINAL"  # Servicio normal/original
+    WARRANTY = "WARRANTY"  # Servicio de garantía (sin costo)
+    MAINTENANCE = "MAINTENANCE"  # Servicio de mantenimiento (con costo)
+
+
 class ServiceRequest(Base):
     """Solicitudes de servicio creadas por clientes."""
 
@@ -243,6 +251,7 @@ class Service(Base):
         Index("ix_services_provider_status", "provider_profile_id", "status"),
         Index("ix_services_client_status", "client_id", "status"),
         Index("ix_services_scheduled_start", "scheduled_start_at"),
+        Index("ix_services_parent_service_id", "parent_service_id"),
     )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -263,6 +272,31 @@ class Service(Base):
         BigInteger,
         ForeignKey("provider_profiles.id", ondelete="CASCADE"),
         nullable=False,
+    )
+
+    # Campos para servicios derivados (garantía/mantenimiento)
+    parent_service_id = Column(
+        BigInteger,
+        ForeignKey("services.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="ID del servicio original si es garantía/mantenimiento",
+    )
+    service_type = Column(
+        String(20),
+        nullable=False,
+        default=ServiceType.ORIGINAL.value,
+        comment="Tipo: ORIGINAL, WARRANTY, MAINTENANCE",
+    )
+    warranty_days = Column(
+        SmallInteger,
+        nullable=False,
+        default=30,
+        comment="Días de garantía del servicio",
+    )
+    warranty_expires_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Fecha de expiración de la garantía",
     )
 
     address_snapshot = Column(JSON, nullable=True)
@@ -288,7 +322,9 @@ class Service(Base):
     )
 
     request = relationship(
-        "ServiceRequest", back_populates="service", foreign_keys=[request_id]
+        "ServiceRequest",
+        back_populates="service",
+        foreign_keys=[request_id],
     )
     proposal = relationship("ServiceRequestProposal", back_populates="service")
     client = relationship("User", back_populates="services_as_client")
@@ -302,10 +338,18 @@ class Service(Base):
     reviews = relationship(
         "ServiceReview", back_populates="service", cascade="all, delete-orphan"
     )
+    # Relación con servicio padre (para servicios de garantía/mantenimiento)
+    parent_service = relationship(
+        "Service",
+        remote_side=[id],
+        backref="child_services",
+        foreign_keys=[parent_service_id],
+    )
+    # Solicitudes de recontratación derivadas de este servicio
     rehire_requests = relationship(
         "ServiceRequest",
-        back_populates="parent_service",
         foreign_keys="ServiceRequest.parent_service_id",
+        back_populates="parent_service",
         lazy="selectin",
     )
 

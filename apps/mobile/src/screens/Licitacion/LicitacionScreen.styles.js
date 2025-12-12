@@ -679,6 +679,58 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 20,
     },
+    // Target provider (recontratación)
+    targetProviderCard: {
+        backgroundColor: '#fef3c7',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#fcd34d',
+    },
+    targetProviderLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#92400e',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 12,
+    },
+    targetProviderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    targetProviderAvatar: {
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        backgroundColor: '#e5e7eb',
+    },
+    targetProviderInfo: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    targetProviderName: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1f2937',
+        marginBottom: 4,
+    },
+    targetProviderStats: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    targetProviderRating: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#1f2937',
+        marginLeft: 4,
+    },
+    targetProviderReviews: {
+        fontSize: 13,
+        color: '#6b7280',
+        marginLeft: 6,
+    },
 });
 
 export default styles;

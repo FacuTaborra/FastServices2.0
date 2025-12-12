@@ -20,6 +20,7 @@ from models.ServiceRequestSchemas import (
     ServiceReviewResponse,
     PaymentHistoryItem,
     RehireRequestCreate,
+    TargetProviderResponse,
 )
 from models.User import User
 from services.service_request_service import ServiceRequestService
@@ -266,6 +267,30 @@ class ServiceRequestController:
                 service_request.client, "profile_image_url", None
             )
 
+        # Build target_provider for rehire requests
+        target_provider_data = None
+        target_provider = getattr(service_request, "target_provider", None)
+        if target_provider is not None:
+            provider_user = getattr(target_provider, "user", None)
+            provider_name = "Profesional"
+            provider_picture = None
+            if provider_user is not None:
+                first = (getattr(provider_user, "first_name", "") or "").strip()
+                last = (getattr(provider_user, "last_name", "") or "").strip()
+                provider_name = (
+                    " ".join(p for p in [first, last] if p).strip() or "Profesional"
+                )
+                provider_picture = getattr(provider_user, "profile_image_url", None)
+
+            target_provider_data = TargetProviderResponse(
+                id=target_provider.id,
+                user_id=target_provider.user_id,
+                name=provider_name,
+                profile_picture=provider_picture,
+                average_rating=getattr(target_provider, "average_rating", None),
+                total_reviews=getattr(target_provider, "total_reviews", 0) or 0,
+            )
+
         return ServiceRequestResponse(
             id=service_request.id,
             client_id=service_request.client_id,
@@ -290,7 +315,10 @@ class ServiceRequestController:
             proposals=proposals,
             service=service_summary,
             parent_service_id=getattr(service_request, "parent_service_id", None),
-            target_provider_profile_id=getattr(service_request, "target_provider_profile_id", None),
+            target_provider_profile_id=getattr(
+                service_request, "target_provider_profile_id", None
+            ),
+            target_provider=target_provider_data,
             created_at=service_request.created_at,
             updated_at=service_request.updated_at,
         )

@@ -282,6 +282,9 @@ export default function LicitacionScreen() {
     const requestCreatedAt = requestData?.created_at ?? null;
     const biddingDeadlineIso = requestData?.bidding_deadline ?? null;
     const currentStatus = requestData?.status ?? 'PUBLISHED';
+    const requestType = requestData?.request_type ?? 'LICITACION';
+    const targetProvider = requestData?.target_provider ?? null;
+    const isRehire = requestType === 'RECONTRATACION';
     const shouldSyncActive = currentStatus !== 'CLOSED' && currentStatus !== 'CANCELLED';
     const {
         data: activeRequestsData,
@@ -973,6 +976,39 @@ export default function LicitacionScreen() {
                         </View>
                     ) : null}
                 </View>
+
+                {isRehire && targetProvider && (
+                    <View style={styles.targetProviderCard}>
+                        <Text style={styles.targetProviderLabel}>Solicitud enviada a:</Text>
+                        <View style={styles.targetProviderRow}>
+                            <Image
+                                source={{
+                                    uri: targetProvider.avatar_url ||
+                                        'https://dthezntil550i.cloudfront.net/f4/latest/f41908291942413280009640715/1280_960/1b2d9510-d66d-43a2-971a-cfcbb600e7fe.png',
+                                }}
+                                style={styles.targetProviderAvatar}
+                            />
+                            <View style={styles.targetProviderInfo}>
+                                <Text style={styles.targetProviderName}>
+                                    {targetProvider.display_name || 'Profesional'}
+                                </Text>
+                                <View style={styles.targetProviderStats}>
+                                    <Ionicons name="star" size={14} color="#F59E0B" />
+                                    <Text style={styles.targetProviderRating}>
+                                        {targetProvider.rating_avg
+                                            ? Number(targetProvider.rating_avg).toFixed(1)
+                                            : 'Nuevo'}
+                                    </Text>
+                                    {targetProvider.total_reviews > 0 && (
+                                        <Text style={styles.targetProviderReviews}>
+                                            ({targetProvider.total_reviews} reseñas)
+                                        </Text>
+                                    )}
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                )}
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Detalle de la solicitud</Text>
