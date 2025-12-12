@@ -1,8 +1,3 @@
-"""
-Controlador para gestión de imágenes y archivos.
-Maneja la lógica de negocio para upload, delete y listado de imágenes en S3.
-"""
-
 import logging
 
 from fastapi import HTTPException, UploadFile
