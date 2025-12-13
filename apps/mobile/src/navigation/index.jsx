@@ -34,6 +34,7 @@ import TermsAndConditionsScreen from '../screens/TermsAndConditions/TermsAndCond
 import ForgotPasswordScreen from '../screens/ForgotPassword/ForgotPasswordScreen';
 import RehireRequestScreen from '../screens/RehireRequest/RehireRequestScreen';
 import RehireDetailScreen from '../screens/RehireDetail/RehireDetailScreen';
+import WarrantyClaimScreen from '../screens/WarrantyClaim/WarrantyClaimScreen';
 import { useNotifications } from '../hooks/useNotifications';
 
 const Stack = createNativeStackNavigator();
@@ -152,6 +153,11 @@ export default function AppNavigator() {
         <Stack.Screen
           name="RehireDetail"
           component={RehireDetailScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="WarrantyClaim"
+          component={WarrantyClaimScreen}
           options={{ animation: 'slide_from_right' }}
         />
       </Stack.Navigator>

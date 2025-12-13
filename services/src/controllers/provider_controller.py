@@ -36,6 +36,7 @@ from models.ServiceRequest import (
     Service,
     ServiceRequestType,
     ServiceStatus,
+    ServiceType,
     ServiceStatusHistory,
     ProposalStatus,
     Currency,
@@ -939,27 +940,53 @@ class ProviderController:
         previous_status = normalized_status
         service.status = ServiceStatus.COMPLETED
 
+        # Calcular warranty_expires_at (30 días desde ahora)
+        now = datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None)
+        warranty_expiration = now + timedelta(days=30)
+        service.warranty_expires_at = warranty_expiration
+
         history_entry = ServiceStatusHistory(
             service_id=service.id,
             from_status=previous_status,
             to_status=ServiceStatus.COMPLETED.value,
             changed_by=user_id,
-            changed_at=datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None),
+            changed_at=now,
         )
         db.add(history_entry)
+
+        root_service = None
+        # Si es un servicio WARRANTY, actualizar también el warranty_expires_at del servicio raíz
+        if service.service_type == ServiceType.WARRANTY.value and service.parent_service_id:
+            root_service_stmt = select(Service).where(
+                Service.id == service.parent_service_id
+            )
+            root_result = await db.execute(root_service_stmt)
+            root_service = root_result.scalar_one_or_none()
+            if root_service:
+                root_service.warranty_expires_at = warranty_expiration
 
         await db.commit()
 
         # Notificar al cliente
         try:
             request_title = service.request.title if service.request else "tu servicio"
+            notification_body = f"El prestador ha marcado como finalizado el servicio '{request_title}'."
+            
+            # Si es WARRANTY, agregar info de garantía
+            if service.service_type == ServiceType.WARRANTY.value:
+                notification_body = f"El prestador ha completado la visita de garantía para '{request_title}'. Tu garantía se renovó por 30 días más."
+            
+            notification_request_id = service.request_id
+            if notification_request_id is None and root_service is not None:
+                notification_request_id = getattr(root_service, "request_id", None)
+
             await notification_service.send_notification_to_user(
                 db,
                 user_id=service.client_id,
                 title="¡Servicio finalizado!",
-                body=f"El prestador ha marcado como finalizado el servicio '{request_title}'.",
+                body=notification_body,
                 data={
-                    "requestId": service.request_id,
+                    "requestId": notification_request_id,
                     "type": "service_completed",
                 },
             )
@@ -1412,6 +1439,7 @@ class ProviderController:
             client_phone=client_phone,
             client_avatar_url=client_avatar_url,
             address_snapshot=getattr(service, "address_snapshot", None),
+            warranty_claim_description=getattr(service, "warranty_claim_description", None),
             created_at=service.created_at,
             updated_at=service.updated_at,
             status_history=status_history,

@@ -236,6 +236,37 @@ export async function createRehireRequest(data) {
     }
 }
 
+/**
+ * Crear un reclamo de garantía para un servicio completado.
+ * El servicio debe estar dentro del período de garantía de 30 días.
+ * @param {number} serviceId - ID del servicio completado
+ * @param {Object} data - { description, attachments[] }
+ * @returns {Promise<Object>} - Servicio de garantía creado
+ */
+export async function createWarrantyClaim(serviceId, data) {
+    if (!serviceId) {
+        throw new Error('createWarrantyClaim requiere un ID de servicio válido.');
+    }
+
+    try {
+        console.log('🛡️ Creando reclamo de garantía...', {
+            serviceId,
+            descriptionLength: data?.description?.length ?? 0,
+            attachments: data?.attachments?.length ?? 0,
+        });
+
+        const response = await api.post(`/service-requests/services/${serviceId}/warranty`, data);
+
+        console.log('✅ Reclamo de garantía creado con ID:', response.data?.id);
+        return response.data;
+    } catch (error) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message ?? error?.response?.data?.detail;
+        console.error('❌ Error creando reclamo de garantía:', { status, message });
+        throw error;
+    }
+}
+
 export default {
     createServiceRequest,
     getActiveServiceRequests,
@@ -250,4 +281,5 @@ export default {
     getPaymentHistory,
     rewriteWithAI,
     createRehireRequest,
+    createWarrantyClaim,
 };

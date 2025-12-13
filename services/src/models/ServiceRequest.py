@@ -298,6 +298,11 @@ class Service(Base):
         nullable=True,
         comment="Fecha de expiración de la garantía",
     )
+    warranty_claim_description = Column(
+        Text,
+        nullable=True,
+        comment="Descripción del problema (solo para servicios WARRANTY)",
+    )
 
     address_snapshot = Column(JSON, nullable=True)
     scheduled_start_at = Column(DateTime, nullable=True)

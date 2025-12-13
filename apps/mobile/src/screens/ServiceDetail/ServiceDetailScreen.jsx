@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image, RefreshControl, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -22,6 +22,7 @@ const STATUS_BADGE_MAP = {
 
 const STATUS_DESCRIPTIONS = {
     CONFIRMED: 'Servicio confirmado con el prestador. Podés coordinar cualquier detalle pendiente.',
+    CONFIRMED_WARRANTY: 'Garantía solicitada. El prestador coordinará la visita sin costo adicional.',
     ON_ROUTE: 'El prestador está en camino hacia tu domicilio.',
     IN_PROGRESS: 'El servicio está en ejecución.',
     COMPLETED: 'El servicio finalizó. Recordá calificar al prestador.',
@@ -123,6 +124,26 @@ const buildTimelineEntries = (service, pendingReview = null) => {
     }
 
     const historyItems = Array.isArray(service.status_history) ? [...service.status_history] : [];
+    
+    // Ordenar historial por fecha
+    const sortedHistory = [...historyItems].sort((a, b) => {
+        const timeA = a?.changed_at ? new Date(a.changed_at).getTime() : 0;
+        const timeB = b?.changed_at ? new Date(b.changed_at).getTime() : 0;
+        return timeA - timeB;
+    });
+
+    // Detectar si hay una transición de garantía (COMPLETED → CONFIRMED)
+    const warrantyTransitions = sortedHistory.filter(
+        (item) => item?.from_status === 'COMPLETED' && item?.to_status === 'CONFIRMED'
+    );
+    const hasWarrantyFlow = warrantyTransitions.length > 0;
+
+    // Si hay garantía, construimos el timeline de forma secuencial basado en el historial real
+    if (hasWarrantyFlow) {
+        return buildWarrantyTimeline(service, sortedHistory, pendingReview);
+    }
+
+    // Flujo normal sin garantía
     const historyByStatus = new Map();
     historyItems.forEach((item) => {
         const status = item?.to_status;
@@ -204,6 +225,143 @@ const buildTimelineEntries = (service, pendingReview = null) => {
             isDone: (index < currentIndex || (status === 'COMPLETED' && completedReached)) && status !== 'CANCELED',
         };
     });
+    
+    // Agregar review si existe
+    appendReviewEntry(entries, service, pendingReview);
+
+    return entries.map((entry, index) => ({
+        ...entry,
+        isFirst: index === 0,
+        isLast: index === entries.length - 1,
+    }));
+};
+
+// Construye el timeline cuando hay garantía, mostrando el flujo completo secuencial
+const buildWarrantyTimeline = (service, sortedHistory, pendingReview) => {
+    const entries = [];
+    const finalStatus = typeof service.status === 'string' ? service.status : String(service.status || '');
+    const hasReview = Boolean(service.client_review || pendingReview);
+    
+    let warrantyPhase = 0; // 0 = servicio original, 1+ = garantía
+
+    // Recorrer el historial y construir entries secuenciales
+    sortedHistory.forEach((historyItem, historyIndex) => {
+        const toStatus = historyItem?.to_status;
+        const fromStatus = historyItem?.from_status;
+        const changedAt = historyItem?.changed_at;
+
+        if (!toStatus) return;
+
+        // Detectar transición de garantía
+        const isWarrantyTransition = fromStatus === 'COMPLETED' && toStatus === 'CONFIRMED';
+        
+        if (isWarrantyTransition) {
+            warrantyPhase += 1;
+            // Agregar entrada especial de "Garantía solicitada"
+            entries.push({
+                key: `timeline-warranty-${warrantyPhase}`,
+                status: 'WARRANTY_CLAIMED',
+                label: '🛡️ Garantía solicitada',
+                timestamp: formatDateTime(changedAt),
+                description: service.warranty_claim_description || 'El cliente solicitó atención por garantía.',
+                paletteColor: '#D97706', // Amber
+                connectorColor: '#D97706',
+                isFirst: false,
+                isLast: false,
+                isActive: false,
+                isDone: true,
+                isWarranty: true,
+            });
+            return; // No agregamos el CONFIRMED redundante
+        }
+
+        // Determinar si este estado ya pasó o es el actual
+        const isLastHistoryItem = historyIndex === sortedHistory.length - 1;
+        // Si es COMPLETED y hay review, no es "current" porque la review viene después
+        const isCurrent = isLastHistoryItem && toStatus === finalStatus && !(toStatus === 'COMPLETED' && hasReview);
+        const isDone = !isCurrent;
+
+        // Labels especiales para fase de garantía
+        let label = resolveStatusBadge(toStatus).label;
+        if (warrantyPhase > 0) {
+            // En fase de garantía, agregar sufijo excepto para COMPLETED final
+            if (toStatus === 'CONFIRMED') {
+                label = 'Confirmado (garantía)';
+            } else if (toStatus === 'IN_PROGRESS') {
+                label = 'En progreso (garantía)';
+            } else if (toStatus === 'ON_ROUTE') {
+                label = 'En camino (garantía)';
+            } else if (toStatus === 'COMPLETED') {
+                label = 'Garantía completada';
+            }
+        }
+
+        let description = STATUS_DESCRIPTIONS[toStatus] || null;
+        if (warrantyPhase > 0) {
+            if (toStatus === 'CONFIRMED') {
+                description = 'El profesional coordinará la visita de garantía sin costo adicional.';
+            } else if (toStatus === 'COMPLETED') {
+                description = 'El trabajo de garantía fue completado exitosamente.';
+            }
+        }
+
+        let paletteKey = 'done';
+        if (isCurrent) {
+            paletteKey = 'active';
+        } else if (toStatus === 'CANCELED') {
+            paletteKey = 'canceled';
+        }
+
+        // En fase de garantía, todo usa amber (incluyendo COMPLETED de garantía)
+        const paletteColor = warrantyPhase > 0
+            ? '#D97706' // Amber para toda la fase de garantía
+            : (TIMELINE_COLORS[paletteKey] || TIMELINE_COLORS.done);
+
+        entries.push({
+            key: `timeline-${toStatus}-${historyIndex}`,
+            status: toStatus,
+            label,
+            timestamp: formatDateTime(changedAt),
+            description,
+            paletteColor,
+            connectorColor: paletteColor,
+            isFirst: entries.length === 0,
+            isLast: false,
+            isActive: isCurrent,
+            isDone,
+            isWarranty: warrantyPhase > 0,
+        });
+    });
+
+    // Si el servicio está en un estado que no salió del historial (ej: recién creado)
+    if (entries.length === 0) {
+        entries.push({
+            key: 'timeline-CONFIRMED-initial',
+            status: 'CONFIRMED',
+            label: 'Confirmado',
+            timestamp: formatDateTime(service.created_at),
+            description: STATUS_DESCRIPTIONS.CONFIRMED,
+            paletteColor: finalStatus === 'CONFIRMED' ? TIMELINE_COLORS.active : TIMELINE_COLORS.done,
+            connectorColor: TIMELINE_COLORS.done,
+            isFirst: true,
+            isLast: finalStatus === 'CONFIRMED',
+            isActive: finalStatus === 'CONFIRMED',
+            isDone: finalStatus !== 'CONFIRMED',
+        });
+    }
+
+    // Agregar review si existe
+    appendReviewEntry(entries, service, pendingReview);
+
+    return entries.map((entry, index) => ({
+        ...entry,
+        isFirst: index === 0,
+        isLast: index === entries.length - 1,
+    }));
+};
+
+// Helper para agregar entrada de review
+const appendReviewEntry = (entries, service, pendingReview) => {
     const review = service.client_review || pendingReview;
     if (review) {
         const lastIndex = entries.length - 1;
@@ -236,12 +394,6 @@ const buildTimelineEntries = (service, pendingReview = null) => {
             isDone: true,
         });
     }
-
-    return entries.map((entry, index) => ({
-        ...entry,
-        isFirst: index === 0,
-        isLast: index === entries.length - 1,
-    }));
 };
 
 const ServiceDetailScreen = () => {
@@ -252,6 +404,7 @@ const ServiceDetailScreen = () => {
     const [ratingModalVisible, setRatingModalVisible] = useState(false);
     const [ratingSubmitted, setRatingSubmitted] = useState(false);
     const [optimisticReview, setOptimisticReview] = useState(null);
+    const [actionsModalVisible, setActionsModalVisible] = useState(false);
 
     const serviceRequestQuery = useServiceRequest(requestId, {
         enabled: Boolean(requestId),
@@ -288,6 +441,13 @@ const ServiceDetailScreen = () => {
         return { name, id, image, rating, reviews };
     }, [requestData?.proposals, serviceData]);
 
+    // Detectar si el servicio está en proceso de garantía (reabierto)
+    const isWarrantyInProgress = useMemo(() => {
+        if (!serviceData) return false;
+        // Si tiene warranty_claim_description y no está completado, está en proceso de garantía
+        return Boolean(serviceData.warranty_claim_description) && serviceData.status !== 'COMPLETED';
+    }, [serviceData]);
+
     const statusBadge = resolveStatusBadge(serviceData?.status);
     const statusBadgeStyle = styles[`statusBadge_${statusBadge.styleKey}`] || styles.statusBadge_default;
     const startLabel = formatDateTime(serviceData?.scheduled_start_at);
@@ -299,6 +459,33 @@ const ServiceDetailScreen = () => {
         [serviceData, optimisticReview],
     );
     const isServiceCompleted = serviceData?.status === 'COMPLETED';
+
+    // Calcular si está dentro del período de garantía (30 días)
+    const warrantyInfo = useMemo(() => {
+        if (!serviceData || serviceData.status !== 'COMPLETED') {
+            return { isValid: false, expiresAt: null, daysRemaining: 0 };
+        }
+
+        // Usar warranty_expires_at si existe, o calcular desde updated_at
+        let expiresAt = serviceData.warranty_expires_at
+            ? new Date(serviceData.warranty_expires_at)
+            : null;
+
+        if (!expiresAt && serviceData.updated_at) {
+            const completedAt = new Date(serviceData.updated_at);
+            expiresAt = new Date(completedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+        }
+
+        if (!expiresAt) {
+            return { isValid: false, expiresAt: null, daysRemaining: 0 };
+        }
+
+        const now = new Date();
+        const isValid = now < expiresAt;
+        const daysRemaining = Math.max(0, Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24)));
+
+        return { isValid, expiresAt, daysRemaining };
+    }, [serviceData]);
 
     useEffect(() => {
         setOptimisticReview(null);
@@ -417,6 +604,21 @@ const ServiceDetailScreen = () => {
             providerReviews: providerInfo.reviews,
         });
     }, [navigation, serviceData, providerInfo]);
+
+    const handleWarrantyClaim = useCallback(() => {
+        if (!serviceData || !providerInfo || !warrantyInfo.isValid) {
+            return;
+        }
+        navigation.navigate('WarrantyClaim', {
+            serviceId: serviceData.id,
+            serviceTitle: requestData?.title,
+            providerName: providerInfo.name,
+            providerImage: providerInfo.image,
+            providerRating: providerInfo.rating,
+            providerReviews: providerInfo.reviews,
+            warrantyExpiresAt: warrantyInfo.expiresAt?.toISOString(),
+        });
+    }, [navigation, serviceData, requestData, providerInfo, warrantyInfo]);
 
     const handleCloseRatingModal = useCallback(() => {
         if (isSubmittingReview) {
@@ -598,6 +800,16 @@ const ServiceDetailScreen = () => {
                                 <Text style={styles.detailValue}>{requestData?.description}</Text>
                             </View>
                         </View>
+
+                        {serviceData.warranty_claim_description ? (
+                            <View style={styles.detailRow}>
+                                <Ionicons name="shield-checkmark-outline" size={20} color="#92400E" style={styles.detailIcon} />
+                                <View style={styles.detailColumn}>
+                                    <Text style={[styles.detailLabel, { color: '#92400E' }]}>Reclamo de garantía</Text>
+                                    <Text style={styles.detailValue}>{serviceData.warranty_claim_description}</Text>
+                                </View>
+                            </View>
+                        ) : null}
                     </View>
 
                     <View style={[styles.timelineCard]}>
@@ -661,7 +873,14 @@ const ServiceDetailScreen = () => {
                         </View>
                     </View>
 
-                    {serviceData.status === 'CONFIRMED' ? (
+                    {isWarrantyInProgress ? (
+                        <View style={[styles.infoBanner, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
+                            <Ionicons name="shield-checkmark" size={20} color="#92400E" />
+                            <Text style={[styles.infoBannerText, { color: '#92400E' }]}>
+                                Garantía en proceso. El profesional coordinará una visita sin costo para resolver el problema.
+                            </Text>
+                        </View>
+                    ) : serviceData.status === 'CONFIRMED' ? (
                         <View style={styles.infoBanner}>
                             <Ionicons name="information-circle-outline" size={20} color="#0f172a" />
                             <Text style={styles.infoBannerText}>
@@ -673,66 +892,151 @@ const ServiceDetailScreen = () => {
                 </ScrollView>
 
 
-                <View style={styles.footer}>
-                    {isServiceCompleted ? (
-                        <View style={styles.completedActionsContainer}>
-                            {ratingSubmitted ? (
-                                <Text style={styles.completedMessage}>
-                                    Gracias por calificar este servicio.
-                                </Text>
+                {/* Footer con FAB para servicios completados */}
+                {isServiceCompleted ? (
+                    <View style={styles.footer}>
+                        <TouchableOpacity
+                            style={styles.fab}
+                            onPress={() => setActionsModalVisible(true)}
+                        >
+                            <Ionicons name="apps" size={20} color="#FFFFFF" />
+                            <Text style={styles.fabText}>Ver opciones</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : showCancelButton ? (
+                    <View style={styles.footer}>
+                        <TouchableOpacity
+                            style={[
+                                styles.cancelButton,
+                                (cancelDisabledReason || isMutating) && styles.cancelButtonDisabled,
+                            ]}
+                            onPress={handleCancelService}
+                            disabled={Boolean(cancelDisabledReason) || isMutating}
+                        >
+                            {isMutating ? (
+                                <ActivityIndicator size="small" color="#fef2f2" style={styles.buttonSpinner} />
                             ) : (
-                                <TouchableOpacity
-                                    style={[
-                                        styles.primaryButton,
-                                        isSubmittingReview && { opacity: 0.7 },
-                                    ]}
-                                    onPress={handleOpenRatingModal}
-                                    disabled={isSubmittingReview}
-                                >
-                                    <Ionicons
-                                        name="star"
-                                        size={20}
-                                        color="#fef9c3"
-                                        style={styles.primaryButtonIcon}
-                                    />
-                                    <Text style={styles.primaryButtonText}>Calificar servicio</Text>
-                                </TouchableOpacity>
+                                <Ionicons name="close-circle" size={20} color="#fee2e2" style={styles.buttonIcon} />
                             )}
-                            <TouchableOpacity
-                                style={styles.rehireButton}
-                                onPress={handleRehire}
-                            >
-                                <Ionicons name="refresh" size={20} color="#FFFFFF" />
-                                <Text style={styles.rehireButtonText}>
-                                    Recontratar al profesional
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : showCancelButton ? (
-                        <>
-                            <TouchableOpacity
-                                style={[
-                                    styles.cancelButton,
-                                    (cancelDisabledReason || isMutating) && styles.cancelButtonDisabled,
-                                ]}
-                                onPress={handleCancelService}
-                                disabled={Boolean(cancelDisabledReason) || isMutating}
-                            >
-                                {isMutating ? (
-                                    <ActivityIndicator size="small" color="#fef2f2" style={styles.buttonSpinner} />
-                                ) : (
-                                    <Ionicons name="close-circle" size={20} color="#fee2e2" style={styles.buttonIcon} />
+                            <Text style={styles.cancelButtonText}>Cancelar servicio</Text>
+                        </TouchableOpacity>
+                        {cancelDisabledReason ? (
+                            <Text style={styles.cancelHelper}>{cancelDisabledReason}</Text>
+                        ) : null}
+                    </View>
+                ) : null}
+
+                {/* Bottom Sheet Modal de Acciones */}
+                <Modal
+                    visible={actionsModalVisible}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setActionsModalVisible(false)}
+                >
+                    <Pressable
+                        style={styles.modalOverlay}
+                        onPress={() => setActionsModalVisible(false)}
+                    >
+                        <Pressable style={styles.bottomSheet} onPress={(e) => e.stopPropagation()}>
+                            <View style={styles.bottomSheetHandle} />
+                            <Text style={styles.bottomSheetTitle}>¿Qué querés hacer?</Text>
+                            <Text style={styles.bottomSheetSubtitle}>
+                                Seleccioná una opción para continuar
+                            </Text>
+
+                            <View style={styles.bottomSheetActions}>
+                                {/* Calificar servicio */}
+                                {!ratingSubmitted && (
+                                    <TouchableOpacity
+                                        style={styles.actionButton}
+                                        onPress={() => {
+                                            setActionsModalVisible(false);
+                                            setTimeout(() => handleOpenRatingModal(), 300);
+                                        }}
+                                        disabled={isSubmittingReview}
+                                    >
+                                        <View style={[styles.actionButtonIconWrapper, { backgroundColor: '#FEF3C7' }]}>
+                                            <Ionicons name="star" size={22} color="#D97706" />
+                                        </View>
+                                        <View style={styles.actionButtonContent}>
+                                            <Text style={styles.actionButtonTitle}>Calificar servicio</Text>
+                                            <Text style={styles.actionButtonSubtitle}>
+                                                Dejá tu opinión sobre el trabajo
+                                            </Text>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={20} color="#94a3b8" style={styles.actionButtonChevron} />
+                                    </TouchableOpacity>
                                 )}
-                                <Text style={styles.cancelButtonText}>Cancelar servicio</Text>
+
+                                {/* Solicitar garantía */}
+                                {warrantyInfo.isValid && (
+                                    <TouchableOpacity
+                                        style={styles.actionButton}
+                                        onPress={() => {
+                                            setActionsModalVisible(false);
+                                            setTimeout(() => handleWarrantyClaim(), 300);
+                                        }}
+                                    >
+                                        <View style={[styles.actionButtonIconWrapper, { backgroundColor: '#FFEDD5' }]}>
+                                            <Ionicons name="shield-checkmark" size={22} color="#EA580C" />
+                                        </View>
+                                        <View style={styles.actionButtonContent}>
+                                            <Text style={styles.actionButtonTitle}>Solicitar garantía</Text>
+                                            <Text style={styles.actionButtonSubtitle}>
+                                                {warrantyInfo.daysRemaining} días restantes
+                                            </Text>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={20} color="#94a3b8" style={styles.actionButtonChevron} />
+                                    </TouchableOpacity>
+                                )}
+
+                                {/* Recontratar */}
+                                <TouchableOpacity
+                                    style={styles.actionButton}
+                                    onPress={() => {
+                                        setActionsModalVisible(false);
+                                        setTimeout(() => handleRehire(), 300);
+                                    }}
+                                >
+                                    <View style={[styles.actionButtonIconWrapper, { backgroundColor: '#E0E7FF' }]}>
+                                        <Ionicons name="refresh" size={22} color="#4F46E5" />
+                                    </View>
+                                    <View style={styles.actionButtonContent}>
+                                        <Text style={styles.actionButtonTitle}>Recontratar profesional</Text>
+                                        <Text style={styles.actionButtonSubtitle}>
+                                            Solicitá un nuevo servicio
+                                        </Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color="#94a3b8" style={styles.actionButtonChevron} />
+                                </TouchableOpacity>
+
+                                {/* Mensaje si ya calificó */}
+                                {ratingSubmitted && (
+                                    <View style={[styles.actionButton, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
+                                        <View style={[styles.actionButtonIconWrapper, { backgroundColor: '#DCFCE7' }]}>
+                                            <Ionicons name="checkmark-circle" size={22} color="#16A34A" />
+                                        </View>
+                                        <View style={styles.actionButtonContent}>
+                                            <Text style={[styles.actionButtonTitle, { color: '#16A34A' }]}>
+                                                Servicio calificado
+                                            </Text>
+                                            <Text style={styles.actionButtonSubtitle}>
+                                                Gracias por tu opinión
+                                            </Text>
+                                        </View>
+                                    </View>
+                                )}
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.closeButton}
+                                onPress={() => setActionsModalVisible(false)}
+                            >
+                                <Text style={styles.closeButtonText}>Cerrar</Text>
                             </TouchableOpacity>
-                            {cancelDisabledReason ? (
-                                <Text style={styles.cancelHelper}>{cancelDisabledReason}</Text>
-                            ) : null}
-                        </>
-                    ) : cancelDisabledReason ? (
-                        <Text style={styles.cancelHelper}>{cancelDisabledReason}</Text>
-                    ) : null}
-                </View>
+                        </Pressable>
+                    </Pressable>
+                </Modal>
                 <RatingModal
                     visible={ratingModalVisible}
                     onClose={handleCloseRatingModal}

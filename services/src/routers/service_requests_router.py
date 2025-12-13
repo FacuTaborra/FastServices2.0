@@ -23,6 +23,7 @@ from models.ServiceRequestSchemas import (
     ServiceReviewCreate,
     PaymentHistoryItem,
     RehireRequestCreate,
+    WarrantyClaimCreate,
 )
 from models.User import User
 
@@ -265,5 +266,29 @@ async def submit_service_review_endpoint(
         db,
         current_user,
         request_id,
+        payload,
+    )
+
+
+@router.post(
+    "/services/{service_id}/warranty",
+    response_model=ServiceRequestResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Solicitar garantía para un servicio completado",
+)
+async def create_warranty_claim_endpoint(
+    service_id: int,
+    payload: WarrantyClaimCreate,
+    current_user: User = Depends(check_user_login),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceRequestResponse:
+    """
+    Reabre un servicio completado para atender un reclamo de garantía.
+    El servicio vuelve a estado CONFIRMED y el historial refleja el cambio.
+    """
+    return await ServiceRequestController.create_warranty_claim(
+        db,
+        current_user,
+        service_id,
         payload,
     )

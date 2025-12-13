@@ -210,6 +210,30 @@ export function useCreateRehireRequest() {
     });
 }
 
+/**
+ * Hook para crear un reclamo de garantía
+ */
+export function useCreateWarrantyClaim() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ serviceId, description, attachments }) =>
+            serviceRequestService.createWarrantyClaim(serviceId, {
+                description,
+                attachments: attachments || [],
+            }),
+        onSuccess: (warrantyService) => {
+            console.log('✅ useCreateWarrantyClaim éxito:', warrantyService?.id);
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.all });
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.active });
+            queryClient.invalidateQueries({ queryKey: serviceRequestKeys.history });
+        },
+        onError: (error) => {
+            console.error('❌ useCreateWarrantyClaim error:', error?.message);
+        },
+    });
+}
+
 export default {
     useCreateServiceRequest,
     useActiveServiceRequests,
@@ -223,4 +247,5 @@ export default {
     useSubmitServiceReview,
     usePaymentHistory,
     useCreateRehireRequest,
+    useCreateWarrantyClaim,
 };

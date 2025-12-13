@@ -21,6 +21,7 @@ from models.ServiceRequestSchemas import (
     PaymentHistoryItem,
     RehireRequestCreate,
     TargetProviderResponse,
+    WarrantyClaimCreate,
 )
 from models.User import User
 from services.service_request_service import ServiceRequestService
@@ -195,6 +196,17 @@ class ServiceRequestController:
     ) -> ServiceRequestResponse:
         service_request = await ServiceRequestService.create_rehire_request(
             db, current_user=current_user, payload=payload
+        )
+        return ServiceRequestController._build_response(service_request)
+
+    @staticmethod
+    @error_handler(logger)
+    async def create_warranty_claim(
+        db: AsyncSession, current_user: User, service_id: int, payload: WarrantyClaimCreate
+    ) -> ServiceRequestResponse:
+        """Reabre un servicio completado para atender un reclamo de garantía."""
+        service_request = await ServiceRequestService.create_warranty_claim(
+            db, current_user=current_user, service_id=service_id, payload=payload
         )
         return ServiceRequestController._build_response(service_request)
 
@@ -441,6 +453,8 @@ class ServiceRequestController:
             address_snapshot=service.address_snapshot,
             provider_profile_id=service.provider_profile_id,
             provider_display_name=provider_name,
+            warranty_expires_at=service.warranty_expires_at,
+            warranty_claim_description=service.warranty_claim_description,
             status_history=history_payload,
             client_review=client_review_payload,
             created_at=service.created_at,

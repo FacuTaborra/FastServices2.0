@@ -35,9 +35,11 @@ const STATUS_LABELS = {
 
 const STATUS_DESCRIPTIONS = {
     CONFIRMED: 'El servicio quedó confirmado con el cliente y puede reprogramarse si es necesario.',
+    CONFIRMED_WARRANTY: 'El cliente solicitó garantía. Coordiná una visita sin costo para resolver el problema.',
     ON_ROUTE: 'Saliste hacia el domicilio del cliente. Avisá cualquier demora al cliente.',
     IN_PROGRESS: 'El servicio se encuentra en ejecución. Asegurate de registrar avances con el cliente.',
     COMPLETED: 'Marcaste el servicio como completado. Recordá solicitar la valoración del cliente.',
+    COMPLETED_WARRANTY: 'El trabajo de garantía fue completado exitosamente.',
     CANCELED: 'El servicio fue cancelado por el cliente o por el equipo de soporte.',
 };
 
@@ -406,6 +408,26 @@ function buildTimelineEntries(service) {
     }
 
     const historyItems = Array.isArray(service.status_history) ? [...service.status_history] : [];
+    
+    // Ordenar historial por fecha
+    const sortedHistory = [...historyItems].sort((a, b) => {
+        const timeA = parseDate(a?.changed_at)?.getTime() ?? 0;
+        const timeB = parseDate(b?.changed_at)?.getTime() ?? 0;
+        return timeA - timeB;
+    });
+
+    // Detectar si hay una transición de garantía (COMPLETED → CONFIRMED)
+    const warrantyTransitions = sortedHistory.filter(
+        (item) => item?.from_status === 'COMPLETED' && item?.to_status === 'CONFIRMED'
+    );
+    const hasWarrantyFlow = warrantyTransitions.length > 0;
+
+    // Si hay garantía, construimos el timeline de forma secuencial
+    if (hasWarrantyFlow) {
+        return buildWarrantyTimelineProvider(service, sortedHistory);
+    }
+
+    // Flujo normal sin garantía
     const historyByStatus = new Map();
     historyItems.forEach((item) => {
         const status = item?.to_status;
@@ -490,13 +512,157 @@ function buildTimelineEntries(service) {
         };
     });
 
+    // Agregar review si existe
+    appendClientReviewEntry(entries, service);
+
+    return entries.map((entry, index) => ({
+        ...entry,
+        isFirst: index === 0,
+        isLast: index === entries.length - 1,
+    }));
+}
+
+// Construye el timeline cuando hay garantía, mostrando el flujo completo secuencial
+function buildWarrantyTimelineProvider(service, sortedHistory) {
+    const entries = [];
+    const finalStatus = typeof service.status === 'string' ? service.status : String(service.status || '');
+    const hasReview = Boolean(extractClientReview(service));
+    
+    let warrantyPhase = 0; // 0 = servicio original, 1+ = garantía
+    const WARRANTY_COLOR = '#D97706'; // Amber
+
+    // Recorrer el historial y construir entries secuenciales
+    sortedHistory.forEach((historyItem, historyIndex) => {
+        const toStatus = historyItem?.to_status;
+        const fromStatus = historyItem?.from_status;
+        const changedAt = historyItem?.changed_at;
+
+        if (!toStatus) return;
+
+        // Detectar transición de garantía
+        const isWarrantyTransition = fromStatus === 'COMPLETED' && toStatus === 'CONFIRMED';
+        
+        if (isWarrantyTransition) {
+            warrantyPhase += 1;
+            // Agregar entrada especial de "Garantía solicitada"
+            entries.push({
+                key: `timeline-warranty-${warrantyPhase}`,
+                status: 'WARRANTY_CLAIMED',
+                label: '🛡️ Garantía solicitada',
+                timestamp: formatDateTime(changedAt),
+                description: service.warranty_claim_description || 'El cliente solicitó atención por garantía.',
+                paletteColor: WARRANTY_COLOR,
+                connectorColor: WARRANTY_COLOR,
+                isFirst: false,
+                isLast: false,
+                isActive: false,
+                isDone: true,
+                isWarranty: true,
+            });
+            return; // No agregamos el CONFIRMED redundante
+        }
+
+        // Determinar si este estado ya pasó o es el actual
+        const isLastHistoryItem = historyIndex === sortedHistory.length - 1;
+        const isCurrent = isLastHistoryItem && toStatus === finalStatus && !(toStatus === 'COMPLETED' && hasReview);
+        const isDone = !isCurrent;
+
+        // Labels especiales para fase de garantía
+        let label = STATUS_LABELS[toStatus] || toStatus;
+        if (warrantyPhase > 0) {
+            if (toStatus === 'CONFIRMED') {
+                label = 'Confirmado (garantía)';
+            } else if (toStatus === 'IN_PROGRESS') {
+                label = 'En progreso (garantía)';
+            } else if (toStatus === 'ON_ROUTE') {
+                label = 'En camino (garantía)';
+            } else if (toStatus === 'COMPLETED') {
+                label = 'Garantía completada';
+            }
+        }
+
+        let description = STATUS_DESCRIPTIONS[toStatus] || null;
+        if (warrantyPhase > 0) {
+            if (toStatus === 'CONFIRMED') {
+                description = STATUS_DESCRIPTIONS.CONFIRMED_WARRANTY;
+            } else if (toStatus === 'COMPLETED') {
+                description = STATUS_DESCRIPTIONS.COMPLETED_WARRANTY;
+            }
+        }
+
+        let paletteKey = 'done';
+        if (isCurrent) {
+            paletteKey = 'active';
+        } else if (toStatus === 'CANCELED') {
+            paletteKey = 'canceled';
+        }
+
+        // En fase de garantía, todo usa amber
+        const paletteColor = warrantyPhase > 0
+            ? WARRANTY_COLOR
+            : (TIMELINE_COLORS[paletteKey] || TIMELINE_COLORS.done);
+
+        entries.push({
+            key: `timeline-${toStatus}-${historyIndex}`,
+            status: toStatus,
+            label,
+            timestamp: formatDateTime(changedAt),
+            description,
+            paletteColor,
+            connectorColor: paletteColor,
+            isFirst: entries.length === 0,
+            isLast: false,
+            isActive: isCurrent,
+            isDone,
+            isWarranty: warrantyPhase > 0,
+        });
+    });
+
+    // Si no hay entries del historial, agregar el estado inicial
+    if (entries.length === 0) {
+        entries.push({
+            key: 'timeline-CONFIRMED-initial',
+            status: 'CONFIRMED',
+            label: 'Confirmado',
+            timestamp: formatDateTime(service.created_at),
+            description: STATUS_DESCRIPTIONS.CONFIRMED,
+            paletteColor: finalStatus === 'CONFIRMED' ? TIMELINE_COLORS.active : TIMELINE_COLORS.done,
+            connectorColor: TIMELINE_COLORS.done,
+            isFirst: true,
+            isLast: finalStatus === 'CONFIRMED',
+            isActive: finalStatus === 'CONFIRMED',
+            isDone: finalStatus !== 'CONFIRMED',
+        });
+    }
+
+    // Agregar review si existe
+    appendClientReviewEntry(entries, service);
+
+    return entries.map((entry, index) => ({
+        ...entry,
+        isFirst: index === 0,
+        isLast: index === entries.length - 1,
+    }));
+}
+
+// Helper para agregar entrada de review del cliente
+function appendClientReviewEntry(entries, service) {
     const review = extractClientReview(service);
     if (review) {
+        const lastIndex = entries.length - 1;
+        if (lastIndex >= 0) {
+            entries[lastIndex] = {
+                ...entries[lastIndex],
+                isLast: false,
+            };
+        }
+
         const sanitizedComment = typeof review.comment === 'string' ? review.comment.trim() : null;
         const numericRating = Number(review.rating);
         const safeRating = Number.isFinite(numericRating)
             ? Math.min(5, Math.max(0, Math.round(numericRating)))
             : 0;
+
         entries.push({
             key: 'timeline-review',
             status: 'CLIENT_REVIEW',
@@ -513,12 +679,6 @@ function buildTimelineEntries(service) {
             rating: safeRating,
         });
     }
-
-    return entries.map((entry, index) => ({
-        ...entry,
-        isFirst: index === 0,
-        isLast: index === entries.length - 1,
-    }));
 }
 
 export default function ProviderServiceDetailScreen() {
@@ -1003,7 +1163,8 @@ export default function ProviderServiceDetailScreen() {
                                                     <Text style={styles.timelineDescription}>{entry.description}</Text>
                                                 ) : null}
 
-                                                {entry.status === 'CONFIRMED' && service?.status === 'CONFIRMED' ? (
+                                                {/* Solo mostrar botones de acción en la entrada ACTIVA actual */}
+                                                {entry.status === 'CONFIRMED' && entry.isActive && canMarkOnRoute ? (
                                                     <TouchableOpacity
                                                         style={[
                                                             styles.timelineActionButton,
@@ -1036,7 +1197,7 @@ export default function ProviderServiceDetailScreen() {
                                                     </TouchableOpacity>
                                                 ) : null}
 
-                                                {entry.status === 'ON_ROUTE' && canMarkInProgress ? (
+                                                {entry.status === 'ON_ROUTE' && entry.isActive && canMarkInProgress ? (
                                                     <TouchableOpacity
                                                         style={[
                                                             styles.timelineActionButton,
@@ -1064,7 +1225,7 @@ export default function ProviderServiceDetailScreen() {
                                                     </TouchableOpacity>
                                                 ) : null}
 
-                                                {entry.status === 'IN_PROGRESS' && canMarkCompleted ? (
+                                                {entry.status === 'IN_PROGRESS' && entry.isActive && canMarkCompleted ? (
                                                     <TouchableOpacity
                                                         style={[
                                                             styles.timelineActionButton,

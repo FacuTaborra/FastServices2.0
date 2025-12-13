@@ -22,6 +22,7 @@ from models.ServiceRequest import (
     ServiceRequestStatus,
     ServiceRequestType,
     ServiceStatus,
+    ServiceType,
     ServiceReview,
     ServiceStatusHistory,
 )
@@ -35,6 +36,7 @@ from models.ServiceRequestSchemas import (
     ServiceReviewCreate,
     PaymentHistoryItem,
     RehireRequestCreate,
+    WarrantyClaimCreate,
 )
 from models.User import User, UserRole
 from utils.error_handler import error_handler
@@ -450,7 +452,7 @@ class ServiceRequestService:
         )
 
         result = await db.execute(stmt)
-        return list(result.scalars().all())
+        return list(result.scalars().unique().all())
 
     @staticmethod
     async def get_request_for_client(
@@ -1152,6 +1154,127 @@ class ServiceRequestService:
 
         return await ServiceRequestService._fetch_request_with_relations(
             db, new_request.id
+        )
+
+    @staticmethod
+    @error_handler(logger)
+    async def create_warranty_claim(
+        db: AsyncSession, *, current_user: User, service_id: int, payload: WarrantyClaimCreate
+    ) -> ServiceRequest:
+        """
+        Reabre un servicio completado para atender un reclamo de garantía.
+        
+        En lugar de crear un servicio separado, el servicio original vuelve a estado
+        CONFIRMED y se registra la descripción del reclamo. El historial de estados
+        refleja todo el ciclo de vida del servicio.
+        """
+
+        ServiceRequestService._ensure_client_role(current_user)
+
+        # Obtener el servicio con sus relaciones
+        stmt = (
+            select(Service)
+            .options(
+                selectinload(Service.request).selectinload(ServiceRequest.address),
+                selectinload(Service.provider).selectinload(ProviderProfile.user),
+            )
+            .where(Service.id == service_id)
+        )
+        result = await db.execute(stmt)
+        service = result.scalar_one_or_none()
+
+        if service is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="El servicio indicado no existe",
+            )
+
+        # Validar que el servicio pertenece al cliente
+        if service.client_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No podés solicitar garantía de un servicio que no te pertenece",
+            )
+
+        # Validar que el servicio está completado
+        normalized_status = (
+            service.status.value
+            if isinstance(service.status, ServiceStatus)
+            else service.status
+        )
+        if normalized_status != ServiceStatus.COMPLETED.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Solo podés solicitar garantía de servicios completados",
+            )
+
+        # Validar que está dentro del período de garantía
+        now = datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None)
+        warranty_expires = service.warranty_expires_at
+
+        if warranty_expires is None:
+            # Si no tiene fecha de garantía, calcularla desde updated_at + 30 días
+            service_completed_at = service.updated_at or service.created_at
+            warranty_expires = service_completed_at + timedelta(days=30)
+
+        if now > warranty_expires:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El período de garantía de 30 días ha expirado",
+            )
+
+        # Validar que tiene proveedor
+        provider_profile = service.provider
+        if provider_profile is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="El servicio no tiene un proveedor asociado",
+            )
+
+        # Validar que tiene request asociado
+        if service.request_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="El servicio no tiene una solicitud asociada",
+            )
+
+        # Reabrir el servicio: cambiar estado a CONFIRMED
+        previous_status = normalized_status
+        service.status = ServiceStatus.CONFIRMED
+        service.warranty_claim_description = payload.description
+        service.updated_at = now
+
+        # Registrar en el historial el cambio de estado por garantía
+        history_entry = ServiceStatusHistory(
+            service_id=service.id,
+            from_status=previous_status,
+            to_status=ServiceStatus.CONFIRMED.value,
+            changed_by=current_user.id,
+            changed_at=now,
+        )
+        db.add(history_entry)
+
+        await db.commit()
+
+        # Notificar al proveedor
+        try:
+            provider_user_id = provider_profile.user_id
+            if provider_user_id:
+                request_title = service.request.title if service.request else "tu servicio"
+
+                await notification_service.send_notification_to_user(
+                    db,
+                    user_id=provider_user_id,
+                    title="¡Solicitud de garantía!",
+                    body=f"Un cliente ha solicitado garantía para '{request_title}'. Coordiná la visita sin costo.",
+                    data={"requestId": service.request_id, "type": "warranty_claim"},
+                )
+        except Exception as e:
+            logger.error(f"Error enviando notificacion push de garantía: {e}")
+
+        # Retornar el ServiceRequest con el servicio reabierto
+        return await ServiceRequestService._fetch_request_with_relations(
+            db, service.request_id, client_id=current_user.id
         )
 
 

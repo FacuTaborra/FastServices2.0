@@ -419,6 +419,9 @@ class ProviderServiceResponse(BaseModel):
     client_phone: Optional[str] = None
     client_avatar_url: Optional[str] = None
     address_snapshot: Optional[Dict[str, Any]] = None
+    warranty_claim_description: Optional[str] = Field(
+        None, description="Descripción del reclamo de garantía (si aplica)"
+    )
     created_at: datetime
     updated_at: datetime
     status_history: List[ProviderServiceStatusHistory] = Field(default_factory=list)

@@ -164,6 +164,14 @@ class ServiceSummaryResponse(BaseModel):
     address_snapshot: Optional[Dict[str, Any]]
     provider_profile_id: Optional[int]
     provider_display_name: Optional[str]
+    warranty_expires_at: Optional[datetime] = Field(
+        default=None,
+        description="Fecha de expiración de la garantía",
+    )
+    warranty_claim_description: Optional[str] = Field(
+        default=None,
+        description="Descripción del reclamo de garantía (si el servicio fue reabierto)",
+    )
     status_history: List[Dict[str, Any]] = Field(
         default_factory=list,
         description="Historial de cambios de estado del servicio",
@@ -385,3 +393,49 @@ class RehireRequestCreate(BaseModel):
                 f"Se permiten como máximo {MAX_ATTACHMENTS} imágenes por solicitud"
             )
         return self
+
+
+class WarrantyClaimCreate(BaseModel):
+    """Payload para crear un reclamo de garantía."""
+
+    description: str = Field(
+        ...,
+        min_length=10,
+        max_length=2000,
+        description="Descripción del problema o lo que quedó pendiente",
+    )
+    attachments: List[ServiceRequestAttachment] = Field(
+        default_factory=list,
+        description="Hasta 6 imágenes opcionales mostrando el problema",
+    )
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(cls, value: str) -> str:
+        cleaned = " ".join(value.strip().split())
+        return cleaned
+
+    @model_validator(mode="after")
+    def validate_attachments_count(self) -> "WarrantyClaimCreate":
+        if len(self.attachments) > MAX_ATTACHMENTS:
+            raise ValueError(
+                f"Se permiten como máximo {MAX_ATTACHMENTS} imágenes por solicitud"
+            )
+        return self
+
+
+class WarrantyServiceResponse(BaseModel):
+    """Respuesta con los datos del servicio de garantía creado."""
+
+    id: int
+    parent_service_id: int
+    service_type: str
+    status: ServiceStatus
+    provider_profile_id: int
+    provider_name: Optional[str] = None
+    client_id: int
+    description: Optional[str] = None
+    warranty_expires_at: Optional[datetime] = None
+    created_at: datetime
+
+    model_config = dict(from_attributes=True)
