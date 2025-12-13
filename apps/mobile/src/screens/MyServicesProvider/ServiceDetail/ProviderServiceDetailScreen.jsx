@@ -559,7 +559,7 @@ function buildWarrantyTimelineProvider(service, sortedHistory) {
                 isDone: true,
                 isWarranty: true,
             });
-            return; // No agregamos el CONFIRMED redundante
+            // NO hacer return - continuar para agregar la entrada "Confirmado (garantía)"
         }
 
         // Determinar si este estado ya pasó o es el actual
