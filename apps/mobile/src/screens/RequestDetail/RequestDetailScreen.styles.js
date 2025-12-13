@@ -353,6 +353,28 @@ export default StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
+  imageSourceButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  imageSourceButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+    gap: 8,
+  },
+  imageSourceButtonText: {
+    color: '#2563EB',
+    fontWeight: '600',
+    fontSize: 14,
+  },
   submitButton: {
     marginTop: 32,
     marginBottom: 40,

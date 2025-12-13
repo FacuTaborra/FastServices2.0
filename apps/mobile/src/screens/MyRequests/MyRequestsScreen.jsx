@@ -262,28 +262,10 @@ const MyRequestsScreen = () => {
     [historyData]
   );
 
-  const formattedRequests = useMemo(() => {
-    const prioritized = [...rawRequests].sort((a, b) => {
-      const recentA = getLatestServiceActivityTimestamp(a);
-      const recentB = getLatestServiceActivityTimestamp(b);
-
-      if (recentA !== recentB) {
-        return recentB - recentA;
-      }
-
-      const aStatus = a?.service?.status;
-      const bStatus = b?.service?.status;
-
-      if (aStatus !== bStatus) {
-        return String(aStatus || '').localeCompare(String(bStatus || ''));
-      }
-
-      const aCreated = parseDateSafe(a?.created_at)?.getTime() ?? 0;
-      const bCreated = parseDateSafe(b?.created_at)?.getTime() ?? 0;
-      return bCreated - aCreated;
-    });
-    return prioritized.map((request) => mapRequestToCardData(request));
-  }, [rawRequests, mapRequestToCardData]);
+  const formattedRequests = useMemo(
+    () => rawRequests.map((request) => mapRequestToCardData(request)),
+    [rawRequests, mapRequestToCardData]
+  );
 
   const normalizedSearch = searchText.trim().toLowerCase();
 

@@ -6,7 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Iterable, Sequence, List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import Select, select, or_
+from sqlalchemy import Select, select, or_, case
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -234,7 +234,7 @@ class ServiceRequestService:
         sanitized = " ".join(description.strip().split())
         words = sanitized.split(" ")
         snippet = " ".join(words[:8]) if words else sanitized
-        
+
         # RECONTRATACION no lleva prefijo, se distingue por el badge de color
         if request_type == ServiceRequestType.RECONTRATACION:
             generated = snippet.strip()
@@ -448,7 +448,21 @@ class ServiceRequestService:
                     Service.updated_at >= cutoff_time,  # Cancelado hace menos de 24hs
                 ),
             )
-            .order_by(ServiceRequest.created_at.desc())
+            .order_by(
+                # 1) Canceladas al final (0 = no cancelada, 1 = cancelada)
+                case(
+                    (
+                        or_(
+                            ServiceRequest.status == ServiceRequestStatus.CANCELLED,
+                            Service.status == ServiceStatus.CANCELED,
+                        ),
+                        1,
+                    ),
+                    else_=0,
+                ),
+                # 2) Más recientes primero
+                ServiceRequest.updated_at.desc(),
+            )
         )
 
         result = await db.execute(stmt)
@@ -1159,11 +1173,15 @@ class ServiceRequestService:
     @staticmethod
     @error_handler(logger)
     async def create_warranty_claim(
-        db: AsyncSession, *, current_user: User, service_id: int, payload: WarrantyClaimCreate
+        db: AsyncSession,
+        *,
+        current_user: User,
+        service_id: int,
+        payload: WarrantyClaimCreate,
     ) -> ServiceRequest:
         """
         Reabre un servicio completado para atender un reclamo de garantía.
-        
+
         En lugar de crear un servicio separado, el servicio original vuelve a estado
         CONFIRMED y se registra la descripción del reclamo. El historial de estados
         refleja todo el ciclo de vida del servicio.
@@ -1260,7 +1278,9 @@ class ServiceRequestService:
         try:
             provider_user_id = provider_profile.user_id
             if provider_user_id:
-                request_title = service.request.title if service.request else "tu servicio"
+                request_title = (
+                    service.request.title if service.request else "tu servicio"
+                )
 
                 await notification_service.send_notification_to_user(
                     db,

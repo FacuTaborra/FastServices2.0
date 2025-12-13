@@ -67,6 +67,18 @@ const RequestDetailScreen = () => {
     return true;
   };
 
+  const ensureCameraPermission = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        'Permiso requerido',
+        'Necesitamos acceder a tu cámara para tomar fotos.',
+      );
+      return false;
+    }
+    return true;
+  };
+
   const prepareAttachmentMeta = (asset) => {
     const normalizedUri = asset.uri ?? '';
     let extension = normalizedUri.split('.').pop()?.toLowerCase() ?? '';
@@ -164,6 +176,34 @@ const RequestDetailScreen = () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: false,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets?.length) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    const attachmentMeta = prepareAttachmentMeta(asset);
+
+    setAttachments((prev) => [...prev, attachmentMeta]);
+    startUploadForAttachment(attachmentMeta);
+  };
+
+  const handleTakePhoto = async () => {
+    if (attachments.length >= MAX_ATTACHMENTS) {
+      Alert.alert('Límite alcanzado', `Solo se permiten ${MAX_ATTACHMENTS} imágenes por solicitud.`);
+      return;
+    }
+
+    const hasPermission = await ensureCameraPermission();
+    if (!hasPermission) {
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.8,
     });
@@ -693,10 +733,16 @@ const RequestDetailScreen = () => {
           ))}
 
           {attachments.length < MAX_ATTACHMENTS && (
-            <TouchableOpacity style={styles.addAttachmentButton} onPress={handlePickImage}>
-              <Ionicons name="images" size={20} color="#2563EB" />
-              <Text style={styles.addAttachmentButtonText}>Agregar desde galería</Text>
-            </TouchableOpacity>
+            <View style={styles.imageSourceButtonsRow}>
+              <TouchableOpacity style={styles.imageSourceButton} onPress={handleTakePhoto}>
+                <Ionicons name="camera" size={22} color="#2563EB" />
+                <Text style={styles.imageSourceButtonText}>Sacar foto</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.imageSourceButton} onPress={handlePickImage}>
+                <Ionicons name="images" size={22} color="#2563EB" />
+                <Text style={styles.imageSourceButtonText}>Galería</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           <Text style={styles.helperText}>Máximo {MAX_ATTACHMENTS} imágenes por solicitud.</Text>
