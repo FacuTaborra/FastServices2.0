@@ -33,3 +33,4 @@ def downgrade() -> None:
     """Revertir los cambios."""
     op.drop_column('services', 'warranty_claim_description')
 
+
