@@ -328,9 +328,21 @@ export default function FastMatchScreen() {
                         onPress={() => handleShowProposalDetails(offer)}
                     >
                         <View style={styles.proposalHeader}>
-                            <Text style={styles.proposalProvider} numberOfLines={1}>
-                                {offer.provider_display_name || 'Prestador FastServices'}
-                            </Text>
+                            <View style={styles.proposalProviderRow}>
+                                {offer.provider_image_url ? (
+                                    <Image
+                                        source={{ uri: offer.provider_image_url }}
+                                        style={styles.proposalProviderAvatar}
+                                    />
+                                ) : (
+                                    <View style={styles.proposalProviderAvatarFallback}>
+                                        <Ionicons name="person" size={20} color="#0369a1" />
+                                    </View>
+                                )}
+                                <Text style={styles.proposalProvider} numberOfLines={1}>
+                                    {offer.provider_display_name || 'Prestador FastServices'}
+                                </Text>
+                            </View>
                             <Text style={styles.proposalPrice}>{priceLabel}</Text>
                         </View>
                         <View style={styles.proposalMetaRow}>
